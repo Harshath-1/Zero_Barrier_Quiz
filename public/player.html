@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Player Quiz View</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
   <style>
     :root {
       --bg-black: #080808;
@@ -14,334 +13,80 @@
       --text-white: #ffffff;
       --text-muted: #a3a3a3;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
-
-    body {
-      background-color: var(--bg-black);
-      color: var(--text-white);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      position: relative;
-      overflow-x: hidden;
-    }
-
-    .watermark-bg {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: min(85vw, 420px);
-      height: min(85vw, 420px);
-      background-image: url('/watermark.jpeg');
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-      opacity: 0.10;
-      filter: invert(1) drop-shadow(0 0 15px rgba(250, 204, 21, 0.35));
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .glass-card {
-      position: relative;
-      z-index: 5;
-      background: var(--card-bg);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border-radius: 20px;
-      border: 1px solid var(--card-border);
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.15);
-      width: 100%;
-      max-width: 460px;
-      padding: 26px 24px;
-      text-align: center;
-    }
-
-    .club-banner-wrapper {
-      width: 100%;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 16px;
-      border: 1.5px solid var(--yellow-bright);
-      box-shadow: 0 0 16px rgba(250, 204, 21, 0.3);
-      background: #000;
-    }
-
-    .club-banner {
-      width: 100%;
-      display: block;
-      height: auto;
-      max-height: 130px;
-      object-fit: cover;
-    }
-
-    .round-logo-badge {
-      width: 90px;
-      height: 90px;
-      border-radius: 50%;
-      background: #ffffff;
-      padding: 6px;
-      margin: 0 auto 14px auto;
-      display: block;
-      border: 2px solid var(--yellow-bright);
-      box-shadow: 0 0 16px rgba(250, 204, 21, 0.4);
-      object-fit: contain;
-    }
-
-    .hud-logo {
-      height: 28px;
-      background: #ffffff;
-      border-radius: 6px;
-      padding: 2px 6px;
-      object-fit: contain;
-    }
-
-    .title-banner {
-      font-size: 22px;
-      font-weight: 900;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--yellow-bright);
-      text-shadow: 0 0 14px rgba(250, 204, 21, 0.5);
-      margin-bottom: 6px;
-    }
-
-    .info-line {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-bottom: 18px;
-      letter-spacing: 0.3px;
-    }
-
-    .input-wrapper {
-      position: relative;
-      border-radius: 12px;
-      padding: 1.5px;
-      background: linear-gradient(135deg, var(--yellow-bright), #404040);
-      box-shadow: 0 0 12px rgba(250, 204, 21, 0.2);
-      margin-bottom: 14px;
-    }
-
-    .inset-data-input {
-      width: 100%;
-      background: #0f0f0f;
-      border: none;
-      border-radius: 10.5px;
-      padding: 14px 16px;
-      color: var(--text-white);
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-align: center;
-      outline: none;
-    }
-
-    .yellow-btn {
-      width: 100%;
-      margin-top: 10px;
-      padding: 15px;
-      background: var(--yellow-bright);
-      border: 1px solid #fef08a;
-      border-radius: 12px;
-      color: #000000;
-      font-size: 16px;
-      font-weight: 900;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      cursor: pointer;
-      box-shadow: 0 0 20px rgba(250, 204, 21, 0.45);
-      transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
-    }
-
-    .yellow-btn:hover {
-      background: #fde047;
-      box-shadow: 0 0 28px rgba(250, 204, 21, 0.7);
-    }
-
-    .yellow-btn:active {
-      transform: scale(0.98);
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin: 18px 0 14px 0;
-    }
-
-    .tile {
-      height: 105px;
-      border-radius: 14px;
-      background: #121212;
-      border: 1.5px solid rgba(255, 255, 255, 0.15);
-      color: var(--text-white);
-      font-size: 17px;
-      font-weight: 800;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 10px;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
-    }
-
-    .tile:active { transform: scale(0.96); }
-
-    .tile .shape-icon {
-      font-size: 24px;
-      color: var(--yellow-bright);
-      text-shadow: 0 0 10px rgba(250, 204, 21, 0.5);
-    }
-
-    .tile.selected {
-      border: 2px solid var(--yellow-bright) !important;
-      background: rgba(250, 204, 21, 0.14) !important;
-      box-shadow: 0 0 20px rgba(250, 204, 21, 0.6) !important;
-      transform: scale(1.03);
-    }
-
-    .tile.correct-highlight {
-      border: 2px solid #ffffff !important;
-      background: rgba(255, 255, 255, 0.18) !important;
-      box-shadow: 0 0 24px rgba(255, 255, 255, 0.8) !important;
-      opacity: 1 !important;
-      transform: scale(1.03);
-    }
-
-    .tile.dimmed {
-      opacity: 0.2;
-      filter: grayscale(0.8);
-    }
-
-    #confirm-btn {
-      display: none;
-      margin-top: 14px;
-      background: #ffffff;
-      color: #000000;
-      border: 1px solid #e5e5e5;
-      box-shadow: 0 0 22px rgba(255, 255, 255, 0.5);
-    }
-
-    .status-text {
-      margin-top: 16px;
-      font-size: 14px;
-      color: var(--text-muted);
-      min-height: 22px;
-      letter-spacing: 0.3px;
-    }
-
-    .badge-hud {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 900;
-      text-transform: uppercase;
-      background: rgba(250, 204, 21, 0.12);
-      border: 1px solid var(--yellow-bright);
-      color: var(--yellow-bright);
-      letter-spacing: 0.8px;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-black); color: var(--text-white); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .glass-card { background: var(--card-bg); backdrop-filter: blur(18px); border-radius: 20px; border: 1px solid var(--card-border); box-shadow: 0 0 30px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.15); width: 100%; max-width: 460px; padding: 26px 24px; text-align: center; }
+    .club-banner-wrapper { width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 16px; border: 1.5px solid var(--yellow-bright); }
+    .club-banner { width: 100%; display: block; max-height: 130px; object-fit: cover; }
+    .title-banner { font-size: 22px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--yellow-bright); margin-bottom: 6px; }
+    .info-line { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; }
+    .inset-data-input { width: 100%; background: #0f0f0f; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 14px 16px; color: var(--text-white); font-size: 16px; font-weight: 700; text-align: center; outline: none; margin-bottom: 14px; }
+    .yellow-btn { width: 100%; padding: 15px; background: var(--yellow-bright); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 20px rgba(250, 204, 21, 0.45); }
+    .yellow-btn:hover { background: #fde047; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 14px 0; }
+    .tile { height: 100px; border-radius: 14px; background: #121212; border: 1.5px solid rgba(255, 255, 255, 0.15); color: var(--text-white); font-size: 16px; font-weight: 800; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 10px; }
+    .tile.selected { border: 2px solid var(--yellow-bright); background: rgba(250, 204, 21, 0.15); }
+    .tile.correct-highlight { border: 2px solid #ffffff; background: rgba(255, 255, 255, 0.2); }
+    .tile.dimmed { opacity: 0.25; }
+    .status-text { margin-top: 14px; font-size: 14px; color: var(--text-muted); }
+    .badge-hud { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 900; background: rgba(250, 204, 21, 0.12); border: 1px solid var(--yellow-bright); color: var(--yellow-bright); }
   </style>
 </head>
 <body>
 
-  <div class="watermark-bg"></div>
-
-  <!-- 1. JOIN VIEW -->
+  <!-- JOIN VIEW -->
   <div id="join-card" class="glass-card">
     <div class="club-banner-wrapper">
       <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner">
     </div>
-    
     <div class="title-banner">JOIN QUIZ</div>
     <div class="info-line">Enter 6-digit session PIN & your nickname</div>
-
-    <div class="input-wrapper">
-      <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter 6-Digit PIN" />
-    </div>
-
-    <div class="input-wrapper">
-      <input id="name-input" class="inset-data-input" type="text" maxlength="16" placeholder="Enter Your Nickname" />
-    </div>
-
+    <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter 6-Digit PIN" />
+    <input id="name-input" class="inset-data-input" type="text" maxlength="16" placeholder="Enter Your Nickname" />
     <button class="yellow-btn" onclick="joinGame()">Enter Game</button>
     <div id="join-msg" class="status-text" style="color: #ef4444;"></div>
   </div>
 
-  <!-- 2. LOBBY WAITING VIEW -->
+  <!-- LOBBY WAITING VIEW -->
   <div id="lobby-card" class="glass-card" style="display:none;">
-    <img src="/logo.jpeg" alt="ATC Club Logo" class="round-logo-badge">
     <div class="badge-hud">LOBBY CONNECTED</div>
-    <div class="title-banner" style="font-size: 20px; margin-top: 6px;">YOU'RE IN!</div>
+    <div class="title-banner" style="font-size: 20px; margin-top: 10px;">YOU'RE IN!</div>
     <p class="status-text" style="margin-top: 14px; color: var(--text-white);">Waiting for the host to launch the quiz arena...</p>
   </div>
 
-  <!-- 3. GAMEPLAY ARENA VIEW -->
+  <!-- GAMEPLAY ARENA VIEW -->
   <div id="game-card" class="glass-card" style="display:none;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-      <span class="badge-hud" id="lvl-badge">Q1/20 • EASY</span>
-      <img src="/logo_vertical.jpeg" alt="ALIET ATC" class="hud-logo">
+      <span class="badge-hud" id="lvl-badge">Q1/10 • EASY</span>
     </div>
-
-    <div id="question-text" style="font-size: 19px; font-weight: 800; min-height: 48px; line-height: 1.4; margin-bottom: 8px; color: #ffffff;">Question text</div>
-    
+    <div id="question-text" style="font-size: 18px; font-weight: 800; min-height: 48px; margin-bottom: 8px;">Question text</div>
     <div class="grid">
-      <button id="tile-0" class="tile" onclick="selectChoice(0)">
-        <span class="shape-icon">▲</span>
-        <span id="opt-0">A</span>
-      </button>
-      <button id="tile-1" class="tile" onclick="selectChoice(1)">
-        <span class="shape-icon">◆</span>
-        <span id="opt-1">B</span>
-      </button>
-      <button id="tile-2" class="tile" onclick="selectChoice(2)">
-        <span class="shape-icon">●</span>
-        <span id="opt-2">C</span>
-      </button>
-      <button id="tile-3" class="tile" onclick="selectChoice(3)">
-        <span class="shape-icon">■</span>
-        <span id="opt-3">D</span>
-      </button>
+      <button id="tile-0" class="tile" onclick="selectChoice(0)"><span>▲</span><span id="opt-0">A</span></button>
+      <button id="tile-1" class="tile" onclick="selectChoice(1)"><span>◆</span><span id="opt-1">B</span></button>
+      <button id="tile-2" class="tile" onclick="selectChoice(2)"><span>●</span><span id="opt-2">C</span></button>
+      <button id="tile-3" class="tile" onclick="selectChoice(3)"><span>■</span><span id="opt-3">D</span></button>
     </div>
-
-    <button id="confirm-btn" class="yellow-btn" onclick="confirmAnswer()">Confirm Answer</button>
-
+    <button id="confirm-btn" class="yellow-btn" style="display:none;" onclick="confirmAnswer()">Confirm Answer</button>
     <div id="answer-status" class="status-text">Tap a shape to select, then confirm!</div>
   </div>
 
-  <!-- 4. FINAL RESULT VIEW -->
+  <!-- FINAL RESULT VIEW -->
   <div id="result-card" class="glass-card" style="display:none;">
-    <img src="/logo.jpeg" alt="ATC Club Logo" class="round-logo-badge">
     <div class="badge-hud">SESSION COMPLETED</div>
     <div class="title-banner" style="font-size: 20px; margin-top: 8px;">FINAL STANDINGS</div>
-    <div id="winner-banner" style="font-size: 20px; margin: 18px 0; color: var(--yellow-bright); font-weight: 900;"></div>
-    <div id="player-final-score" class="status-text">Thank you for playing!</div>
+    <div id="winner-banner" style="font-size: 18px; margin: 18px 0; color: var(--yellow-bright); font-weight: 900;"></div>
+    <div id="player-final-score" class="status-text"></div>
   </div>
 
   <script>
-    const socket = io({
-  transports: ["polling"]
-});
     let currentPin = '';
+    let playerName = '';
+    let pollInterval = null;
     let selectedOptionIndex = null;
     let hasConfirmed = false;
+    let lastRenderedIndex = -1;
 
-    const SYMBOLS = ['▲', '◆', '●', '■'];
-
-    function joinGame() {
+    async function joinGame() {
       const pin = document.getElementById('pin-input').value.trim();
       const name = document.getElementById('name-input').value.trim();
       const msg = document.getElementById('join-msg');
@@ -350,55 +95,96 @@
         msg.textContent = 'Please enter both PIN and Name.';
         return;
       }
-      currentPin = pin;
-      socket.emit('PLAYER_JOIN', { pin, name });
+
+      try {
+        const res = await fetch('/api/join-room', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin, name })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          currentPin = pin;
+          playerName = name;
+          document.getElementById('join-card').style.display = 'none';
+          document.getElementById('lobby-card').style.display = 'block';
+          pollInterval = setInterval(syncPlayerState, 1500);
+          syncPlayerState();
+        } else {
+          msg.textContent = data.error || 'Failed to join room.';
+        }
+      } catch (e) {
+        msg.textContent = 'Connection error: ' + e.message;
+      }
     }
 
-    socket.on('JOIN_SUCCESS', () => {
-      document.getElementById('join-card').style.display = 'none';
-      document.getElementById('lobby-card').style.display = 'block';
-    });
+    async function syncPlayerState() {
+      if (!currentPin) return;
+      try {
+        const res = await fetch(`/api/room-status?pin=${currentPin}`);
+        if (!res.ok) return;
+        const data = await res.json();
 
-    socket.on('JOIN_ERROR', (err) => {
-      document.getElementById('join-msg').textContent = err;
-    });
+        if (data.state === 'QUESTION' || data.state === 'REVEAL') {
+          document.getElementById('lobby-card').style.display = 'none';
+          document.getElementById('result-card').style.display = 'none';
+          document.getElementById('game-card').style.display = 'block';
 
-    socket.on('PLAYER_SHOW_QUESTION', (data) => {
-      selectedOptionIndex = null;
-      hasConfirmed = false;
+          if (data.currentIndex !== lastRenderedIndex) {
+            lastRenderedIndex = data.currentIndex;
+            selectedOptionIndex = null;
+            hasConfirmed = false;
 
-      document.getElementById('lobby-card').style.display = 'none';
-      document.getElementById('result-card').style.display = 'none';
-      document.getElementById('game-card').style.display = 'block';
+            document.getElementById('lvl-badge').textContent = `Q${data.question.index}/${data.totalQuestions} • ${data.question.level}`;
+            document.getElementById('question-text').textContent = data.question.question;
+            for (let i = 0; i < 4; i++) {
+              document.getElementById(`opt-${i}`).textContent = data.question.options[i];
+              const t = document.getElementById(`tile-${i}`);
+              t.disabled = false;
+              t.className = 'tile';
+            }
+            document.getElementById('confirm-btn').style.display = 'none';
+            document.getElementById('answer-status').textContent = 'Tap a shape to select, then confirm!';
+          }
 
-      document.getElementById('lvl-badge').textContent = `Q${data.index}/${data.total} • ${data.level}`;
-      document.getElementById('question-text').textContent = data.question;
-      document.getElementById('opt-0').textContent = data.options[0];
-      document.getElementById('opt-1').textContent = data.options[1];
-      document.getElementById('opt-2').textContent = data.options[2];
-      document.getElementById('opt-3').textContent = data.options[3];
+          if (data.state === 'REVEAL' && data.revealedAnswer !== null) {
+            for (let i = 0; i < 4; i++) {
+              const t = document.getElementById(`tile-${i}`);
+              t.disabled = true;
+              t.className = 'tile';
+              if (i === data.revealedAnswer) t.classList.add('correct-highlight');
+              else t.classList.add('dimmed');
+            }
+            document.getElementById('confirm-btn').style.display = 'none';
+            document.getElementById('answer-status').textContent = (selectedOptionIndex === data.revealedAnswer)
+              ? '✔ Correct Answer!'
+              : '✖ Incorrect Answer!';
+          }
+        } else if (data.state === 'FINISHED') {
+          clearInterval(pollInterval);
+          document.getElementById('game-card').style.display = 'none';
+          document.getElementById('lobby-card').style.display = 'none';
+          document.getElementById('result-card').style.display = 'block';
 
-      const tiles = document.querySelectorAll('.tile');
-      tiles.forEach(t => {
-        t.disabled = false;
-        t.classList.remove('selected', 'correct-highlight', 'dimmed');
-      });
-
-      const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.style.display = 'none';
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Confirm Answer';
-
-      document.getElementById('answer-status').textContent = 'Tap a shape to select, then confirm!';
-    });
+          if (data.leaderboard && data.leaderboard.length > 0) {
+            const top = data.leaderboard[0];
+            document.getElementById('winner-banner').textContent = `🏆 Winner: ${top.name} (${top.score} pts)`;
+          }
+          const me = (data.leaderboard || []).find(p => p.name.toLowerCase() === playerName.toLowerCase());
+          document.getElementById('player-final-score').textContent = me 
+            ? `Your Score: ${me.score} pts (${me.correctCount} correct)`
+            : 'Thank you for playing!';
+        }
+      } catch (err) {
+        console.error('Player sync error:', err);
+      }
+    }
 
     function selectChoice(index) {
       if (hasConfirmed) return;
-
       selectedOptionIndex = index;
-      const tiles = document.querySelectorAll('.tile');
-
-      tiles.forEach((t, i) => {
+      for (let i = 0; i < 4; i++) {
+        const t = document.getElementById(`tile-${i}`);
         if (i === index) {
           t.classList.add('selected');
           t.classList.remove('dimmed');
@@ -406,77 +192,30 @@
           t.classList.remove('selected');
           t.classList.add('dimmed');
         }
-      });
-
-      const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.style.display = 'block';
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = `Confirm: ${SYMBOLS[index]}`;
-      document.getElementById('answer-status').textContent = `Selected: ${SYMBOLS[index]}. Tap another to change, or tap Confirm.`;
+      }
+      const btn = document.getElementById('confirm-btn');
+      btn.style.display = 'block';
+      btn.textContent = 'Confirm Choice';
     }
 
-    function confirmAnswer() {
+    async function confirmAnswer() {
       if (selectedOptionIndex === null || hasConfirmed) return;
-
       hasConfirmed = true;
-      const tiles = document.querySelectorAll('.tile');
-      tiles.forEach(t => {
-        t.disabled = true;
+
+      for (let i = 0; i < 4; i++) {
+        document.getElementById(`tile-${i}`).disabled = true;
+      }
+      const btn = document.getElementById('confirm-btn');
+      btn.disabled = true;
+      btn.textContent = 'Answer Locked In!';
+
+      await fetch('/api/submit-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: currentPin, name: playerName, answerIndex: selectedOptionIndex })
       });
-
-      const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Answer Locked In!';
-
-      socket.emit('PLAYER_SUBMIT_ANSWER', {
-        pin: currentPin,
-        answerIndex: selectedOptionIndex
-      });
-
-      document.getElementById('answer-status').textContent = 'Answer submitted! Waiting for host to reveal...';
+      document.getElementById('answer-status').textContent = 'Answer submitted! Waiting for host...';
     }
-
-    socket.on('HOST_ANSWER_KEY', (correctIndex) => {
-      const tiles = document.querySelectorAll('.tile');
-      const correctShape = SYMBOLS[correctIndex];
-
-      tiles.forEach((t, i) => {
-        t.disabled = true;
-        t.classList.remove('selected');
-        if (i === correctIndex) {
-          t.classList.add('correct-highlight');
-          t.classList.remove('dimmed');
-        } else {
-          t.classList.remove('correct-highlight');
-          t.classList.add('dimmed');
-        }
-      });
-
-      const statusEl = document.getElementById('answer-status');
-      if (selectedOptionIndex !== null) {
-        if (selectedOptionIndex === correctIndex) {
-          statusEl.innerHTML = `<span style="color:#facc15; font-weight:900; font-size:16px;">✔ Correct! ${correctShape}</span>`;
-        } else {
-          statusEl.innerHTML = `<span style="color:#ef4444; font-weight:900; font-size:16px;">✖ Incorrect! Correct was ${correctShape}</span>`;
-        }
-      } else {
-        statusEl.innerHTML = `<span style="color:#facc15; font-weight:900; font-size:16px;">No answer locked in! Correct was ${correctShape}</span>`;
-      }
-
-      const confirmBtn = document.getElementById('confirm-btn');
-      if (confirmBtn) confirmBtn.style.display = 'none';
-    });
-
-    socket.on('GAME_OVER', (data) => {
-      document.getElementById('game-card').style.display = 'none';
-      document.getElementById('result-card').style.display = 'block';
-
-      if (data.topPerformer) {
-        document.getElementById('winner-banner').textContent = `🏆 Winner: ${data.topPerformer.name} (${data.topPerformer.score} pts)`;
-      } else {
-        document.getElementById('winner-banner').textContent = 'Quiz Finished!';
-      }
-    });
   </script>
 </body>
 </html>
