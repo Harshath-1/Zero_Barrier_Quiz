@@ -387,4 +387,4 @@ server.listen(PORT, () => {
   console.log(`Quiz server listening on port ${PORT}`);
 });
 
-module.exports = server;
+module.exports = app;
