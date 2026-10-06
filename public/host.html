@@ -436,7 +436,9 @@
   </div>
 
   <script>
-    const socket = io();
+    const socket = io({
+  transports: ["polling"]
+});
     let currentPin = '';
     let totalPlayers = 0;
 
