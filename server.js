@@ -1,45 +1,35 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const { GoogleGenAI } = require('@google/genai');
+const fs = require('fs');
 
 const app = express();
 app.use(express.json());
 
-// Serve static public assets
+// Serve static assets
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.use(express.static(__dirname, { maxAge: '1h' }));
 
-// Global in-memory room storage
+// Global in-memory storage for active sessions
 const rooms = new Map();
 
-// Authentic trivia fallback bank
+// Authentic fallback bank
 const fallbackBank = {
   cricket: [
     { question: "Who holds the record for the highest individual score in Test cricket (400*)?", options: ["Brian Lara", "Sachin Tendulkar", "Don Bradman", "Matthew Hayden"], answer: 0, level: "EASY" },
     { question: "Which bowler has taken the most wickets in international Test cricket history?", options: ["Muttiah Muralitharan", "Shane Warne", "James Anderson", "Anil Kumble"], answer: 0, level: "EASY" },
     { question: "Who was the first batsman to score a double century in Men's ODI cricket?", options: ["Sachin Tendulkar", "Virender Sehwag", "Rohit Sharma", "Chris Gayle"], answer: 0, level: "EASY" },
-    { question: "In which year did India win its first ICC Men's Cricket World Cup?", options: ["1983", "1975", "1987", "2011"], answer: 0, level: "EASY" },
-    { question: "Which country won the inaugural ICC Men's T20 World Cup in 2007?", options: ["India", "Pakistan", "Australia", "West Indies"], answer: 0, level: "EASY" },
-    { question: "How many deliveries make up one standard legal over in cricket?", options: ["6", "8", "5", "10"], answer: 0, level: "EASY" },
-    { question: "What is the standard distance between the two sets of wickets on a pitch?", options: ["22 yards", "20 yards", "24 yards", "18 yards"], answer: 0, level: "EASY" }
+    { question: "In which year did India win its first ICC Men's Cricket World Cup?", options: ["1983", "1975", "1987", "2011"], answer: 0, level: "EASY" }
   ],
   space: [
     { question: "What is the closest planet to the Sun in our Solar System?", options: ["Mercury", "Venus", "Mars", "Earth"], answer: 0, level: "MODERATE" },
     { question: "Which planet is famously known as the 'Red Planet'?", options: ["Mars", "Jupiter", "Saturn", "Mercury"], answer: 0, level: "MODERATE" },
-    { question: "What is the largest moon of Saturn, known for its dense atmosphere?", options: ["Titan", "Europa", "Ganymede", "Callisto"], answer: 0, level: "MODERATE" },
-    { question: "Which galaxy is the closest large spiral galaxy to the Milky Way?", options: ["Andromeda", "Triangulum", "Whirlpool", "Sombrero"], answer: 0, level: "MODERATE" },
-    { question: "What is the visible surface layer of the Sun called?", options: ["Photosphere", "Corona", "Chromosphere", "Stratosphere"], answer: 0, level: "MODERATE" },
-    { question: "In which year did the Apollo 11 mission land the first humans on the Moon?", options: ["1969", "1965", "1972", "1959"], answer: 0, level: "MODERATE" },
-    { question: "What boundary around a black hole marks the point of no return for light?", options: ["Event Horizon", "Singularity", "Photon Sphere", "Accretion Disk"], answer: 0, level: "MODERATE" }
+    { question: "What is the largest moon of Saturn, known for its dense atmosphere?", options: ["Titan", "Europa", "Ganymede", "Callisto"], answer: 0, level: "MODERATE" }
   ],
   animals: [
     { question: "Which marine animal is known to have three hearts and blue blood?", options: ["Octopus", "Blue Whale", "Great White Shark", "Giant Squid"], answer: 0, level: "HARD" },
     { question: "Which bird is the only known avian species capable of flying backwards?", options: ["Hummingbird", "Kingfisher", "Swift", "Swallow"], answer: 0, level: "HARD" },
-    { question: "What is the largest living species of mammal currently on Earth?", options: ["Blue Whale", "African Bush Elephant", "Fin Whale", "Colossal Squid"], answer: 0, level: "HARD" },
-    { question: "Which animal produces the thickest and densest fur of any living mammal?", options: ["Sea Otter", "Polar Bear", "Chinchilla", "Arctic Fox"], answer: 0, level: "HARD" },
-    { question: "What is the collective noun used to describe a group of flamingos?", options: ["Flamboyance", "Colony", "Pride", "Murder"], answer: 0, level: "HARD" },
-    { question: "Which organ do snakes primarily use to detect airborne scent molecules?", options: ["Jacobson's Organ", "Pit Organ", "Tympanum", "Olfactory Bulb"], answer: 0, level: "HARD" }
+    { question: "What is the largest living species of mammal currently on Earth?", options: ["Blue Whale", "African Bush Elephant", "Fin Whale", "Colossal Squid"], answer: 0, level: "HARD" }
   ]
 };
 
@@ -62,10 +52,11 @@ function getFallbackQuestions() {
   ];
 }
 
+// Dynamic question generator via Google Gemini API
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
-    console.warn('[AI Note] GEMINI_API_KEY is not configured. Falling back to offline bank.');
+    console.error('❌ [AI Error] GEMINI_API_KEY missing in Vercel Environment Variables!');
     return getFallbackQuestions();
   }
 
@@ -73,8 +64,12 @@ async function generateQuizQuestions(t1, t2, t3) {
   const topic2 = (t2 && t2.trim()) || 'Technology';
   const topic3 = (t3 && t3.trim()) || 'World History';
 
-  const prompt = `Return ONLY a valid JSON array of 10 trivia questions: exactly 4 EASY on "${topic1}", 3 MODERATE on "${topic2}", and 3 HARD on "${topic3}".
-Format:
+  const prompt = `Return ONLY a valid JSON array of 10 trivia questions strictly matching these topics:
+- 4 EASY questions on: "${topic1}"
+- 3 MODERATE questions on: "${topic2}"
+- 3 HARD questions on: "${topic3}"
+
+FORMAT:
 [
   {
     "question": "Question text here?",
@@ -84,29 +79,44 @@ Format:
   }
 ]`;
 
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.7
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+
+  for (const model of models) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.7
+          }
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawText) {
+          rawText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+          const parsed = JSON.parse(rawText);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log(`✅ [AI SUCCESS] Generated questions for: ${topic1}, ${topic2}, ${topic3}`);
+            return parsed.map(shuffleOptions);
+          }
+        }
+      } else {
+        console.error(`⚠️ Gemini API error on ${model}:`, data?.error?.message || data);
       }
-    });
-
-    let text = response.text || '';
-    text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-    const parsed = JSON.parse(text);
-
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      console.log(`[AI Success] Generated ${parsed.length} questions.`);
-      return parsed.map(shuffleOptions);
+    } catch (err) {
+      console.error(`❌ Exception during ${model} generation:`, err.message);
     }
-  } catch (err) {
-    console.error('[AI Error]', err.message);
   }
 
+  console.warn('⚠️ All models failed. Falling back to default questions.');
   return getFallbackQuestions();
 }
 
@@ -117,8 +127,8 @@ app.post('/api/create-room', async (req, res) => {
   try {
     const { customPin, topic1, topic2, topic3 } = req.body || {};
     const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Always returns questions safely without throwing unhandled exceptions
+    console.log(`[Session Setup] Creating Room PIN: ${pin} | Topics: ${topic1}, ${topic2}, ${topic3}`);
+
     const questions = await generateQuizQuestions(topic1, topic2, topic3);
 
     rooms.set(pin, {
@@ -133,8 +143,8 @@ app.post('/api/create-room', async (req, res) => {
 
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
-    console.error('[Create Room Crash Prevented]', err);
-    return res.status(200).json({ success: true, pin: '123123', count: 10 });
+    console.error('[Create Room Error]:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -213,7 +223,7 @@ app.post('/api/join-room', (req, res) => {
   return res.status(200).json({ success: true, name: cleanName, score: room.players[playerKey].score });
 });
 
-// 5. Player Answer
+// 5. Player Answer Submit
 app.post('/api/submit-answer', (req, res) => {
   const { pin, name, answerIndex } = req.body || {};
   const room = rooms.get(String(pin || '').trim());
