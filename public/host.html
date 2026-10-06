@@ -54,13 +54,13 @@
     <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 123123)" />
 
     <label class="field-label">Tier 1: Easy (7 Questions)</label>
-    <input id="t1-input" class="category-input" type="text" value="Maths" />
+    <input id="t1-input" class="category-input" type="text" placeholder="Enter Tier 1 topic (e.g. Maths)" />
 
     <label class="field-label">Tier 2: Moderate (7 Questions)</label>
-    <input id="t2-input" class="category-input" type="text" value="Physics" />
+    <input id="t2-input" class="category-input" type="text" placeholder="Enter Tier 2 topic (e.g. Physics)" />
 
     <label class="field-label">Tier 3: Hard (6 Questions)</label>
-    <input id="t3-input" class="category-input" type="text" value="Chemistry" />
+    <input id="t3-input" class="category-input" type="text" placeholder="Enter Tier 3 topic (e.g. Chemistry)" />
 
     <button id="gen-btn" class="yellow-btn" onclick="createRoom()">Generate Session & PIN</button>
   </div>
@@ -113,7 +113,7 @@
     <div class="badge-hud">QUIZ COMPLETED</div>
     <div class="title-banner" style="font-size:20px; margin-top: 10px;">FINAL STANDINGS</div>
     <div id="leaderboard-container" style="margin-top: 16px;"></div>
-    <button class="yellow-btn" style="margin-top: 22px;" onclick="location.reload()">+ Start New Session</button>
+    <button class="yellow-btn" style="margin-top: 22px;" onclick="resetToNewSession()">+ Start New Session</button>
   </div>
 
   <script>
@@ -226,6 +226,28 @@
       } catch (e) {
         console.error('Polling error', e);
       }
+    }
+
+    function resetToNewSession() {
+      if (pollTimer) clearInterval(pollTimer);
+      currentPin = '';
+
+      // Clear inputs
+      document.getElementById('pin-input').value = '';
+      document.getElementById('t1-input').value = '';
+      document.getElementById('t2-input').value = '';
+      document.getElementById('t3-input').value = '';
+
+      // Reset lobby elements
+      document.getElementById('display-pin').textContent = '------';
+      document.getElementById('player-count').textContent = '0';
+      document.getElementById('lobby-players').innerHTML = '<span style="color: var(--text-muted); font-size: 13px; margin: auto;">Waiting for players...</span>';
+
+      // Switch views back to setup screen
+      document.getElementById('end-card').style.display = 'none';
+      document.getElementById('question-card').style.display = 'none';
+      document.getElementById('lobby-card').style.display = 'none';
+      document.getElementById('setup-card').style.display = 'block';
     }
   </script>
 </body>
