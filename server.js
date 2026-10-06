@@ -1,12 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
 app.use(express.json());
 
-// Serve static assets
+// Serve static assets from public folder and root
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.use(express.static(__dirname, { maxAge: '1h' }));
 
@@ -52,11 +51,11 @@ function getFallbackQuestions() {
   ];
 }
 
-// Dynamic question generator via Google Gemini API
+// Dynamic question generator targeting gemini-3.8-flash
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
-    console.error('❌ [AI Error] GEMINI_API_KEY missing in Vercel Environment Variables!');
+    console.error('❌ [AI Error] GEMINI_API_KEY missing from Render Environment Variables!');
     return getFallbackQuestions();
   }
 
@@ -79,7 +78,7 @@ FORMAT:
   }
 ]`;
 
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+  const models = ['gemini-3.8-flash', 'gemini-3.5-flash'];
 
   for (const model of models) {
     try {
@@ -104,19 +103,19 @@ FORMAT:
           rawText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
           const parsed = JSON.parse(rawText);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            console.log(`✅ [AI SUCCESS] Generated questions for: ${topic1}, ${topic2}, ${topic3}`);
+            console.log(`✅ [AI SUCCESS] Generated 10 questions using ${model} for: ${topic1}, ${topic2}, ${topic3}`);
             return parsed.map(shuffleOptions);
           }
         }
       } else {
-        console.error(`⚠️ Gemini API error on ${model}:`, data?.error?.message || data);
+        console.warn(`⚠️ Model ${model} returned:`, data?.error?.message || data);
       }
     } catch (err) {
-      console.error(`❌ Exception during ${model} generation:`, err.message);
+      console.error(`❌ Exception testing ${model}:`, err.message);
     }
   }
 
-  console.warn('⚠️ All models failed. Falling back to default questions.');
+  console.warn('⚠️ All Gemini models failed. Using default questions.');
   return getFallbackQuestions();
 }
 
@@ -246,6 +245,7 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
+// Render listener configuration
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Quiz server running on port ${PORT}`);
