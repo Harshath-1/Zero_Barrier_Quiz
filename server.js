@@ -51,11 +51,13 @@ function getFallbackQuestions() {
   ];
 }
 
-// Resilient Question Generator using gemini-3.8-flash
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Resilient Question Generator with 503 retry and cross-version endpoints
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
-    console.error('❌ [AI Error] GEMINI_API_KEY is not defined in environment variables!');
+    console.error('❌ [AI Error] GEMINI_API_KEY is missing from Render Environment Variables!');
     return getFallbackQuestions();
   }
 
@@ -78,50 +80,64 @@ FORMAT:
   }
 ]`;
 
-  const modelCandidates = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  // Ordered list of model + version endpoints to try
+  const endpoints = [
+    { name: 'gemini-3.8-flash (v1beta)', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}` },
+    { name: 'gemini-2.0-flash (v1beta)', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}` },
+    { name: 'gemini-1.5-flash (v1)',     url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}` },
+    { name: 'gemini-1.5-pro (v1)',       url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}` }
+  ];
 
-  for (const model of modelCandidates) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7
+  for (const item of endpoints) {
+    // Retry up to 2 times if high demand (503) occurs
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(item.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7
+            }
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+            const firstBracket = rawText.indexOf('[');
+            const lastBracket = rawText.lastIndexOf(']');
+            if (firstBracket !== -1 && lastBracket !== -1) {
+              rawText = rawText.substring(firstBracket, lastBracket + 1);
+            }
+
+            const parsed = JSON.parse(rawText);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              console.log(`✅ [AI SUCCESS] Generated 10 questions using ${item.name} for: ${topic1}, ${topic2}, ${topic3}`);
+              return parsed.map(shuffleOptions);
+            }
           }
-        })
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText) {
-          rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-          const firstBracket = rawText.indexOf('[');
-          const lastBracket = rawText.lastIndexOf(']');
-          if (firstBracket !== -1 && lastBracket !== -1) {
-            rawText = rawText.substring(firstBracket, lastBracket + 1);
-          }
-
-          const parsed = JSON.parse(rawText);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            console.log(`✅ [AI SUCCESS] Generated 10 questions using ${model} for: ${topic1}, ${topic2}, ${topic3}`);
-            return parsed.map(shuffleOptions);
-          }
+        } else if (res.status === 503 && attempt === 1) {
+          console.warn(`⏳ [${item.name}] 503 high demand spike. Retrying in 1.5s...`);
+          await sleep(1500);
+          continue;
+        } else {
+          console.warn(`⚠️ [${item.name}] HTTP ${res.status}:`, data?.error?.message || data);
+          break;
         }
-      } else {
-        console.warn(`⚠️ [${model}] HTTP ${res.status}:`, data?.error?.message || data);
+      } catch (err) {
+        console.error(`❌ [${item.name}] Exception:`, err.message);
+        break;
       }
-    } catch (err) {
-      console.error(`❌ [${model}] Request error:`, err.message);
     }
   }
 
-  console.warn('⚠️ All Gemini models failed. Falling back to default questions.');
+  console.warn('⚠️️ All Gemini endpoints failed. Falling back to default questions.');
   return getFallbackQuestions();
 }
 
@@ -250,7 +266,7 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-// Persistent HTTP server binding for Render
+// Start listening for Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Quiz server running on port ${PORT}`);
