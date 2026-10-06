@@ -64,13 +64,16 @@ function getFallbackQuestions() {
 
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-  if (!apiKey) return getFallbackQuestions();
+  if (!apiKey) {
+    console.error('[AI Error] GEMINI_API_KEY is missing');
+    return getFallbackQuestions();
+  }
 
   const topic1 = (t1 && t1.trim()) || 'General Knowledge';
   const topic2 = (t2 && t2.trim()) || 'Technology';
   const topic3 = (t3 && t3.trim()) || 'World History';
 
-  const prompt = `Return strictly a JSON array of 20 trivia questions: 7 EASY on "${topic1}", 7 MODERATE on "${topic2}", 6 HARD on "${topic3}".
+  const prompt = `Return strictly a JSON array of 20 trivia questions: exactly 7 EASY on "${topic1}", 7 MODERATE on "${topic2}", and 6 HARD on "${topic3}".
 Format:
 [
   {
@@ -81,30 +84,47 @@ Format:
   }
 ]`;
 
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: 'application/json', temperature: 0.7 }
-      })
-    });
+  const candidateModels = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash'
+  ];
 
-    if (response.ok) {
-      const data = await response.json();
-      let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed) && parsed.length >= 10) {
-          return parsed.map(shuffleOptions);
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.7
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed) && parsed.length >= 10) {
+            console.log(`[AI Success] Generated questions via ${model}`);
+            return parsed.map(shuffleOptions);
+          }
         }
+      } else {
+        const errorData = await response.json();
+        console.error(`[AI Error on ${model}]:`, errorData);
       }
+    } catch (e) {
+      console.error(`[AI Exception on ${model}]:`, e.message);
     }
-  } catch (err) {
-    console.warn('[AI Warning] Falling back to default bank:', err.message);
   }
+
+  console.warn('[AI Alert] Falling back to default questions bank');
   return getFallbackQuestions();
 }
 
@@ -121,7 +141,7 @@ app.post('/api/create-room', async (req, res) => {
       pin,
       questions,
       currentIndex: 0,
-      state: 'LOBBY', // LOBBY, QUESTION, REVEAL, FINISHED
+      state: 'LOBBY',
       revealedAnswer: null,
       players: {},
       answersThisRound: {}
@@ -186,6 +206,7 @@ app.post('/api/host-action', (req, res) => {
     }
   } else if (action === 'END') {
     room.state = 'FINISHED';
+    rooms.delete(room.pin); // Purges previous session data from memory
   }
 
   return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
