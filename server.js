@@ -12,7 +12,7 @@ app.use(express.static(__dirname, { maxAge: '1h' }));
 // Global in-memory storage for active sessions
 const rooms = new Map();
 
-// Fallback question bank
+// Fallback questions if external AI is unreachable
 const fallbackBank = {
   cricket: [
     { question: "Who holds the record for the highest individual score in Test cricket (400*)?", options: ["Brian Lara", "Sachin Tendulkar", "Don Bradman", "Matthew Hayden"], answer: 0, level: "EASY" },
@@ -51,9 +51,7 @@ function getFallbackQuestions() {
   ];
 }
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Resilient Question Generator with 503 retry and cross-version endpoints
+// AI Question Generator using recommended Interactions API
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
@@ -80,64 +78,81 @@ FORMAT:
   }
 ]`;
 
-  // Ordered list of model + version endpoints to try
-  const endpoints = [
-    { name: 'gemini-3.8-flash (v1beta)', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}` },
-    { name: 'gemini-2.0-flash (v1beta)', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}` },
-    { name: 'gemini-1.5-flash (v1)',     url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}` },
-    { name: 'gemini-1.5-pro (v1)',       url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}` }
-  ];
-
-  for (const item of endpoints) {
-    // Retry up to 2 times if high demand (503) occurs
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const res = await fetch(item.url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.7
-            }
-          })
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-          let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-            const firstBracket = rawText.indexOf('[');
-            const lastBracket = rawText.lastIndexOf(']');
-            if (firstBracket !== -1 && lastBracket !== -1) {
-              rawText = rawText.substring(firstBracket, lastBracket + 1);
-            }
-
-            const parsed = JSON.parse(rawText);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              console.log(`✅ [AI SUCCESS] Generated 10 questions using ${item.name} for: ${topic1}, ${topic2}, ${topic3}`);
-              return parsed.map(shuffleOptions);
-            }
-          }
-        } else if (res.status === 503 && attempt === 1) {
-          console.warn(`⏳ [${item.name}] 503 high demand spike. Retrying in 1.5s...`);
-          await sleep(1500);
-          continue;
-        } else {
-          console.warn(`⚠️ [${item.name}] HTTP ${res.status}:`, data?.error?.message || data);
-          break;
+  // 1. Primary: Google AI Studio recommended Interactions endpoint
+  try {
+    const interUrl = `https://generativelanguage.googleapis.com/v1beta/interactions`;
+    const res = await fetch(interUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        model: 'models/gemini-3.8-flash',
+        input: prompt,
+        generation_config: {
+          response_mime_type: 'application/json',
+          temperature: 0.7
         }
-      } catch (err) {
-        console.error(`❌ [${item.name}] Exception:`, err.message);
-        break;
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      let rawText = data.output_text || data.candidates?.[0]?.content?.parts?.[0]?.text || data.text;
+      if (rawText) {
+        rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const start = rawText.indexOf('[');
+        const end = rawText.lastIndexOf(']');
+        if (start !== -1 && end !== -1) rawText = rawText.substring(start, end + 1);
+        const parsed = JSON.parse(rawText);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log(`✅ [AI SUCCESS - Interactions API] Generated 10 questions for: ${topic1}, ${topic2}, ${topic3}`);
+          return parsed.map(shuffleOptions);
+        }
       }
+    } else {
+      console.warn('⚠️ Interactions API response:', res.status, data?.error?.message || data);
+    }
+  } catch (err) {
+    console.error('❌ Interactions API error:', err.message);
+  }
+
+  // 2. Secondary fallback attempt via generateContent
+  const models = ['gemini-3.8-flash', 'gemini-2.0-flash'];
+  for (const m of models) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7 }
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawText) {
+          rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const start = rawText.indexOf('[');
+          const end = rawText.lastIndexOf(']');
+          if (start !== -1 && end !== -1) rawText = rawText.substring(start, end + 1);
+          const parsed = JSON.parse(rawText);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log(`✅ [AI SUCCESS - ${m}] Generated 10 questions for: ${topic1}, ${topic2}, ${topic3}`);
+            return parsed.map(shuffleOptions);
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`❌ [${m}] exception:`, e.message);
     }
   }
 
-  console.warn('⚠️️ All Gemini endpoints failed. Falling back to default questions.');
+  console.warn('⚠️ Fallback questions served.');
   return getFallbackQuestions();
 }
 
@@ -266,7 +281,7 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-// Start listening for Render
+// Start listening on Render's assigned port
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Quiz server running on port ${PORT}`);
