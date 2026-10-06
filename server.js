@@ -1,18 +1,19 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(express.json());
 
-// Serve static assets from public folder and root
+// Serve public files
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.use(express.static(__dirname, { maxAge: '1h' }));
 
-// Global in-memory storage for active sessions
+// Global storage for active quiz rooms
 const rooms = new Map();
 
-// Fallback questions if external AI is unreachable
+// Fallback questions if external AI is completely unreachable
 const fallbackBank = {
   cricket: [
     { question: "Who holds the record for the highest individual score in Test cricket (400*)?", options: ["Brian Lara", "Sachin Tendulkar", "Don Bradman", "Matthew Hayden"], answer: 0, level: "EASY" },
@@ -51,7 +52,7 @@ function getFallbackQuestions() {
   ];
 }
 
-// AI Question Generator using recommended Interactions API
+// AI Question Generator using official SDK
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
@@ -78,81 +79,33 @@ FORMAT:
   }
 ]`;
 
-  // 1. Primary: Google AI Studio recommended Interactions endpoint
   try {
-    const interUrl = `https://generativelanguage.googleapis.com/v1beta/interactions`;
-    const res = await fetch(interUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey
-      },
-      body: JSON.stringify({
-        model: 'models/gemini-3.8-flash',
-        input: prompt,
-        generation_config: {
-          response_mime_type: 'application/json',
-          temperature: 0.7
-        }
-      })
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        temperature: 0.7
+      }
     });
 
-    const data = await res.json();
-    if (res.ok) {
-      let rawText = data.output_text || data.candidates?.[0]?.content?.parts?.[0]?.text || data.text;
-      if (rawText) {
-        rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const start = rawText.indexOf('[');
-        const end = rawText.lastIndexOf(']');
-        if (start !== -1 && end !== -1) rawText = rawText.substring(start, end + 1);
-        const parsed = JSON.parse(rawText);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          console.log(`✅ [AI SUCCESS - Interactions API] Generated 10 questions for: ${topic1}, ${topic2}, ${topic3}`);
-          return parsed.map(shuffleOptions);
-        }
-      }
-    } else {
-      console.warn('⚠️ Interactions API response:', res.status, data?.error?.message || data);
+    let raw = response.text || '';
+    raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    const start = raw.indexOf('[');
+    const end = raw.lastIndexOf(']');
+    if (start !== -1 && end !== -1) raw = raw.substring(start, end + 1);
+
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      console.log(`✅ [AI SUCCESS] Generated 10 questions using Gemini SDK for: ${topic1}, ${topic2}, ${topic3}`);
+      return parsed.map(shuffleOptions);
     }
-  } catch (err) {
-    console.error('❌ Interactions API error:', err.message);
+  } catch (sdkErr) {
+    console.warn('⚠️ SDK attempt returned:', sdkErr.message);
   }
 
-  // 2. Secondary fallback attempt via generateContent
-  const models = ['gemini-3.8-flash', 'gemini-2.0-flash'];
-  for (const m of models) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7 }
-        })
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText) {
-          rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-          const start = rawText.indexOf('[');
-          const end = rawText.lastIndexOf(']');
-          if (start !== -1 && end !== -1) rawText = rawText.substring(start, end + 1);
-          const parsed = JSON.parse(rawText);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            console.log(`✅ [AI SUCCESS - ${m}] Generated 10 questions for: ${topic1}, ${topic2}, ${topic3}`);
-            return parsed.map(shuffleOptions);
-          }
-        }
-      }
-    } catch (e) {
-      console.error(`❌ [${m}] exception:`, e.message);
-    }
-  }
-
-  console.warn('⚠️ Fallback questions served.');
+  console.warn('⚠️ Falling back to default questions.');
   return getFallbackQuestions();
 }
 
@@ -281,7 +234,7 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-// Start listening on Render's assigned port
+// Port configuration for Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Quiz server running on port ${PORT}`);
