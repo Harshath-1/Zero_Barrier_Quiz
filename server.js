@@ -12,7 +12,7 @@ app.use(express.static(__dirname, { maxAge: '1h' }));
 // Global in-memory storage for active sessions
 const rooms = new Map();
 
-// Fallback bank
+// Fallback question bank
 const fallbackBank = {
   cricket: [
     { question: "Who holds the record for the highest individual score in Test cricket (400*)?", options: ["Brian Lara", "Sachin Tendulkar", "Don Bradman", "Matthew Hayden"], answer: 0, level: "EASY" },
@@ -51,7 +51,7 @@ function getFallbackQuestions() {
   ];
 }
 
-// Resilient Gemini AI Question Generator
+// Resilient Question Generator using gemini-3.8-flash
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
@@ -78,65 +78,50 @@ FORMAT:
   }
 ]`;
 
-  // Strategy A: Try official @google/genai SDK
-  try {
-    const { GoogleGenAI } = require('@google/genai');
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: { responseMimeType: 'application/json' }
-    });
+  const modelCandidates = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
 
-    let raw = response.text || '';
-    raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      console.log(`✅ [AI SUCCESS - SDK] Generated 10 questions for: ${topic1}, ${topic2}, ${topic3}`);
-      return parsed.map(shuffleOptions);
-    }
-  } catch (sdkErr) {
-    console.warn('⚠️ SDK call failed, trying direct REST endpoints:', sdkErr.message);
-  }
-
-  // Strategy B: Direct REST calls across standard endpoints
-  const endpoints = [
-    `[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$){apiKey}`,
-    `[https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$){apiKey}`,
-    `[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$){apiKey}`
-  ];
-
-  for (const url of endpoints) {
+  for (const model of modelCandidates) {
     try {
-      const res = await fetch(url, {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json' }
+          generationConfig: {
+            temperature: 0.7
+          }
         })
       });
 
       const data = await res.json();
+
       if (res.ok) {
-        let raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (raw) {
-          raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-          const parsed = JSON.parse(raw);
+        let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawText) {
+          rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+          const firstBracket = rawText.indexOf('[');
+          const lastBracket = rawText.lastIndexOf(']');
+          if (firstBracket !== -1 && lastBracket !== -1) {
+            rawText = rawText.substring(firstBracket, lastBracket + 1);
+          }
+
+          const parsed = JSON.parse(rawText);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            console.log(`✅ [AI SUCCESS - REST] Generated questions for: ${topic1}, ${topic2}, ${topic3}`);
+            console.log(`✅ [AI SUCCESS] Generated 10 questions using ${model} for: ${topic1}, ${topic2}, ${topic3}`);
             return parsed.map(shuffleOptions);
           }
         }
       } else {
-        console.warn(`⚠️ REST endpoint returned status ${res.status}:`, data?.error?.message || data);
+        console.warn(`⚠️ [${model}] HTTP ${res.status}:`, data?.error?.message || data);
       }
-    } catch (e) {
-      console.error('❌ REST fetch error:', e.message);
+    } catch (err) {
+      console.error(`❌ [${model}] Request error:`, err.message);
     }
   }
 
-  console.warn('⚠️ All Gemini generation attempts failed. Falling back to default questions.');
+  console.warn('⚠️ All Gemini models failed. Falling back to default questions.');
   return getFallbackQuestions();
 }
 
@@ -265,7 +250,7 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-// Start persistent HTTP server for Render
+// Persistent HTTP server binding for Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Quiz server running on port ${PORT}`);
