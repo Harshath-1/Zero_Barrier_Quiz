@@ -51,16 +51,16 @@
     <div class="title-banner">HOST QUIZ SETUP</div>
     <div class="info-line">Set session PIN & question tier topics</div>
 
-    <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 123123)" />
+    <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" />
 
-    <label class="field-label">Tier 1: Easy (7 Questions)</label>
-    <input id="t1-input" class="category-input" type="text" placeholder="Enter Tier 1 topic (e.g. Maths)" />
+    <label class="field-label">Tier 1: Easy (4 Questions)</label>
+    <input id="t1-input" class="category-input" type="text" placeholder="Enter Tier 1 topic (e.g. Cinema)" />
 
-    <label class="field-label">Tier 2: Moderate (7 Questions)</label>
-    <input id="t2-input" class="category-input" type="text" placeholder="Enter Tier 2 topic (e.g. Physics)" />
+    <label class="field-label">Tier 2: Moderate (3 Questions)</label>
+    <input id="t2-input" class="category-input" type="text" placeholder="Enter Tier 2 topic (e.g. Geography)" />
 
-    <label class="field-label">Tier 3: Hard (6 Questions)</label>
-    <input id="t3-input" class="category-input" type="text" placeholder="Enter Tier 3 topic (e.g. Chemistry)" />
+    <label class="field-label">Tier 3: Hard (3 Questions)</label>
+    <input id="t3-input" class="category-input" type="text" placeholder="Enter Tier 3 topic (e.g. Science)" />
 
     <button id="gen-btn" class="yellow-btn" onclick="createRoom()">Generate Session & PIN</button>
   </div>
@@ -87,7 +87,7 @@
   <div id="question-card" class="glass-card" style="display:none;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
       <span id="level-badge" class="badge-hud">EASY</span>
-      <span id="question-counter" style="color:var(--text-muted); font-size:14px; font-weight:700;">Question 1 / 20</span>
+      <span id="question-counter" style="color:var(--text-muted); font-size:14px; font-weight:700;">Question 1 / 10</span>
     </div>
     <div id="question-text" style="font-size: 20px; font-weight: 800; text-align: center; margin: 16px 0;">Loading...</div>
     <div class="grid">
