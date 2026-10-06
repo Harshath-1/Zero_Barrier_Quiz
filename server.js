@@ -12,7 +12,7 @@ app.use(express.static(__dirname, { maxAge: '1h' }));
 // Global in-memory storage for active sessions
 const rooms = new Map();
 
-// Authentic fallback bank
+// Fallback bank
 const fallbackBank = {
   cricket: [
     { question: "Who holds the record for the highest individual score in Test cricket (400*)?", options: ["Brian Lara", "Sachin Tendulkar", "Don Bradman", "Matthew Hayden"], answer: 0, level: "EASY" },
@@ -51,11 +51,11 @@ function getFallbackQuestions() {
   ];
 }
 
-// Dynamic question generator targeting gemini-3.8-flash
+// Resilient Gemini AI Question Generator
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
-    console.error('❌ [AI Error] GEMINI_API_KEY missing from Render Environment Variables!');
+    console.error('❌ [AI Error] GEMINI_API_KEY is not defined in environment variables!');
     return getFallbackQuestions();
   }
 
@@ -78,44 +78,65 @@ FORMAT:
   }
 ]`;
 
-  const models = ['gemini-3.8-flash', 'gemini-3.5-flash'];
+  // Strategy A: Try official @google/genai SDK
+  try {
+    const { GoogleGenAI } = require('@google/genai');
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
 
-  for (const model of models) {
+    let raw = response.text || '';
+    raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      console.log(`✅ [AI SUCCESS - SDK] Generated 10 questions for: ${topic1}, ${topic2}, ${topic3}`);
+      return parsed.map(shuffleOptions);
+    }
+  } catch (sdkErr) {
+    console.warn('⚠️ SDK call failed, trying direct REST endpoints:', sdkErr.message);
+  }
+
+  // Strategy B: Direct REST calls across standard endpoints
+  const endpoints = [
+    `[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$){apiKey}`,
+    `[https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$){apiKey}`,
+    `[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$){apiKey}`
+  ];
+
+  for (const url of endpoints) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const res = await fetch(endpoint, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.7
-          }
+          generationConfig: { responseMimeType: 'application/json' }
         })
       });
 
       const data = await res.json();
-
       if (res.ok) {
-        let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText) {
-          rawText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-          const parsed = JSON.parse(rawText);
+        let raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (raw) {
+          raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+          const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            console.log(`✅ [AI SUCCESS] Generated 10 questions using ${model} for: ${topic1}, ${topic2}, ${topic3}`);
+            console.log(`✅ [AI SUCCESS - REST] Generated questions for: ${topic1}, ${topic2}, ${topic3}`);
             return parsed.map(shuffleOptions);
           }
         }
       } else {
-        console.warn(`⚠️ Model ${model} returned:`, data?.error?.message || data);
+        console.warn(`⚠️ REST endpoint returned status ${res.status}:`, data?.error?.message || data);
       }
-    } catch (err) {
-      console.error(`❌ Exception testing ${model}:`, err.message);
+    } catch (e) {
+      console.error('❌ REST fetch error:', e.message);
     }
   }
 
-  console.warn('⚠️ All Gemini models failed. Using default questions.');
+  console.warn('⚠️ All Gemini generation attempts failed. Falling back to default questions.');
   return getFallbackQuestions();
 }
 
@@ -153,9 +174,9 @@ app.get('/api/room-status', (req, res) => {
   const room = rooms.get(pin);
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
-  const playerNames = Object.values(room.players).map(p => p.name);
-  const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length) 
-    ? room.questions[room.currentIndex - 1] 
+  const playerList = Object.values(room.players);
+  const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
+    ? room.questions[room.currentIndex - 1]
     : null;
 
   return res.status(200).json({
@@ -163,8 +184,8 @@ app.get('/api/room-status', (req, res) => {
     state: room.state,
     currentIndex: room.currentIndex,
     totalQuestions: room.questions.length,
-    playerCount: playerNames.length,
-    players: playerNames,
+    playerCount: playerList.length,
+    players: playerList.map(p => p.name),
     responsesCount: Object.keys(room.answersThisRound).length,
     question: currentQ ? {
       index: room.currentIndex,
@@ -174,7 +195,7 @@ app.get('/api/room-status', (req, res) => {
       options: currentQ.options
     } : null,
     revealedAnswer: room.revealedAnswer,
-    leaderboard: Object.values(room.players).sort((a, b) => b.score - a.score)
+    leaderboard: [...playerList].sort((a, b) => b.score - a.score)
   });
 });
 
@@ -200,7 +221,6 @@ app.post('/api/host-action', (req, res) => {
     }
   } else if (action === 'END') {
     room.state = 'FINISHED';
-    rooms.delete(room.pin);
   }
 
   return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
@@ -245,7 +265,7 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-// Render listener configuration
+// Start persistent HTTP server for Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Quiz server running on port ${PORT}`);
