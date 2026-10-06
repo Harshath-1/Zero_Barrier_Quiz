@@ -65,9 +65,69 @@ function getFallbackQuestions() {
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
-    console.error('[AI Error] GEMINI_API_KEY is missing');
+    console.error('[AI Error] GEMINI_API_KEY is not set in Vercel Environment Variables');
     return getFallbackQuestions();
   }
+
+  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
+  const topic2 = (t2 && t2.trim()) || 'Technology';
+  const topic3 = (t3 && t3.trim()) || 'World History';
+
+  const prompt = `Generate exactly 10 trivia questions strictly as a JSON array:
+- 4 EASY questions on "${topic1}"
+- 3 MODERATE questions on "${topic2}"
+- 3 HARD questions on "${topic3}"
+
+Format:
+[
+  {
+    "question": "Question text?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": 0,
+    "level": "EASY"
+  }
+]`;
+
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.7
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log(`[AI Success] Generated ${parsed.length} questions on ${model}`);
+            return parsed.map(shuffleOptions);
+          }
+        }
+      } else {
+        const err = await response.text();
+        console.error(`[AI Error on ${model}]:`, err);
+      }
+    } catch (e) {
+      console.error(`[AI Exception on ${model}]:`, e.message);
+    }
+  }
+
+  console.warn('[AI Fallback] Using offline fallback');
+  return getFallbackQuestions();
+}
 
   const topic1 = (t1 && t1.trim()) || 'General Knowledge';
   const topic2 = (t2 && t2.trim()) || 'Technology';
