@@ -1,100 +1,281 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Player Quiz View</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zero Barrier Quiz - Player</title>
   <style>
-    :root {
-      --bg-black: #080808;
-      --card-bg: rgba(18, 18, 18, 0.92);
-      --card-border: rgba(250, 204, 21, 0.35);
-      --yellow-bright: #facc15;
-      --text-white: #ffffff;
-      --text-muted: #a3a3a3;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg-black); color: var(--text-white); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .glass-card { background: var(--card-bg); backdrop-filter: blur(18px); border-radius: 20px; border: 1px solid var(--card-border); box-shadow: 0 0 30px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.15); width: 100%; max-width: 460px; padding: 26px 24px; text-align: center; }
-    .club-banner-wrapper { width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 16px; border: 1.5px solid var(--yellow-bright); }
-    .club-banner { width: 100%; display: block; max-height: 130px; object-fit: cover; }
-    .title-banner { font-size: 22px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--yellow-bright); margin-bottom: 6px; }
-    .info-line { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; }
-    .inset-data-input { width: 100%; background: #0f0f0f; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 14px 16px; color: var(--text-white); font-size: 16px; font-weight: 700; text-align: center; outline: none; margin-bottom: 14px; }
-    .yellow-btn { width: 100%; padding: 15px; background: var(--yellow-bright); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 20px rgba(250, 204, 21, 0.45); }
-    .yellow-btn:hover { background: #fde047; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 14px 0; }
-    .tile { height: 100px; border-radius: 14px; background: #121212; border: 1.5px solid rgba(255, 255, 255, 0.15); color: var(--text-white); font-size: 16px; font-weight: 800; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 10px; }
-    .tile.selected { border: 2px solid var(--yellow-bright); background: rgba(250, 204, 21, 0.15); }
-    .tile.correct-highlight { border: 2px solid #ffffff; background: rgba(255, 255, 255, 0.2); }
-    .tile.dimmed { opacity: 0.25; }
-    .status-text { margin-top: 14px; font-size: 14px; color: var(--text-muted); }
-    .badge-hud { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 900; background: rgba(250, 204, 21, 0.12); border: 1px solid var(--yellow-bright); color: var(--yellow-bright); }
+
+    body {
+      background-color: #0d0e12;
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background: #171922;
+      border: 1px solid #2a2e3d;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 1.4rem;
+      color: #f7b928;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .card {
+      display: none;
+    }
+
+    .card.active {
+      display: block;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: #a0a6b5;
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      background: #0d0e12;
+      border: 1px solid #2a2e3d;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #f7b928;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: #f7b928;
+      color: #0d0e12;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: #dfa31b;
+    }
+
+    .btn:disabled {
+      background: #3b3f4d;
+      color: #7b8191;
+      cursor: not-allowed;
+    }
+
+    .question-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #f7b928;
+      background: rgba(247, 185, 40, 0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    .question-text {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+
+    .options-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .option-btn {
+      width: 100%;
+      padding: 14px;
+      text-align: left;
+      background: #232736;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .option-btn:hover {
+      background: #2b3042;
+    }
+
+    .option-btn.selected {
+      border-color: #f7b928;
+      background: rgba(247, 185, 40, 0.15);
+      color: #f7b928;
+      font-weight: 600;
+    }
+
+    .option-btn.correct {
+      background: rgba(46, 213, 115, 0.2) !important;
+      border-color: #2ed573 !important;
+      color: #2ed573 !important;
+    }
+
+    .option-btn.wrong {
+      background: rgba(255, 71, 87, 0.2) !important;
+      border-color: #ff4757 !important;
+      color: #ff4757 !important;
+    }
+
+    .status-box {
+      text-align: center;
+      padding: 30px 10px;
+    }
+
+    .status-box h2 {
+      font-size: 1.3rem;
+      margin-bottom: 10px;
+    }
+
+    .status-box p {
+      color: #a0a6b5;
+      font-size: 0.9rem;
+    }
+
+    .score-banner {
+      display: flex;
+      justify-content: space-between;
+      background: #232736;
+      padding: 10px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
 
-  <!-- JOIN VIEW -->
-  <div id="join-card" class="glass-card">
-    <div class="club-banner-wrapper">
-      <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner">
+  <div class="container">
+    <div class="header">
+      <h1>Quiz Player</h1>
     </div>
-    <div class="title-banner">JOIN QUIZ</div>
-    <div class="info-line">Enter 6-digit session PIN & your nickname</div>
-    <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter 6-Digit PIN" />
-    <input id="name-input" class="inset-data-input" type="text" maxlength="16" placeholder="Enter Your Nickname" />
-    <button class="yellow-btn" onclick="joinGame()">Enter Game</button>
-    <div id="join-msg" class="status-text" style="color: #ef4444;"></div>
-  </div>
 
-  <!-- LOBBY WAITING VIEW -->
-  <div id="lobby-card" class="glass-card" style="display:none;">
-    <div class="badge-hud">LOBBY CONNECTED</div>
-    <div class="title-banner" style="font-size: 20px; margin-top: 10px;">YOU'RE IN!</div>
-    <p class="status-text" style="margin-top: 14px; color: var(--text-white);">Waiting for the host to launch the quiz arena...</p>
-  </div>
-
-  <!-- GAMEPLAY ARENA VIEW -->
-  <div id="game-card" class="glass-card" style="display:none;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-      <span class="badge-hud" id="lvl-badge">Q1/10 • EASY</span>
+    <!-- 1. JOIN CARD -->
+    <div id="join-card" class="card active">
+      <div class="input-group">
+        <label>Game PIN</label>
+        <input type="text" id="pin-input" placeholder="e.g. 123456" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <label>Your Name</label>
+        <input type="text" id="name-input" placeholder="Enter your name" autocomplete="off">
+      </div>
+      <button class="btn" id="join-btn" onclick="joinGame()">Enter Game</button>
     </div>
-    <div id="question-text" style="font-size: 18px; font-weight: 800; min-height: 48px; margin-bottom: 8px;">Question text</div>
-    <div class="grid">
-      <button id="tile-0" class="tile" onclick="selectChoice(0)"><span>▲</span><span id="opt-0">A</span></button>
-      <button id="tile-1" class="tile" onclick="selectChoice(1)"><span>◆</span><span id="opt-1">B</span></button>
-      <button id="tile-2" class="tile" onclick="selectChoice(2)"><span>●</span><span id="opt-2">C</span></button>
-      <button id="tile-3" class="tile" onclick="selectChoice(3)"><span>■</span><span id="opt-3">D</span></button>
-    </div>
-    <button id="confirm-btn" class="yellow-btn" style="display:none;" onclick="confirmAnswer()">Confirm Answer</button>
-    <div id="answer-status" class="status-text">Tap a shape to select, then confirm!</div>
-  </div>
 
-  <!-- FINAL RESULT VIEW -->
-  <div id="result-card" class="glass-card" style="display:none;">
-    <div class="badge-hud">SESSION COMPLETED</div>
-    <div class="title-banner" style="font-size: 20px; margin-top: 8px;">FINAL STANDINGS</div>
-    <div id="winner-banner" style="font-size: 18px; margin: 18px 0; color: var(--yellow-bright); font-weight: 900;"></div>
-    <div id="player-final-score" class="status-text"></div>
+    <!-- 2. LOBBY WAITING CARD -->
+    <div id="lobby-card" class="card">
+      <div class="status-box">
+        <h2>You're in!</h2>
+        <p>Waiting for the host to start the first question...</p>
+      </div>
+    </div>
+
+    <!-- 3. QUESTION CARD -->
+    <div id="question-card" class="card">
+      <div class="score-banner">
+        <span id="player-tag">Player</span>
+        <span id="score-tag">Score: 0</span>
+      </div>
+
+      <div class="question-badge" id="level-badge">QUESTION</div>
+      <div class="question-text" id="question-title">Loading question...</div>
+
+      <div class="options-grid" id="options-container">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <button class="btn" id="confirm-btn" onclick="submitAnswer()" disabled>Confirm Answer</button>
+    </div>
+
+    <!-- 4. SUBMITTED WAITING CARD -->
+    <div id="wait-card" class="card">
+      <div class="status-box">
+        <h2>Answer Locked In!</h2>
+        <p>Waiting for host to reveal the correct answer...</p>
+      </div>
+    </div>
+
+    <!-- 5. FINISHED CARD -->
+    <div id="finished-card" class="card">
+      <div class="status-box">
+        <h2>Quiz Completed!</h2>
+        <p id="final-stats">Check the host screen for final rankings!</p>
+      </div>
+    </div>
   </div>
 
   <script>
     let currentPin = '';
     let playerName = '';
+    let selectedOption = null;
+    let hasAnsweredCurrentRound = false;
+    let lastSeenQuestionIndex = 0;
     let pollInterval = null;
-    let selectedOptionIndex = null;
-    let hasConfirmed = false;
-    let lastRenderedIndex = -1;
+
+    function showCard(cardId) {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+      const target = document.getElementById(cardId);
+      if (target) target.classList.add('active');
+    }
 
     async function joinGame() {
       const pin = document.getElementById('pin-input').value.trim();
       const name = document.getElementById('name-input').value.trim();
-      const msg = document.getElementById('join-msg');
 
       if (!pin || !name) {
-        msg.textContent = 'Please enter both PIN and Name.';
+        alert('Please enter both PIN and Name.');
         return;
       }
+
+      document.getElementById('join-btn').disabled = true;
+      document.getElementById('join-btn').innerText = 'Connecting...';
 
       try {
         const res = await fetch('/api/join-room', {
@@ -102,118 +283,157 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pin, name })
         });
+
         const data = await res.json();
-        if (res.ok && data.success) {
-          currentPin = pin;
-          playerName = name;
-          document.getElementById('join-card').style.display = 'none';
-          document.getElementById('lobby-card').style.display = 'block';
-          pollInterval = setInterval(syncPlayerState, 1500);
-          syncPlayerState();
-        } else {
-          msg.textContent = data.error || 'Failed to join room.';
+        if (!res.ok || !data.success) {
+          alert(data.error || 'Failed to join room.');
+          document.getElementById('join-btn').disabled = false;
+          document.getElementById('join-btn').innerText = 'Enter Game';
+          return;
         }
-      } catch (e) {
-        msg.textContent = 'Connection error: ' + e.message;
+
+        currentPin = pin;
+        playerName = name;
+        document.getElementById('player-tag').innerText = playerName;
+
+        showCard('lobby-card');
+        startPolling();
+      } catch (err) {
+        alert('Could not connect to server.');
+        document.getElementById('join-btn').disabled = false;
+        document.getElementById('join-btn').innerText = 'Enter Game';
       }
     }
 
-    async function syncPlayerState() {
+    function startPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(fetchRoomState, 1500);
+      fetchRoomState();
+    }
+
+    async function fetchRoomState() {
       if (!currentPin) return;
+
       try {
-        const res = await fetch(`/api/room-status?pin=${currentPin}`);
+        const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}&t=${Date.now()}`);
         if (!res.ok) return;
+
         const data = await res.json();
 
-        if (data.state === 'QUESTION' || data.state === 'REVEAL') {
-          document.getElementById('lobby-card').style.display = 'none';
-          document.getElementById('result-card').style.display = 'none';
-          document.getElementById('game-card').style.display = 'block';
-
-          if (data.currentIndex !== lastRenderedIndex) {
-            lastRenderedIndex = data.currentIndex;
-            selectedOptionIndex = null;
-            hasConfirmed = false;
-
-            document.getElementById('lvl-badge').textContent = `Q${data.question.index}/${data.totalQuestions} • ${data.question.level}`;
-            document.getElementById('question-text').textContent = data.question.question;
-            for (let i = 0; i < 4; i++) {
-              document.getElementById(`opt-${i}`).textContent = data.question.options[i];
-              const t = document.getElementById(`tile-${i}`);
-              t.disabled = false;
-              t.className = 'tile';
-            }
-            document.getElementById('confirm-btn').style.display = 'none';
-            document.getElementById('answer-status').textContent = 'Tap a shape to select, then confirm!';
+        // Update player score from leaderboard
+        if (Array.isArray(data.leaderboard)) {
+          const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+          if (me) {
+            document.getElementById('score-tag').innerText = `Score: ${me.score}`;
           }
+        }
 
-          if (data.state === 'REVEAL' && data.revealedAnswer !== null) {
-            for (let i = 0; i < 4; i++) {
-              const t = document.getElementById(`tile-${i}`);
-              t.disabled = true;
-              t.className = 'tile';
-              if (i === data.revealedAnswer) t.classList.add('correct-highlight');
-              else t.classList.add('dimmed');
-            }
-            document.getElementById('confirm-btn').style.display = 'none';
-            document.getElementById('answer-status').textContent = (selectedOptionIndex === data.revealedAnswer)
-              ? '✔ Correct Answer!'
-              : '✖ Incorrect Answer!';
+        if (data.state === 'LOBBY') {
+          showCard('lobby-card');
+        } else if (data.state === 'QUESTION') {
+          // New question round
+          if (data.currentIndex !== lastSeenQuestionIndex) {
+            lastSeenQuestionIndex = data.currentIndex;
+            hasAnsweredCurrentRound = false;
+            selectedOption = null;
+            renderQuestion(data.question);
+            showCard('question-card');
+          } else if (!hasAnsweredCurrentRound) {
+            showCard('question-card');
+          }
+        } else if (data.state === 'REVEAL') {
+          if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
+            highlightAnswers(data.revealedAnswer);
+            showCard('question-card');
           }
         } else if (data.state === 'FINISHED') {
+          showCard('finished-card');
           clearInterval(pollInterval);
-          document.getElementById('game-card').style.display = 'none';
-          document.getElementById('lobby-card').style.display = 'none';
-          document.getElementById('result-card').style.display = 'block';
-
-          if (data.leaderboard && data.leaderboard.length > 0) {
-            const top = data.leaderboard[0];
-            document.getElementById('winner-banner').textContent = `🏆 Winner: ${top.name} (${top.score} pts)`;
-          }
-          const me = (data.leaderboard || []).find(p => p.name.toLowerCase() === playerName.toLowerCase());
-          document.getElementById('player-final-score').textContent = me 
-            ? `Your Score: ${me.score} pts (${me.correctCount} correct)`
-            : 'Thank you for playing!';
         }
       } catch (err) {
-        console.error('Player sync error:', err);
+        console.error('Polling error:', err);
       }
     }
 
-    function selectChoice(index) {
-      if (hasConfirmed) return;
-      selectedOptionIndex = index;
-      for (let i = 0; i < 4; i++) {
-        const t = document.getElementById(`tile-${i}`);
-        if (i === index) {
-          t.classList.add('selected');
-          t.classList.remove('dimmed');
-        } else {
-          t.classList.remove('selected');
-          t.classList.add('dimmed');
-        }
-      }
-      const btn = document.getElementById('confirm-btn');
-      btn.style.display = 'block';
-      btn.textContent = 'Confirm Choice';
-    }
+    function renderQuestion(q) {
+      if (!q) return;
 
-    async function confirmAnswer() {
-      if (selectedOptionIndex === null || hasConfirmed) return;
-      hasConfirmed = true;
+      document.getElementById('level-badge').innerText = `Q${q.index} • ${q.level || 'TRIVIA'}`;
+      document.getElementById('question-title').innerText = q.question;
 
-      for (let i = 0; i < 4; i++) {
-        document.getElementById(`tile-${i}`).disabled = true;
-      }
-      btn.disabled = true;
-      btn.textContent = 'Answer Locked In!';
+      const container = document.getElementById('options-container');
+      container.innerHTML = '';
 
-      await fetch('/api/submit-answer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: currentPin, name: playerName, answerIndex: selectedOptionIndex })
+      q.options.forEach((optText, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerText = optText;
+        btn.onclick = () => selectOption(idx, btn);
+        container.appendChild(btn);
       });
-      document.getElementById('answer-status').textContent = 'Answer submitted! Waiting for host...';
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.innerText = 'Confirm Answer';
+    }
+
+    function selectOption(index, btnElement) {
+      if (hasAnsweredCurrentRound) return;
+
+      selectedOption = index;
+      document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+      btnElement.classList.add('selected');
+
+      document.getElementById('confirm-btn').disabled = false;
+    }
+
+    async function submitAnswer() {
+      if (selectedOption === null || hasAnsweredCurrentRound) return;
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.innerText = 'Submitting...';
+
+      try {
+        const res = await fetch('/api/submit-answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pin: currentPin,
+            name: playerName,
+            answerIndex: selectedOption
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          hasAnsweredCurrentRound = true;
+          showCard('wait-card');
+        } else {
+          confirmBtn.disabled = false;
+          confirmBtn.innerText = 'Confirm Answer';
+          alert(data.error || 'Could not submit answer.');
+        }
+      } catch (err) {
+        console.error('Submit error:', err);
+        confirmBtn.disabled = false;
+        confirmBtn.innerText = 'Confirm Answer';
+        alert('Network error while submitting answer.');
+      }
+    }
+
+    function highlightAnswers(correctIndex) {
+      const buttons = document.querySelectorAll('.option-btn');
+      buttons.forEach((btn, idx) => {
+        btn.onclick = null; // disable further clicks
+        if (idx === correctIndex) {
+          btn.classList.add('correct');
+        } else if (idx === selectedOption) {
+          btn.classList.add('wrong');
+        }
+      });
+      document.getElementById('confirm-btn').disabled = true;
+      document.getElementById('confirm-btn').innerText = 'Answer Revealed';
     }
   </script>
 </body>
