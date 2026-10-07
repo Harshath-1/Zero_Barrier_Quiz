@@ -1,360 +1,242 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ALIET Techpreneur Club - Player</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Player Quiz Portal</title>
   <style>
+    :root {
+      --bg-black: #080808;
+      --card-bg: rgba(18, 18, 18, 0.92);
+      --card-border: rgba(250, 204, 21, 0.35);
+      --yellow-bright: #facc15;
+      --text-white: #ffffff;
+      --text-muted: #a3a3a3;
+    }
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-
     body {
-      background-color: #07080a;
-      /* Ambient radial backdrop glow centered behind the card */
-      background-image: radial-gradient(circle at 50% 45%, rgba(255, 190, 0, 0.08) 0%, rgba(7, 8, 10, 0.98) 70%);
-      color: #ffffff;
+      background-color: var(--bg-black);
+      color: var(--text-white);
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px 14px;
+      padding: 24px 20px;
     }
-
-    /* Glassmorphic Container with Host Golden Ambient Halo */
-    .host-card {
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.15);
       width: 100%;
-      max-width: 560px;
-      background: rgba(16, 17, 23, 0.82);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1.5px solid rgba(255, 190, 0, 0.35);
-      border-radius: 22px;
-      padding: 26px;
-      /* Multi-layered external and perimeter glow */
-      box-shadow: 
-        0 0 20px rgba(255, 190, 0, 0.12),
-        0 0 50px rgba(255, 190, 0, 0.08),
-        0 20px 40px rgba(0, 0, 0, 0.85);
+      max-width: 580px;
+      padding: 28px;
     }
-
-    /* Top Logo Banner matching Host frame */
-    .banner-container {
+    .club-banner-wrapper {
       width: 100%;
-      background: #ffbe00;
       border-radius: 12px;
       overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 6px 12px;
-      margin-bottom: 24px;
-      box-shadow: 0 4px 15px rgba(255, 190, 0, 0.2);
+      margin-bottom: 18px;
+      border: 1.5px solid var(--yellow-bright);
     }
-
-    .banner-container img {
-      max-width: 100%;
-      max-height: 95px;
-      object-fit: contain;
+    .club-banner {
+      width: 100%;
       display: block;
+      max-height: 145px;
+      object-fit: cover;
     }
-
-    .title-section {
-      text-align: center;
-      margin-bottom: 22px;
-    }
-
-    .main-title {
-      font-size: 1.35rem;
+    .title-banner {
+      font-size: 24px;
       font-weight: 900;
-      color: #ffbe00;
+      letter-spacing: 2px;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-      text-shadow: 0 0 10px rgba(255, 190, 0, 0.3);
-    }
-
-    .sub-title {
-      font-size: 0.8rem;
-      color: #8b92a5;
-    }
-
-    .card {
-      display: none;
-    }
-
-    .card.active {
-      display: block;
-    }
-
-    /* Form Fields with Frosted Glass Look */
-    .input-block {
-      margin-bottom: 16px;
-    }
-
-    label {
-      display: block;
-      font-size: 0.72rem;
-      font-weight: 800;
-      color: #ffbe00;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
+      color: var(--yellow-bright);
+      text-align: center;
       margin-bottom: 6px;
     }
-
-    input[type="text"] {
+    .info-line {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .field-label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--yellow-bright);
+      margin-bottom: 6px;
+    }
+    .inset-data-input, .category-input {
       width: 100%;
-      padding: 14px 16px;
-      background: rgba(8, 9, 13, 0.75);
-      border: 1px solid #242735;
-      border-radius: 8px;
-      color: #ffffff;
-      font-size: 0.95rem;
+      background: #0f0f0f;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text-white);
+      font-size: 15px;
+      margin-bottom: 14px;
       outline: none;
-      transition: all 0.2s ease;
     }
-
-    input[type="text"]:focus {
-      border-color: #ffbe00;
-      box-shadow: 0 0 12px rgba(255, 190, 0, 0.25);
+    .inset-data-input {
+      font-size: 16px;
+      font-weight: 700;
+      border-color: var(--yellow-bright);
     }
-
-    input[type="text"]::placeholder {
-      color: #4f5366;
-    }
-
-    /* Glowing Primary Gold Action Button */
-    .btn-gold {
+    .yellow-btn {
       width: 100%;
-      height: 52px;
-      background: #ffbe00;
-      color: #000000;
-      font-size: 0.92rem;
+      padding: 15px;
+      background: var(--yellow-bright);
+      border: none;
+      border-radius: 12px;
+      color: #000;
+      font-size: 16px;
       font-weight: 900;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      border: none;
-      border-radius: 8px;
       cursor: pointer;
-      margin-top: 12px;
-      /* Radiant light bloom under button */
-      box-shadow: 
-        0 0 18px rgba(255, 190, 0, 0.45),
-        0 4px 12px rgba(0, 0, 0, 0.5);
-      transition: all 0.2s ease;
+      box-shadow: 0 0 20px rgba(250, 204, 21, 0.45);
+      transition: background 0.2s;
     }
-
-    .btn-gold:hover {
-      background: #f7b700;
-      box-shadow: 
-        0 0 26px rgba(255, 190, 0, 0.65),
-        0 6px 16px rgba(0, 0, 0, 0.6);
-      transform: translateY(-1px);
+    .yellow-btn:hover {
+      background: #fde047;
     }
-
-    .btn-gold:active {
-      transform: translateY(1px);
-      box-shadow: 0 0 14px rgba(255, 190, 0, 0.35);
-    }
-
-    .btn-gold:disabled {
-      background: #232530;
-      color: #555b6e;
+    .yellow-btn:disabled {
+      background: #262626;
+      color: #525252;
       box-shadow: none;
       cursor: not-allowed;
-      transform: none;
     }
-
-    /* Status Bar */
-    .status-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(8, 9, 13, 0.75);
-      border: 1px solid #242735;
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 18px;
-      font-size: 0.85rem;
-      font-weight: 800;
-    }
-
-    .status-bar .name {
-      color: #ffffff;
-    }
-
-    .status-bar .score {
-      color: #ffbe00;
-      text-shadow: 0 0 8px rgba(255, 190, 0, 0.35);
-    }
-
-    /* Question Typography */
-    .badge-tier {
-      display: inline-block;
-      font-size: 0.72rem;
-      font-weight: 800;
-      color: #ffbe00;
-      background: rgba(255, 190, 0, 0.12);
-      border: 1px solid rgba(255, 190, 0, 0.3);
-      padding: 4px 10px;
-      border-radius: 4px;
-      text-transform: uppercase;
-      margin-bottom: 12px;
-      letter-spacing: 0.5px;
-    }
-
-    .question-title {
-      font-size: 1.08rem;
-      font-weight: 700;
-      line-height: 1.45;
-      margin-bottom: 20px;
-      color: #ffffff;
-    }
-
-    /* Option Items with Frosted Backing */
-    .options-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .opt-btn {
-      width: 100%;
-      padding: 14px 16px;
-      text-align: left;
-      background: rgba(8, 9, 13, 0.75);
-      border: 1px solid #242735;
-      border-radius: 8px;
-      color: #d1d5db;
-      font-size: 0.92rem;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .opt-btn:hover {
-      background: rgba(20, 22, 31, 0.9);
-      border-color: #3e4258;
-    }
-
-    .opt-btn.selected {
-      border: 2px solid #ffbe00 !important;
-      background: rgba(255, 190, 0, 0.12) !important;
-      color: #ffbe00 !important;
-      font-weight: 700;
-      box-shadow: 0 0 12px rgba(255, 190, 0, 0.25);
-    }
-
-    .opt-btn.correct {
-      background: rgba(46, 213, 115, 0.2) !important;
-      border: 2px solid #2ed573 !important;
-      color: #2ed573 !important;
-      font-weight: 700;
-      box-shadow: 0 0 14px rgba(46, 213, 115, 0.3);
-    }
-
-    .opt-btn.wrong {
-      background: rgba(255, 71, 87, 0.2) !important;
-      border: 2px solid #ff4757 !important;
-      color: #ff4757 !important;
-      font-weight: 700;
-      box-shadow: 0 0 14px rgba(255, 71, 87, 0.3);
-    }
-
-    /* Message Boxes */
-    .info-box {
+    .pin-display-box {
+      background: #0f0f0f;
+      border: 1.5px dashed var(--yellow-bright);
+      border-radius: 16px;
+      padding: 22px;
+      margin: 18px 0;
       text-align: center;
-      padding: 38px 12px;
     }
-
-    .info-box h2 {
-      font-size: 1.25rem;
-      color: #ffbe00;
-      margin-bottom: 8px;
-      text-transform: uppercase;
+    .badge-hud {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
       font-weight: 900;
-      text-shadow: 0 0 10px rgba(255, 190, 0, 0.3);
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid var(--yellow-bright);
+      color: var(--yellow-bright);
+      text-transform: uppercase;
     }
-
-    .info-box p {
-      color: #8b92a5;
-      font-size: 0.9rem;
+    /* Options 2x2 grid identical to Host view */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .host-tile {
+      background: #121212;
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 16px 14px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-white);
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .host-tile:hover {
+      background: #1a1a1a;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .host-tile.selected {
+      border: 2px solid var(--yellow-bright) !important;
+      background: rgba(250, 204, 21, 0.15) !important;
+      color: var(--yellow-bright) !important;
+      box-shadow: 0 0 15px rgba(250, 204, 21, 0.35);
+    }
+    .host-tile.correct {
+      border: 2px solid #2ed573 !important;
+      background: rgba(46, 213, 115, 0.25) !important;
+      color: #ffffff !important;
+    }
+    .host-tile.wrong {
+      border: 2px solid #ff4757 !important;
+      background: rgba(255, 71, 87, 0.25) !important;
+      color: #ffffff !important;
+      opacity: 0.5;
     }
   </style>
 </head>
 <body>
 
-  <div class="host-card">
-    
-    <div class="banner-container">
-      <img src="logo.jpeg" alt="ALIET Techpreneur Club" onerror="this.src='logo_vertical.jpeg'; this.onerror=null;">
+  <!-- 1. PLAYER JOIN CARD -->
+  <div id="join-card" class="glass-card">
+    <div class="club-banner-wrapper">
+      <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" />
+    </div>
+    <div class="title-banner">PLAYER QUIZ PORTAL</div>
+    <div class="info-line">Enter active session PIN & your name</div>
+
+    <label class="field-label">Session PIN</label>
+    <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" autocomplete="off" />
+
+    <label class="field-label">Player Name</label>
+    <input id="name-input" class="category-input" type="text" placeholder="Enter your full name" autocomplete="off" />
+
+    <button id="join-btn" class="yellow-btn" onclick="joinGame()">Enter Session</button>
+  </div>
+
+  <!-- 2. LOBBY WAITING CARD -->
+  <div id="lobby-card" class="glass-card" style="display: none; text-align: center;">
+    <div class="badge-hud">LOBBY CONNECTED</div>
+    <div class="pin-display-box">
+      <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Player Handle</div>
+      <div id="display-player" style="font-size: 32px; font-weight: 900; color: var(--yellow-bright);">Player</div>
+      <div style="font-size: 14px; color: var(--text-muted); margin-top: 10px;">Waiting for host to launch the quiz...</div>
+    </div>
+  </div>
+
+  <!-- 3. QUESTION CARD -->
+  <div id="question-card" class="glass-card" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <span id="level-badge" class="badge-hud">EASY</span>
+      <span id="score-counter" style="color: var(--yellow-bright); font-size: 14px; font-weight: 800;">Score: 0</span>
     </div>
 
-    <!-- 1. JOIN VIEW -->
-    <div id="join-card" class="card active">
-      <div class="title-section">
-        <div class="main-title">PLAYER QUIZ PORTAL</div>
-        <div class="sub-title">Enter active session PIN & player handle</div>
-      </div>
+    <div id="question-text" style="font-size: 20px; font-weight: 800; text-align: center; margin: 16px 0;">Loading question...</div>
 
-      <div class="input-block">
-        <label for="pin-input">SESSION PIN</label>
-        <input type="text" id="pin-input" placeholder="Enter PIN (e.g. 123123)" autocomplete="off">
-      </div>
-
-      <div class="input-block">
-        <label for="name-input">PLAYER NAME</label>
-        <input type="text" id="name-input" placeholder="Enter your name" autocomplete="off">
-      </div>
-
-      <button class="btn-gold" id="join-btn" onclick="joinGame()">ENTER SESSION</button>
+    <div class="grid">
+      <button class="host-tile" id="tile-0" onclick="selectOption(0)">A. <span id="opt-0"></span></button>
+      <button class="host-tile" id="tile-1" onclick="selectOption(1)">B. <span id="opt-1"></span></button>
+      <button class="host-tile" id="tile-2" onclick="selectOption(2)">C. <span id="opt-2"></span></button>
+      <button class="host-tile" id="tile-3" onclick="selectOption(3)">D. <span id="opt-3"></span></button>
     </div>
 
-    <!-- 2. LOBBY VIEW -->
-    <div id="lobby-card" class="card">
-      <div class="info-box">
-        <h2>YOU ARE IN!</h2>
-        <p>Waiting for the host to launch the first round...</p>
-      </div>
+    <button id="confirm-btn" class="yellow-btn" onclick="submitAnswer()" disabled>Confirm Answer</button>
+  </div>
+
+  <!-- 4. ANSWER LOCKED IN WAITING CARD -->
+  <div id="wait-card" class="glass-card" style="display: none; text-align: center;">
+    <div class="badge-hud">RESPONSE RECORDED</div>
+    <div class="pin-display-box">
+      <div style="font-size: 26px; font-weight: 900; color: var(--yellow-bright); margin-bottom: 6px;">Answer Locked In!</div>
+      <div style="font-size: 14px; color: var(--text-muted);">Waiting for the host to reveal the correct result...</div>
     </div>
+  </div>
 
-    <!-- 3. QUESTION VIEW -->
-    <div id="question-card" class="card">
-      <div class="status-bar">
-        <span id="player-tag" class="name">Player</span>
-        <span id="score-tag" class="score">SCORE: 0</span>
-      </div>
-
-      <div class="badge-tier" id="level-badge">QUESTION 1</div>
-      <div class="question-title" id="question-title">Loading question...</div>
-
-      <div class="options-list" id="options-container">
-        <!-- Rendered dynamically -->
-      </div>
-
-      <button class="btn-gold" id="confirm-btn" onclick="submitAnswer()" disabled>CONFIRM ANSWER</button>
-    </div>
-
-    <!-- 4. SUBMITTED WAITING VIEW -->
-    <div id="wait-card" class="card">
-      <div class="info-box">
-        <h2>ANSWER LOCKED IN!</h2>
-        <p>Waiting for host to reveal results...</p>
-      </div>
-    </div>
-
-    <!-- 5. FINISHED VIEW -->
-    <div id="finished-card" class="card">
-      <div class="info-box">
-        <h2>QUIZ CONCLUDED!</h2>
-        <p>Check the host presentation screen for the winners.</p>
-      </div>
-    </div>
-
+  <!-- 5. FINAL STANDINGS CARD -->
+  <div id="end-card" class="glass-card" style="display: none; text-align: center;">
+    <div class="badge-hud">QUIZ COMPLETED</div>
+    <div class="title-banner" style="font-size: 20px; margin-top: 10px;">FINAL STANDINGS</div>
+    <div id="leaderboard-container" style="margin-top: 16px;"></div>
   </div>
 
   <script>
@@ -363,12 +245,12 @@
     let selectedOption = null;
     let hasAnsweredCurrentRound = false;
     let lastSeenQuestionIndex = 0;
-    let pollInterval = null;
+    let pollTimer = null;
 
     function showCard(cardId) {
-      document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
-      const target = document.getElementById(cardId);
-      if (target) target.classList.add('active');
+      ['join-card', 'lobby-card', 'question-card', 'wait-card', 'end-card'].forEach(id => {
+        document.getElementById(id).style.display = (id === cardId) ? 'block' : 'none';
+      });
     }
 
     async function joinGame() {
@@ -376,13 +258,13 @@
       const name = document.getElementById('name-input').value.trim();
 
       if (!pin || !name) {
-        alert('Please fill in both Session PIN and Your Name.');
+        alert('Please enter both PIN and Name.');
         return;
       }
 
-      const joinBtn = document.getElementById('join-btn');
-      joinBtn.disabled = true;
-      joinBtn.innerText = 'CONNECTING...';
+      const btn = document.getElementById('join-btn');
+      btn.textContent = 'Connecting...';
+      btn.disabled = true;
 
       try {
         const res = await fetch('/api/join-room', {
@@ -390,47 +272,45 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pin, name })
         });
-
         const data = await res.json();
-        if (!res.ok || !data.success) {
-          alert(data.error || 'Failed to join session.');
-          joinBtn.disabled = false;
-          joinBtn.innerText = 'ENTER SESSION';
-          return;
+
+        if (res.ok && data.success) {
+          currentPin = pin;
+          playerName = name;
+          document.getElementById('display-player').textContent = name;
+          showCard('lobby-card');
+          startPolling();
+        } else {
+          alert('Failed to join: ' + (data.error || 'Invalid session PIN'));
+          btn.textContent = 'Enter Session';
+          btn.disabled = false;
         }
-
-        currentPin = pin;
-        playerName = name;
-        document.getElementById('player-tag').innerText = playerName;
-
-        showCard('lobby-card');
-        startPolling();
       } catch (err) {
-        alert('Cannot reach the quiz server.');
-        joinBtn.disabled = false;
-        joinBtn.innerText = 'ENTER SESSION';
+        alert('Network connection error: ' + err.message);
+        btn.textContent = 'Enter Session';
+        btn.disabled = false;
       }
     }
 
     function startPolling() {
-      if (pollInterval) clearInterval(pollInterval);
-      pollInterval = setInterval(fetchRoomState, 1500);
-      fetchRoomState();
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(fetchRoomStatus, 1500);
+      fetchRoomStatus();
     }
 
-    async function fetchRoomState() {
+    async function fetchRoomStatus() {
       if (!currentPin) return;
 
       try {
-        const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}&t=${Date.now()}`);
+        const res = await fetch(`/api/room-status?pin=${currentPin}`);
         if (!res.ok) return;
-
         const data = await res.json();
 
-        if (Array.isArray(data.leaderboard)) {
+        // Update score
+        if (data.leaderboard) {
           const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
           if (me) {
-            document.getElementById('score-tag').innerText = `SCORE: ${me.score}`;
+            document.getElementById('score-counter').textContent = `Score: ${me.score}`;
           }
         }
 
@@ -456,42 +336,53 @@
             showCard('question-card');
           }
         } else if (data.state === 'FINISHED') {
-          showCard('finished-card');
-          clearInterval(pollInterval);
+          clearInterval(pollTimer);
+          showCard('end-card');
+
+          const rows = data.leaderboard.map((p, idx) => `
+            <div style="display:flex; justify-content:space-between; padding: 10px 16px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
+              <span>#${idx + 1} ${p.name}</span>
+              <span style="color:var(--yellow-bright);"><strong>${p.score} pts</strong> (${p.correctCount} correct)</span>
+            </div>
+          `).join('');
+
+          document.getElementById('leaderboard-container').innerHTML = `
+            <div style="background: #0f0f0f; border-radius: 12px; border: 1px solid rgba(250,204,21,0.3);">${rows}</div>
+          `;
         }
-      } catch (err) {
-        console.error('Polling error:', err);
+      } catch (e) {
+        console.error('Polling error', e);
       }
     }
 
     function renderQuestion(q) {
       if (!q) return;
 
-      document.getElementById('level-badge').innerText = `Q${q.index} • ${q.level || 'TRIVIA'}`;
-      document.getElementById('question-title').innerText = q.question;
+      document.getElementById('level-badge').textContent = q.level || 'QUESTION';
+      document.getElementById('question-text').textContent = q.question;
 
-      const container = document.getElementById('options-container');
-      container.innerHTML = '';
-
-      q.options.forEach((optText, idx) => {
-        const btn = document.createElement('button');
-        btn.className = 'opt-btn';
-        btn.innerText = optText;
-        btn.onclick = () => selectOption(idx, btn);
-        container.appendChild(btn);
-      });
+      for (let i = 0; i < 4; i++) {
+        const tile = document.getElementById(`tile-${i}`);
+        const span = document.getElementById(`opt-${i}`);
+        span.textContent = q.options[i];
+        tile.className = 'host-tile';
+        tile.disabled = false;
+      }
 
       const confirmBtn = document.getElementById('confirm-btn');
       confirmBtn.disabled = true;
-      confirmBtn.innerText = 'CONFIRM ANSWER';
+      confirmBtn.textContent = 'Confirm Answer';
     }
 
-    function selectOption(index, btnElement) {
+    function selectOption(index) {
       if (hasAnsweredCurrentRound) return;
 
       selectedOption = index;
-      document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
-      btnElement.classList.add('selected');
+      for (let i = 0; i < 4; i++) {
+        const tile = document.getElementById(`tile-${i}`);
+        if (i === index) tile.classList.add('selected');
+        else tile.classList.remove('selected');
+      }
 
       const confirmBtn = document.getElementById('confirm-btn');
       confirmBtn.disabled = false;
@@ -502,7 +393,7 @@
 
       const confirmBtn = document.getElementById('confirm-btn');
       confirmBtn.disabled = true;
-      confirmBtn.innerText = 'RECORDING...';
+      confirmBtn.textContent = 'Locking In...';
 
       try {
         const res = await fetch('/api/submit-answer', {
@@ -521,29 +412,32 @@
           showCard('wait-card');
         } else {
           confirmBtn.disabled = false;
-          confirmBtn.innerText = 'CONFIRM ANSWER';
-          alert(data.error || 'Submission error.');
+          confirmBtn.textContent = 'Confirm Answer';
+          alert(data.error || 'Failed to submit answer.');
         }
       } catch (err) {
         confirmBtn.disabled = false;
-        confirmBtn.innerText = 'CONFIRM ANSWER';
-        alert('Network connection error.');
+        confirmBtn.textContent = 'Confirm Answer';
+        alert('Network error while submitting answer.');
       }
     }
 
     function highlightAnswers(correctIndex) {
-      const buttons = document.querySelectorAll('.opt-btn');
-      buttons.forEach((btn, idx) => {
-        btn.onclick = null;
-        if (idx === correctIndex) {
-          btn.classList.add('correct');
-        } else if (idx === selectedOption) {
-          btn.classList.add('wrong');
+      for (let i = 0; i < 4; i++) {
+        const tile = document.getElementById(`tile-${i}`);
+        tile.disabled = true;
+        if (i === correctIndex) {
+          tile.className = 'host-tile correct';
+        } else if (i === selectedOption) {
+          tile.className = 'host-tile wrong';
+        } else {
+          tile.className = 'host-tile';
+          tile.style.opacity = '0.3';
         }
-      });
+      }
       const confirmBtn = document.getElementById('confirm-btn');
       confirmBtn.disabled = true;
-      confirmBtn.innerText = 'ANSWER REVEALED';
+      confirmBtn.textContent = 'Answer Revealed';
     }
   </script>
 </body>
