@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,28 +13,36 @@
     }
 
     body {
-      background-color: #07080b;
+      background-color: #07080a;
+      /* Ambient radial backdrop glow centered behind the card */
+      background-image: radial-gradient(circle at 50% 45%, rgba(255, 190, 0, 0.08) 0%, rgba(7, 8, 10, 0.98) 70%);
       color: #ffffff;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 20px 14px;
+      padding: 24px 14px;
     }
 
-    /* Outer Wrapper matching Host's outer container */
+    /* Glassmorphic Container with Host Golden Ambient Halo */
     .host-card {
       width: 100%;
       max-width: 560px;
-      background: #0f1015;
-      border: 1px solid #232014;
-      border-radius: 20px;
-      padding: 24px;
-      box-shadow: 0 0 50px rgba(0, 0, 0, 0.85);
+      background: rgba(16, 17, 23, 0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1.5px solid rgba(255, 190, 0, 0.35);
+      border-radius: 22px;
+      padding: 26px;
+      /* Multi-layered external and perimeter glow */
+      box-shadow: 
+        0 0 20px rgba(255, 190, 0, 0.12),
+        0 0 50px rgba(255, 190, 0, 0.08),
+        0 20px 40px rgba(0, 0, 0, 0.85);
     }
 
-    /* Top Logo Banner identical to Host */
+    /* Top Logo Banner matching Host frame */
     .banner-container {
       width: 100%;
       background: #ffbe00;
@@ -46,6 +53,7 @@
       justify-content: center;
       padding: 6px 12px;
       margin-bottom: 24px;
+      box-shadow: 0 4px 15px rgba(255, 190, 0, 0.2);
     }
 
     .banner-container img {
@@ -55,7 +63,6 @@
       display: block;
     }
 
-    /* Headers matching Host screen */
     .title-section {
       text-align: center;
       margin-bottom: 22px;
@@ -68,6 +75,7 @@
       text-transform: uppercase;
       letter-spacing: 1px;
       margin-bottom: 4px;
+      text-shadow: 0 0 10px rgba(255, 190, 0, 0.3);
     }
 
     .sub-title {
@@ -83,7 +91,7 @@
       display: block;
     }
 
-    /* Form Fields */
+    /* Form Fields with Frosted Glass Look */
     .input-block {
       margin-bottom: 16px;
     }
@@ -101,27 +109,28 @@
     input[type="text"] {
       width: 100%;
       padding: 14px 16px;
-      background: #08090d;
+      background: rgba(8, 9, 13, 0.75);
       border: 1px solid #242735;
       border-radius: 8px;
       color: #ffffff;
       font-size: 0.95rem;
       outline: none;
-      transition: border-color 0.2s;
+      transition: all 0.2s ease;
     }
 
     input[type="text"]:focus {
       border-color: #ffbe00;
+      box-shadow: 0 0 12px rgba(255, 190, 0, 0.25);
     }
 
     input[type="text"]::placeholder {
       color: #4f5366;
     }
 
-    /* Primary Gold Button identical to "GENERATE SESSION & PIN" */
+    /* Glowing Primary Gold Action Button */
     .btn-gold {
       width: 100%;
-      height: 50px;
+      height: 52px;
       background: #ffbe00;
       color: #000000;
       font-size: 0.92rem;
@@ -131,34 +140,45 @@
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      margin-top: 10px;
-      transition: background 0.2s, transform 0.05s;
+      margin-top: 12px;
+      /* Radiant light bloom under button */
+      box-shadow: 
+        0 0 18px rgba(255, 190, 0, 0.45),
+        0 4px 12px rgba(0, 0, 0, 0.5);
+      transition: all 0.2s ease;
     }
 
     .btn-gold:hover {
-      background: #e6ab00;
+      background: #f7b700;
+      box-shadow: 
+        0 0 26px rgba(255, 190, 0, 0.65),
+        0 6px 16px rgba(0, 0, 0, 0.6);
+      transform: translateY(-1px);
     }
 
     .btn-gold:active {
-      transform: scale(0.99);
+      transform: translateY(1px);
+      box-shadow: 0 0 14px rgba(255, 190, 0, 0.35);
     }
 
     .btn-gold:disabled {
-      background: #252733;
+      background: #232530;
       color: #555b6e;
+      box-shadow: none;
       cursor: not-allowed;
+      transform: none;
     }
 
-    /* Player Status Bar */
+    /* Status Bar */
     .status-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #08090d;
+      background: rgba(8, 9, 13, 0.75);
       border: 1px solid #242735;
-      padding: 10px 14px;
+      padding: 12px 16px;
       border-radius: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
       font-size: 0.85rem;
       font-weight: 800;
     }
@@ -169,6 +189,7 @@
 
     .status-bar .score {
       color: #ffbe00;
+      text-shadow: 0 0 8px rgba(255, 190, 0, 0.35);
     }
 
     /* Question Typography */
@@ -177,46 +198,47 @@
       font-size: 0.72rem;
       font-weight: 800;
       color: #ffbe00;
-      background: rgba(255, 190, 0, 0.1);
-      border: 1px solid rgba(255, 190, 0, 0.25);
-      padding: 3px 8px;
+      background: rgba(255, 190, 0, 0.12);
+      border: 1px solid rgba(255, 190, 0, 0.3);
+      padding: 4px 10px;
       border-radius: 4px;
       text-transform: uppercase;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
     }
 
     .question-title {
-      font-size: 1.05rem;
+      font-size: 1.08rem;
       font-weight: 700;
       line-height: 1.45;
-      margin-bottom: 18px;
+      margin-bottom: 20px;
       color: #ffffff;
     }
 
-    /* Options List */
+    /* Option Items with Frosted Backing */
     .options-list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      margin-bottom: 18px;
+      gap: 12px;
+      margin-bottom: 20px;
     }
 
     .opt-btn {
       width: 100%;
       padding: 14px 16px;
       text-align: left;
-      background: #08090d;
+      background: rgba(8, 9, 13, 0.75);
       border: 1px solid #242735;
       border-radius: 8px;
       color: #d1d5db;
       font-size: 0.92rem;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.15s ease;
     }
 
     .opt-btn:hover {
-      background: #14161f;
-      border-color: #383c50;
+      background: rgba(20, 22, 31, 0.9);
+      border-color: #3e4258;
     }
 
     .opt-btn.selected {
@@ -224,6 +246,7 @@
       background: rgba(255, 190, 0, 0.12) !important;
       color: #ffbe00 !important;
       font-weight: 700;
+      box-shadow: 0 0 12px rgba(255, 190, 0, 0.25);
     }
 
     .opt-btn.correct {
@@ -231,6 +254,7 @@
       border: 2px solid #2ed573 !important;
       color: #2ed573 !important;
       font-weight: 700;
+      box-shadow: 0 0 14px rgba(46, 213, 115, 0.3);
     }
 
     .opt-btn.wrong {
@@ -238,12 +262,13 @@
       border: 2px solid #ff4757 !important;
       color: #ff4757 !important;
       font-weight: 700;
+      box-shadow: 0 0 14px rgba(255, 71, 87, 0.3);
     }
 
-    /* Information / Waiting message boxes */
+    /* Message Boxes */
     .info-box {
       text-align: center;
-      padding: 36px 12px;
+      padding: 38px 12px;
     }
 
     .info-box h2 {
@@ -252,6 +277,7 @@
       margin-bottom: 8px;
       text-transform: uppercase;
       font-weight: 900;
+      text-shadow: 0 0 10px rgba(255, 190, 0, 0.3);
     }
 
     .info-box p {
@@ -264,7 +290,6 @@
 
   <div class="host-card">
     
-    <!-- Exact banner container as host screen -->
     <div class="banner-container">
       <img src="logo.jpeg" alt="ALIET Techpreneur Club" onerror="this.src='logo_vertical.jpeg'; this.onerror=null;">
     </div>
