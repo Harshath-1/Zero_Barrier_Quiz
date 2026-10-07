@@ -5,8 +5,19 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
-app.use(express.static(__dirname, { maxAge: '1h' }));
+// Disable caching for all API routes so polling never serves stale sessions
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
+// Serve static assets
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
+app.use(express.static(__dirname, { maxAge: '0' }));
 
 const rooms = new Map();
 
@@ -21,7 +32,7 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer };
 }
 
-// Reliable topic trivia bank if API credits are zero
+// Built-in trivia dictionary for instant fallback if API credits expire
 const topicTriviaPacks = {
   maths: [
     { question: "What is the only even prime number?", options: ["2", "4", "0", "1"], answer: 0, level: "EASY" },
@@ -80,20 +91,20 @@ function generateFallbackTrivia(t1, t2, t3) {
   return out.map(shuffleOptions);
 }
 
-// Generate 20 authentic questions via Grok with full fallback protection
+// Generate 20 authentic questions via Grok with proper model parameters
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.API_KEY || process.env.GROK_API_KEY || '').trim();
-  const topic1 = (t1 && t1.trim()) || 'Maths';
-  const topic2 = (t2 && t2.trim()) || 'Physics';
-  const topic3 = (t3 && t3.trim()) || 'Chemistry';
+  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
+  const topic2 = (t2 && t2.trim()) || 'Science';
+  const topic3 = (t3 && t3.trim()) || 'History';
 
   if (apiKey) {
     const modelCandidates = ['grok-4.1-fast', 'grok-4.3', 'grok-beta', 'grok-2'];
-    const prompt = `You are a trivia master. Create exactly 20 trivia questions: 8 EASY on "${topic1}", 6 MODERATE on "${topic2}", 6 HARD on "${topic3}". Every question must be a real factual trivia fact. Output ONLY a raw JSON array of objects with keys: "question", "options" (array of 4 strings), "answer" (0-3 index), and "level". No markdown backticks.`;
+    const prompt = `You are a trivia master. Create exactly 20 distinct trivia questions: 8 EASY on "${topic1}", 6 MODERATE on "${topic2}", 6 HARD on "${topic3}". Every question must be a real factual trivia fact specifically about that topic. Output ONLY a raw JSON array of objects with keys: "question", "options" (array of 4 strings), "answer" (0-3 index), and "level". No markdown backticks.`;
 
     for (const model of modelCandidates) {
       try {
-        console.log(`[AI Call] Requesting 20 questions via Grok (${model})...`);
+        console.log(`[AI Call] Requesting 20 questions via Grok (${model}) for: ${topic1}, ${topic2}, ${topic3}...`);
         const res = await fetch('https://api.x.ai/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -117,7 +128,7 @@ async function generateQuizQuestions(t1, t2, t3) {
 
           const parsed = JSON.parse(text);
           if (Array.isArray(parsed) && parsed.length >= 10) {
-            console.log(`✅ [Grok SUCCESS] Generated ${parsed.length} questions using ${model}!`);
+            console.log(`✅ [Grok SUCCESS] Generated ${parsed.length} questions for: ${topic1}, ${topic2}, ${topic3}!`);
             return parsed.map(shuffleOptions);
           }
         } else {
@@ -129,32 +140,39 @@ async function generateQuizQuestions(t1, t2, t3) {
     }
   }
 
-  // Gracefully return verified trivia questions so setup never crashes
-  console.log(`Serving verified trivia set for: ${topic1}, ${topic2}, ${topic3}`);
   return generateFallbackTrivia(topic1, topic2, topic3);
 }
 
 // ----------------- REST API ROUTES -----------------
 
-// 1. Create Room (Host)
+// 1. Create Room (Host) - Always forces a clean reset
 app.post('/api/create-room', async (req, res) => {
   try {
     const { customPin, topic1, topic2, topic3 } = req.body || {};
     const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
-    console.log(`[Session Setup] PIN: ${pin} | Topics: ${topic1}, ${topic2}, ${topic3}`);
+    console.log(`[Session Setup] Resetting PIN: ${pin} | New Topics: ${topic1}, ${topic2}, ${topic3}`);
+
+    // Force purge of any previous room data under this PIN
+    if (rooms.has(pin)) {
+      rooms.delete(pin);
+    }
 
     const questions = await generateQuizQuestions(topic1, topic2, topic3);
 
+    // Save newly generated session
     rooms.set(pin, {
       pin,
+      topics: [topic1, topic2, topic3],
       questions,
       currentIndex: 0,
       state: 'LOBBY',
       revealedAnswer: null,
       players: {},
-      answersThisRound: {}
+      answersThisRound: {},
+      createdAt: Date.now()
     });
 
+    console.log(`✅ Fresh room registered under PIN ${pin}.`);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
     console.error('[Create Room Error]:', err.message);
