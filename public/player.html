@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zero Barrier Quiz - Player</title>
+  <title>ALIET Techpreneur Club - Player</title>
   <style>
     * {
       box-sizing: border-box;
@@ -13,36 +13,94 @@
     }
 
     body {
-      background-color: #0d0e12;
+      background-color: #0b0c10;
       color: #ffffff;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 24px 16px;
     }
 
-    .container {
+    .main-wrapper {
       width: 100%;
-      max-width: 480px;
-      background: #171922;
-      border: 1px solid #2a2e3d;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
-    .header {
-      text-align: center;
+    /* ALIET Techpreneur Club Header Banner */
+    .club-banner {
+      width: 100%;
+      background: #ffffff;
+      border: 6px solid #f6b800;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
       margin-bottom: 24px;
+      gap: 16px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
     }
 
-    .header h1 {
-      font-size: 1.4rem;
-      color: #f7b928;
+    .club-banner img {
+      max-height: 68px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    .club-banner .banner-text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      line-height: 1.05;
+    }
+
+    .club-banner .banner-text .brand-aliet {
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: #000000;
+      letter-spacing: 1.5px;
+    }
+
+    .club-banner .banner-text .brand-club {
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: #000000;
+      letter-spacing: 1px;
+    }
+
+    /* Main Content Card */
+    .quiz-card-box {
+      width: 100%;
+      background: #121319;
+      border: 1px solid #252836;
+      border-radius: 14px;
+      padding: 24px 20px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
+    }
+
+    .title-area {
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #f6b800;
       text-transform: uppercase;
       letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .section-subtitle {
+      font-size: 0.78rem;
+      color: #8b92a5;
+      letter-spacing: 0.4px;
     }
 
     .card {
@@ -53,201 +111,258 @@
       display: block;
     }
 
-    .input-group {
-      margin-bottom: 16px;
+    /* Labels & Form Elements */
+    .field-group {
+      margin-bottom: 18px;
     }
 
     label {
       display: block;
-      font-size: 0.85rem;
-      color: #a0a6b5;
-      margin-bottom: 6px;
-    }
-
-    input {
-      width: 100%;
-      padding: 14px;
-      background: #0d0e12;
-      border: 1px solid #2a2e3d;
-      border-radius: 8px;
-      color: #ffffff;
-      font-size: 1rem;
-      outline: none;
-    }
-
-    input:focus {
-      border-color: #f7b928;
-    }
-
-    .btn {
-      width: 100%;
-      padding: 14px;
-      background: #f7b928;
-      color: #0d0e12;
-      font-size: 1rem;
-      font-weight: 700;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .btn:hover {
-      background: #dfa31b;
-    }
-
-    .btn:disabled {
-      background: #3b3f4d;
-      color: #7b8191;
-      cursor: not-allowed;
-    }
-
-    .question-badge {
       font-size: 0.75rem;
-      font-weight: 700;
-      color: #f7b928;
-      background: rgba(247, 185, 40, 0.1);
-      padding: 4px 8px;
-      border-radius: 4px;
-      display: inline-block;
-      margin-bottom: 12px;
+      font-weight: 800;
+      color: #f6b800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
     }
 
-    .question-text {
-      font-size: 1.15rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      line-height: 1.4;
-    }
-
-    .options-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .option-btn {
+    input[type="text"] {
       width: 100%;
-      padding: 14px;
-      text-align: left;
-      background: #232736;
-      border: 2px solid transparent;
+      padding: 13px 14px;
+      background: #0d0e12;
+      border: 1px solid #2a2d3c;
       border-radius: 8px;
       color: #ffffff;
       font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #f6b800;
+    }
+
+    /* Golden Action Button */
+    .gold-btn {
+      width: 100%;
+      padding: 14px;
+      background: #f6b800;
+      color: #000000;
+      font-size: 0.95rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 8px;
+    }
+
+    .gold-btn:hover {
+      background: #e0a700;
+    }
+
+    .gold-btn:active {
+      transform: scale(0.98);
+    }
+
+    .gold-btn:disabled {
+      background: #2b2e3b;
+      color: #6a7082;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Player Info Bar */
+    .player-status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0d0e12;
+      border: 1px solid #222533;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .player-status-bar .tag-name {
+      color: #ffffff;
+    }
+
+    .player-status-bar .tag-score {
+      color: #f6b800;
+    }
+
+    /* Question Display */
+    .badge-tier {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #f6b800;
+      background: rgba(246, 184, 0, 0.12);
+      border: 1px solid rgba(246, 184, 0, 0.3);
+      padding: 4px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .question-heading {
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1.45;
+      margin-bottom: 18px;
+      color: #f4f5f7;
+    }
+
+    /* Options Stack */
+    .options-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .option-item {
+      width: 100%;
+      padding: 13px 14px;
+      text-align: left;
+      background: #0d0e12;
+      border: 1px solid #2a2d3c;
+      border-radius: 8px;
+      color: #e2e5eb;
+      font-size: 0.92rem;
       cursor: pointer;
       transition: all 0.2s;
     }
 
-    .option-btn:hover {
-      background: #2b3042;
+    .option-item:hover {
+      background: #181a24;
+      border-color: #3e4258;
     }
 
-    .option-btn.selected {
-      border-color: #f7b928;
-      background: rgba(247, 185, 40, 0.15);
-      color: #f7b928;
-      font-weight: 600;
+    .option-item.selected {
+      border: 2px solid #f6b800 !important;
+      background: rgba(246, 184, 0, 0.12) !important;
+      color: #f6b800 !important;
+      font-weight: 700;
     }
 
-    .option-btn.correct {
+    .option-item.correct {
       background: rgba(46, 213, 115, 0.2) !important;
-      border-color: #2ed573 !important;
+      border: 2px solid #2ed573 !important;
       color: #2ed573 !important;
+      font-weight: 700;
     }
 
-    .option-btn.wrong {
+    .option-item.wrong {
       background: rgba(255, 71, 87, 0.2) !important;
-      border-color: #ff4757 !important;
+      border: 2px solid #ff4757 !important;
       color: #ff4757 !important;
+      font-weight: 700;
     }
 
-    .status-box {
+    /* Status Notifications */
+    .state-message {
       text-align: center;
       padding: 30px 10px;
     }
 
-    .status-box h2 {
-      font-size: 1.3rem;
-      margin-bottom: 10px;
+    .state-message h2 {
+      font-size: 1.2rem;
+      color: #f6b800;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      font-weight: 800;
     }
 
-    .status-box p {
-      color: #a0a6b5;
-      font-size: 0.9rem;
-    }
-
-    .score-banner {
-      display: flex;
-      justify-content: space-between;
-      background: #232736;
-      padding: 10px 16px;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      font-size: 0.85rem;
+    .state-message p {
+      color: #8b92a5;
+      font-size: 0.88rem;
     }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <div class="header">
-      <h1>Quiz Player</h1>
-    </div>
-
-    <!-- 1. JOIN CARD -->
-    <div id="join-card" class="card active">
-      <div class="input-group">
-        <label>Game PIN</label>
-        <input type="text" id="pin-input" placeholder="e.g. 123456" autocomplete="off">
-      </div>
-      <div class="input-group">
-        <label>Your Name</label>
-        <input type="text" id="name-input" placeholder="Enter your name" autocomplete="off">
-      </div>
-      <button class="btn" id="join-btn" onclick="joinGame()">Enter Game</button>
-    </div>
-
-    <!-- 2. LOBBY WAITING CARD -->
-    <div id="lobby-card" class="card">
-      <div class="status-box">
-        <h2>You're in!</h2>
-        <p>Waiting for the host to start the first question...</p>
+  <div class="main-wrapper">
+    
+    <!-- Top Techpreneur Club Banner Matching Host -->
+    <div class="club-banner">
+      <img src="logo.jpeg" alt="ALIET Logo" onerror="this.src='logo_vertical.jpeg'; this.onerror=null;">
+      <div class="banner-text">
+        <span class="brand-aliet">ALIET</span>
+        <span class="brand-club">TECHPRENEUR CLUB</span>
       </div>
     </div>
 
-    <!-- 3. QUESTION CARD -->
-    <div id="question-card" class="card">
-      <div class="score-banner">
-        <span id="player-tag">Player</span>
-        <span id="score-tag">Score: 0</span>
+    <!-- Main Container -->
+    <div class="quiz-card-box">
+      
+      <!-- 1. JOIN VIEW -->
+      <div id="join-card" class="card active">
+        <div class="title-area">
+          <div class="section-title">PLAYER QUIZ PORTAL</div>
+          <div class="section-subtitle">Enter active session PIN & your name</div>
+        </div>
+
+        <div class="field-group">
+          <label for="pin-input">SESSION PIN</label>
+          <input type="text" id="pin-input" placeholder="e.g. 123123" autocomplete="off">
+        </div>
+
+        <div class="field-group">
+          <label for="name-input">PLAYER NAME</label>
+          <input type="text" id="name-input" placeholder="Enter your full name" autocomplete="off">
+        </div>
+
+        <button class="gold-btn" id="join-btn" onclick="joinGame()">ENTER SESSION</button>
       </div>
 
-      <div class="question-badge" id="level-badge">QUESTION</div>
-      <div class="question-text" id="question-title">Loading question...</div>
-
-      <div class="options-grid" id="options-container">
-        <!-- Rendered dynamically -->
+      <!-- 2. LOBBY VIEW -->
+      <div id="lobby-card" class="card">
+        <div class="state-message">
+          <h2>YOU ARE IN!</h2>
+          <p>Waiting for the host to launch the first round...</p>
+        </div>
       </div>
 
-      <button class="btn" id="confirm-btn" onclick="submitAnswer()" disabled>Confirm Answer</button>
-    </div>
+      <!-- 3. QUESTION VIEW -->
+      <div id="question-card" class="card">
+        <div class="player-status-bar">
+          <span id="player-tag" class="tag-name">Player</span>
+          <span id="score-tag" class="tag-score">SCORE: 0</span>
+        </div>
 
-    <!-- 4. SUBMITTED WAITING CARD -->
-    <div id="wait-card" class="card">
-      <div class="status-box">
-        <h2>Answer Locked In!</h2>
-        <p>Waiting for host to reveal the correct answer...</p>
-      </div>
-    </div>
+        <div class="badge-tier" id="level-badge">QUESTION 1</div>
+        <div class="question-heading" id="question-title">Loading question...</div>
 
-    <!-- 5. FINISHED CARD -->
-    <div id="finished-card" class="card">
-      <div class="status-box">
-        <h2>Quiz Completed!</h2>
-        <p id="final-stats">Check the host screen for final rankings!</p>
+        <div class="options-stack" id="options-container">
+          <!-- Injected dynamically -->
+        </div>
+
+        <button class="gold-btn" id="confirm-btn" onclick="submitAnswer()" disabled>CONFIRM ANSWER</button>
       </div>
+
+      <!-- 4. ANSWER RECORDED VIEW -->
+      <div id="wait-card" class="card">
+        <div class="state-message">
+          <h2>ANSWER LOCKED IN!</h2>
+          <p>Waiting for host to reveal results...</p>
+        </div>
+      </div>
+
+      <!-- 5. FINISHED VIEW -->
+      <div id="finished-card" class="card">
+        <div class="state-message">
+          <h2>QUIZ CONCLUDED!</h2>
+          <p>Check the host presentation screen for the winners.</p>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -270,12 +385,13 @@
       const name = document.getElementById('name-input').value.trim();
 
       if (!pin || !name) {
-        alert('Please enter both PIN and Name.');
+        alert('Please fill in both Session PIN and Your Name.');
         return;
       }
 
-      document.getElementById('join-btn').disabled = true;
-      document.getElementById('join-btn').innerText = 'Connecting...';
+      const joinBtn = document.getElementById('join-btn');
+      joinBtn.disabled = true;
+      joinBtn.innerText = 'CONNECTING...';
 
       try {
         const res = await fetch('/api/join-room', {
@@ -286,9 +402,9 @@
 
         const data = await res.json();
         if (!res.ok || !data.success) {
-          alert(data.error || 'Failed to join room.');
-          document.getElementById('join-btn').disabled = false;
-          document.getElementById('join-btn').innerText = 'Enter Game';
+          alert(data.error || 'Failed to join session.');
+          joinBtn.disabled = false;
+          joinBtn.innerText = 'ENTER SESSION';
           return;
         }
 
@@ -299,9 +415,9 @@
         showCard('lobby-card');
         startPolling();
       } catch (err) {
-        alert('Could not connect to server.');
-        document.getElementById('join-btn').disabled = false;
-        document.getElementById('join-btn').innerText = 'Enter Game';
+        alert('Cannot reach the quiz server.');
+        joinBtn.disabled = false;
+        joinBtn.innerText = 'ENTER SESSION';
       }
     }
 
@@ -320,121 +436,30 @@
 
         const data = await res.json();
 
-        // Update player score from leaderboard
+        // Update score badge
         if (Array.isArray(data.leaderboard)) {
           const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
           if (me) {
-            document.getElementById('score-tag').innerText = `Score: ${me.score}`;
+            document.getElementById('score-tag').innerText = `SCORE: ${me.score}`;
           }
         }
 
         if (data.state === 'LOBBY') {
           showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
-          // New question round
           if (data.currentIndex !== lastSeenQuestionIndex) {
             lastSeenQuestionIndex = data.currentIndex;
             hasAnsweredCurrentRound = false;
             selectedOption = null;
             renderQuestion(data.question);
             showCard('question-card');
-          } else if (!hasAnsweredCurrentRound) {
-            showCard('question-card');
+          } else {
+            if (hasAnsweredCurrentRound) {
+              showCard('wait-card');
+            } else {
+              showCard('question-card');
+            }
           }
         } else if (data.state === 'REVEAL') {
           if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
             highlightAnswers(data.revealedAnswer);
-            showCard('question-card');
-          }
-        } else if (data.state === 'FINISHED') {
-          showCard('finished-card');
-          clearInterval(pollInterval);
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
-    }
-
-    function renderQuestion(q) {
-      if (!q) return;
-
-      document.getElementById('level-badge').innerText = `Q${q.index} • ${q.level || 'TRIVIA'}`;
-      document.getElementById('question-title').innerText = q.question;
-
-      const container = document.getElementById('options-container');
-      container.innerHTML = '';
-
-      q.options.forEach((optText, idx) => {
-        const btn = document.createElement('button');
-        btn.className = 'option-btn';
-        btn.innerText = optText;
-        btn.onclick = () => selectOption(idx, btn);
-        container.appendChild(btn);
-      });
-
-      const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.disabled = true;
-      confirmBtn.innerText = 'Confirm Answer';
-    }
-
-    function selectOption(index, btnElement) {
-      if (hasAnsweredCurrentRound) return;
-
-      selectedOption = index;
-      document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
-      btnElement.classList.add('selected');
-
-      document.getElementById('confirm-btn').disabled = false;
-    }
-
-    async function submitAnswer() {
-      if (selectedOption === null || hasAnsweredCurrentRound) return;
-
-      const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.disabled = true;
-      confirmBtn.innerText = 'Submitting...';
-
-      try {
-        const res = await fetch('/api/submit-answer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pin: currentPin,
-            name: playerName,
-            answerIndex: selectedOption
-          })
-        });
-
-        const data = await res.json();
-        if (res.ok && data.success) {
-          hasAnsweredCurrentRound = true;
-          showCard('wait-card');
-        } else {
-          confirmBtn.disabled = false;
-          confirmBtn.innerText = 'Confirm Answer';
-          alert(data.error || 'Could not submit answer.');
-        }
-      } catch (err) {
-        console.error('Submit error:', err);
-        confirmBtn.disabled = false;
-        confirmBtn.innerText = 'Confirm Answer';
-        alert('Network error while submitting answer.');
-      }
-    }
-
-    function highlightAnswers(correctIndex) {
-      const buttons = document.querySelectorAll('.option-btn');
-      buttons.forEach((btn, idx) => {
-        btn.onclick = null; // disable further clicks
-        if (idx === correctIndex) {
-          btn.classList.add('correct');
-        } else if (idx === selectedOption) {
-          btn.classList.add('wrong');
-        }
-      });
-      document.getElementById('confirm-btn').disabled = true;
-      document.getElementById('confirm-btn').innerText = 'Answer Revealed';
-    }
-  </script>
-</body>
-</html>
