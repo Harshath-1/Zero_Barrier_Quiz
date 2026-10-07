@@ -24,7 +24,7 @@ function shuffleOptions(questionObj) {
   return { ...questionObj, options: newOptions, answer: newAnswer };
 }
 
-// Rich, authentic general trivia bank across diverse topics
+// Emergency safety fallback bank
 const realTriviaPool = [
   { question: "Which element on the periodic table has the chemical symbol 'Fe'?", options: ["Iron", "Lead", "Gold", "Fluorine"], answer: 0, level: "EASY" },
   { question: "In computing, what does the acronym 'URL' stand for?", options: ["Uniform Resource Locator", "Universal Reference Link", "Unified Routing Logic", "User Request Link"], answer: 0, level: "EASY" },
@@ -34,7 +34,7 @@ const realTriviaPool = [
   { question: "What is the currency of Japan?", options: ["Yen", "Won", "Yuan", "Ringgit"], answer: 0, level: "EASY" },
   { question: "Which gas do plants primarily absorb during the process of photosynthesis?", options: ["Carbon Dioxide", "Oxygen", "Nitrogen", "Hydrogen"], answer: 0, level: "EASY" },
   { question: "Which mountain is the tallest peak in the world above sea level?", options: ["Mount Everest", "K2", "Kangchenjunga", "Makalu"], answer: 0, level: "EASY" },
-  { question: "Which company developed the Android mobile operating system before Google acquired it?", options: ["Android Inc.", "Symbian", "Palm", "Motorola"], answer: 0, level: "MODERATE" },
+  { question: "Which company developed Android before Google acquired it?", options: ["Android Inc.", "Symbian", "Palm", "Motorola"], answer: 0, level: "MODERATE" },
   { question: "What is the speed of light in vacuum approximately?", options: ["300,000 km/s", "150,000 km/s", "500,000 km/s", "1,000,000 km/s"], answer: 0, level: "MODERATE" },
   { question: "Which canal connects the Mediterranean Sea directly to the Red Sea?", options: ["Suez Canal", "Panama Canal", "Kiel Canal", "Erie Canal"], answer: 0, level: "MODERATE" },
   { question: "What is the primary constituent of natural gas?", options: ["Methane", "Ethane", "Propane", "Butane"], answer: 0, level: "MODERATE" },
@@ -44,48 +44,28 @@ const realTriviaPool = [
   { question: "Who was the first woman to win a Nobel Prize?", options: ["Marie Curie", "Rosalind Franklin", "Ada Lovelace", "Jane Goodall"], answer: 0, level: "HARD" },
   { question: "What year did the Apollo 11 mission successfully land humans on the Moon?", options: ["1969", "1965", "1972", "1975"], answer: 0, level: "HARD" },
   { question: "In physics, what physical property does the SI unit 'Tesla' measure?", options: ["Magnetic Flux Density", "Electric Potential", "Inductance", "Capacitance"], answer: 0, level: "HARD" },
-  { question: "Which ocean trench contains the deepest point on Earth, the Challenger Deep?", options: ["Mariana Trench", "Java Trench", "Puerto Rico Trench", "Philippine Trench"], answer: 0, level: "HARD" },
+  { question: "Which ocean trench contains the deepest point on Earth?", options: ["Mariana Trench", "Java Trench", "Puerto Rico Trench", "Philippine Trench"], answer: 0, level: "HARD" },
   { question: "In computer science, what is the time complexity of binary search on a sorted array?", options: ["O(log n)", "O(n)", "O(n log n)", "O(1)"], answer: 0, level: "HARD" }
 ];
 
-// Single clean Gemini prompt function
-async function fetchGeminiBatch(apiKey, prompt) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-  
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.8
-      }
-    })
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `HTTP ${res.status}`);
-  }
-
-  let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const start = text.indexOf('[');
-  const end = text.lastIndexOf(']');
+// Helper to extract JSON array
+function extractJsonArray(rawText) {
+  if (!rawText) return null;
+  let clean = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const start = clean.indexOf('[');
+  const end = clean.lastIndexOf(']');
   if (start !== -1 && end !== -1) {
-    text = text.substring(start, end + 1);
+    clean = clean.substring(start, end + 1);
   }
-
-  return JSON.parse(text);
+  return JSON.parse(clean);
 }
 
-// Generate 20 distinct, high-quality questions
+// Generate 20 distinct, topic-specific questions using gemini-3.8-flash
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
-  const topic2 = (t2 && t2.trim()) || 'Technology';
-  const topic3 = (t3 && t3.trim()) || 'World Geography';
+  const topic1 = (t1 && t1.trim()) || 'Mathematics';
+  const topic2 = (t2 && t2.trim()) || 'Chemistry';
+  const topic3 = (t3 && t3.trim()) || 'Physics';
 
   if (!apiKey) {
     console.error('❌ [AI Error] GEMINI_API_KEY is missing from environment!');
@@ -98,34 +78,89 @@ async function generateQuizQuestions(t1, t2, t3) {
 - 6 HARD trivia questions on: "${topic3}"
 
 Guidelines:
-1. Every question must be an interesting, real-world fact or puzzle.
-2. Provide 4 plausible options for each.
+1. Every question must be an authentic, interesting trivia fact or problem directly about that topic.
+2. Provide 4 plausible options for each question.
 3. The "answer" must be the index (0, 1, 2, or 3) of the correct choice.
-4. Output strictly a JSON array without markdown formatting.
+4. Output strictly a JSON array without any markdown formatting or introductory text.
 
 Format:
 [
   {
-    "question": "What is the rarest blood type in humans?",
-    "options": ["AB negative", "O positive", "B positive", "A negative"],
+    "question": "What is the value of Pi rounded to two decimal places?",
+    "options": ["3.14", "3.16", "3.12", "3.18"],
     "answer": 0,
     "level": "EASY"
   }
 ]`;
 
+  // 1. PRIMARY: Official Google Interactions API as recommended in your Render logs
   try {
-    console.log(`[AI Call] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
-    const questions = await fetchGeminiBatch(apiKey, prompt);
+    console.log(`[AI Call] Requesting 20 questions via Interactions API (gemini-3.8-flash)...`);
+    const interUrl = `https://generativelanguage.googleapis.com/v1beta/interactions`;
+    const res = await fetch(interUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        model: 'models/gemini-3.8-flash',
+        input: prompt,
+        generation_config: {
+          response_mime_type: 'application/json',
+          temperature: 0.7
+        }
+      })
+    });
 
-    if (Array.isArray(questions) && questions.length >= 10) {
-      console.log(`✅ [AI SUCCESS] Successfully generated ${questions.length} authentic trivia questions!`);
-      return questions.map(shuffleOptions);
+    const data = await res.json();
+    if (res.ok) {
+      const text = data.output_text || data.candidates?.[0]?.content?.parts?.[0]?.text || data.text;
+      const parsed = extractJsonArray(text);
+      if (Array.isArray(parsed) && parsed.length >= 10) {
+        console.log(`✅ [AI SUCCESS - Interactions API] Generated ${parsed.length} questions for: ${topic1}, ${topic2}, ${topic3}!`);
+        return parsed.map(shuffleOptions);
+      }
+    } else {
+      console.warn(`⚠️ Interactions API returned HTTP ${res.status}:`, data?.error?.message || data);
     }
   } catch (err) {
-    console.error('⚠️ [Gemini Error]:', err.message);
+    console.warn(`⚠️ Interactions API failed:`, err.message);
   }
 
-  console.warn('⚠️ Serving authentic real-world trivia bank.');
+  // 2. SECONDARY: Standard generateContent with gemini-3.8-flash
+  try {
+    console.log(`[AI Call] Requesting 20 questions via generateContent (gemini-3.8-flash)...`);
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.7,
+          maxOutputTokens: 8192
+        }
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const parsed = extractJsonArray(text);
+      if (Array.isArray(parsed) && parsed.length >= 10) {
+        console.log(`✅ [AI SUCCESS - gemini-3.8-flash] Generated ${parsed.length} questions for: ${topic1}, ${topic2}, ${topic3}!`);
+        return parsed.map(shuffleOptions);
+      }
+    } else {
+      console.warn(`⚠️ gemini-3.8-flash returned HTTP ${res.status}:`, data?.error?.message || data);
+    }
+  } catch (err) {
+    console.error(`⚠️ gemini-3.8-flash generateContent failed:`, err.message);
+  }
+
+  console.warn('⚠️ Serving real-world trivia bank.');
   return realTriviaPool.map(shuffleOptions);
 }
 
