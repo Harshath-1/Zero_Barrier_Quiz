@@ -1,280 +1,263 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Outfit:wght@600;800;900&display=swap');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zero Barrier Quiz - Player</title>
+  <!-- Link external style.css with cache busting -->
+  <link rel="stylesheet" href="style.css?v=2.0">
+  <style>
+    /* Structural utility styles so functionality works seamlessly */
+    .card { display: none; }
+    .card.active { display: block; }
+    .option-btn.selected { outline: 3px solid #f7b928; font-weight: bold; }
+    .option-btn.correct { background-color: #2ed573 !important; color: #fff !important; }
+    .option-btn.wrong { background-color: #ff4757 !important; color: #fff !important; }
+  </style>
+</head>
+<body class="player-body">
 
-:root {
-  --bg-main: #08b3e6;
-  --accent: #48e0c2;
-  --card-bg: #105466;
-  --card-border: rgba(72, 224, 194, 0.28);
-  --text-primary: #ffffff;
-  --text-muted: rgba(255, 255, 255, 0.78);
-  --shadow-soft: 0 12px 35px rgba(5, 41, 51, 0.28);
-  --shadow-glow: 0 0 25px rgba(72, 224, 194, 0.35);
+  <div class="main-container">
+    <div class="brand-header">
+      <h1 class="quiz-title">QUIZ PLAYER</h1>
+    </div>
 
-  /* Kahoot-style answer grid accents */
-  --opt-red: #ff4757;
-  --opt-blue: #2ed573;
-  --opt-yellow: #ffa502;
-  --opt-green: #1e90ff;
-}
+    <!-- 1. JOIN CARD -->
+    <div id="join-card" class="card active">
+      <div class="form-group">
+        <label for="pin-input">SESSION PIN</label>
+        <input type="text" id="pin-input" placeholder="e.g. 123456" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="name-input">PLAYER NAME</label>
+        <input type="text" id="name-input" placeholder="Enter your name" autocomplete="off">
+      </div>
+      <button class="primary-btn" id="join-btn" onclick="joinGame()">JOIN QUIZ</button>
+    </div>
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
+    <!-- 2. LOBBY CARD -->
+    <div id="lobby-card" class="card">
+      <div class="status-box">
+        <h2>You are in the lobby!</h2>
+        <p>Waiting for the host to start the round...</p>
+      </div>
+    </div>
 
-body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  background: radial-gradient(circle at 10% 20%, #15c3f7 0%, var(--bg-main) 60%, #067ea3 100%);
-  min-height: 100vh;
-  color: var(--text-primary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1.25rem;
-  overflow-x: hidden;
-}
+    <!-- 3. QUESTION CARD -->
+    <div id="question-card" class="card">
+      <div class="stats-bar">
+        <span id="player-tag" class="player-name">Player</span>
+        <span id="score-tag" class="player-score">Score: 0</span>
+      </div>
 
-/* Polished Card Container */
-.container,
-.card,
-.panel {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  box-shadow: var(--shadow-soft);
-  border-radius: 24px;
-  padding: 2rem;
-  width: 100%;
-  max-width: 580px;
-  backdrop-filter: blur(12px);
-  position: relative;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
+      <div class="badge" id="level-badge">QUESTION</div>
+      <h3 class="question-text" id="question-title">Loading question...</h3>
 
-.container:hover,
-.card:hover {
-  box-shadow: var(--shadow-soft), var(--shadow-glow);
-}
+      <div class="options-container" id="options-container">
+        <!-- Buttons injected dynamically -->
+      </div>
 
-/* Headers & Branding */
-h1, h2, h3, .logo-title {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  text-align: center;
-  color: #ffffff;
-}
+      <button class="primary-btn confirm-btn" id="confirm-btn" onclick="submitAnswer()" disabled>CONFIRM ANSWER</button>
+    </div>
 
-h1 {
-  font-size: 2.2rem;
-  margin-bottom: 0.75rem;
-  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
+    <!-- 4. SUBMITTED WAITING CARD -->
+    <div id="wait-card" class="card">
+      <div class="status-box">
+        <h2>Answer Recorded!</h2>
+        <p>Waiting for the host to reveal the result...</p>
+      </div>
+    </div>
 
-.badge-pin,
-.pin-display {
-  display: inline-block;
-  background: rgba(72, 224, 194, 0.15);
-  border: 2px dashed var(--accent);
-  color: var(--accent);
-  font-family: 'Outfit', sans-serif;
-  font-size: 2rem;
-  font-weight: 900;
-  letter-spacing: 4px;
-  padding: 0.6rem 1.6rem;
-  border-radius: 16px;
-  margin: 1rem auto;
-  box-shadow: var(--shadow-glow);
-}
+    <!-- 5. FINISHED CARD -->
+    <div id="finished-card" class="card">
+      <div class="status-box">
+        <h2>Quiz Completed!</h2>
+        <p>Check the host screen for final standings.</p>
+      </div>
+    </div>
+  </div>
 
-/* Form Controls & Inputs */
-input[type="text"],
-input[type="number"],
-select {
-  width: 100%;
-  padding: 1rem 1.2rem;
-  border-radius: 14px;
-  border: 2px solid rgba(72, 224, 194, 0.35);
-  background: rgba(8, 55, 68, 0.75);
-  color: #ffffff;
-  font-size: 1rem;
-  font-weight: 600;
-  outline: none;
-  margin-bottom: 1rem;
-  transition: all 0.2s ease;
-}
+  <script>
+    let currentPin = '';
+    let playerName = '';
+    let selectedOption = null;
+    let hasAnsweredCurrentRound = false;
+    let lastSeenQuestionIndex = 0;
+    let pollInterval = null;
 
-input:focus,
-select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 14px rgba(72, 224, 194, 0.4);
-  background: rgba(8, 55, 68, 0.95);
-}
+    function showCard(cardId) {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+      const target = document.getElementById(cardId);
+      if (target) target.classList.add('active');
+    }
 
-input::placeholder {
-  color: var(--text-muted);
-}
+    async function joinGame() {
+      const pin = document.getElementById('pin-input').value.trim();
+      const name = document.getElementById('name-input').value.trim();
 
-/* Primary Action Buttons */
-button,
-.btn-primary {
-  width: 100%;
-  background: linear-gradient(135deg, var(--accent) 0%, #20b89a 100%);
-  color: #063945;
-  border: none;
-  font-family: 'Outfit', sans-serif;
-  font-size: 1.1rem;
-  font-weight: 800;
-  padding: 1rem 1.5rem;
-  border-radius: 16px;
-  cursor: pointer;
-  letter-spacing: 0.5px;
-  box-shadow: 0 8px 20px rgba(72, 224, 194, 0.3);
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
+      if (!pin || !name) {
+        alert('Please provide both PIN and Name.');
+        return;
+      }
 
-button:hover,
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(72, 224, 194, 0.5);
-  filter: brightness(1.05);
-}
+      document.getElementById('join-btn').disabled = true;
+      document.getElementById('join-btn').innerText = 'CONNECTING...';
 
-button:active,
-.btn-primary:active {
-  transform: translateY(1px);
-  box-shadow: 0 4px 10px rgba(72, 224, 194, 0.2);
-}
+      try {
+        const res = await fetch('/api/join-room', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin, name })
+        });
 
-/* 4-Option Quiz Buttons (Player & Host Screens) */
-.answers-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  width: 100%;
-  margin-top: 1.5rem;
-}
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          alert(data.error || 'Failed to join game.');
+          document.getElementById('join-btn').disabled = false;
+          document.getElementById('join-btn').innerText = 'JOIN QUIZ';
+          return;
+        }
 
-.opt-btn {
-  border: none;
-  border-radius: 18px;
-  min-height: 90px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: #ffffff;
-  padding: 1rem;
-  text-align: center;
-  cursor: pointer;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
-  transition: transform 0.15s ease, filter 0.15s ease;
-}
+        currentPin = pin;
+        playerName = name;
+        document.getElementById('player-tag').innerText = playerName;
 
-.opt-btn:hover {
-  transform: scale(1.03);
-  filter: brightness(1.1);
-}
+        showCard('lobby-card');
+        startPolling();
+      } catch (err) {
+        alert('Server unreachable.');
+        document.getElementById('join-btn').disabled = false;
+        document.getElementById('join-btn').innerText = 'JOIN QUIZ';
+      }
+    }
 
-.opt-btn:active {
-  transform: scale(0.97);
-}
+    function startPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(fetchRoomState, 1500);
+      fetchRoomState();
+    }
 
-.opt-red { background: linear-gradient(135deg, #ff4757, #e84118); }
-.opt-blue { background: linear-gradient(135deg, #1e90ff, #0984e3); }
-.opt-yellow { background: linear-gradient(135deg, #ffa502, #e67e22); }
-.opt-green { background: linear-gradient(135deg, #2ed573, #26af61); }
+    async function fetchRoomState() {
+      if (!currentPin) return;
 
-/* Selected & Disabled States for Answers */
-.opt-btn.selected {
-  outline: 4px solid var(--accent);
-  filter: drop-shadow(0 0 12px var(--accent));
-}
+      try {
+        const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}&t=${Date.now()}`);
+        if (!res.ok) return;
 
-.opt-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-}
+        const data = await res.json();
 
-/* Leaderboard & Player List */
-.player-list,
-.leaderboard {
-  list-style: none;
-  width: 100%;
-  margin-top: 1rem;
-}
+        if (Array.isArray(data.leaderboard)) {
+          const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+          if (me) {
+            document.getElementById('score-tag').innerText = `Score: ${me.score}`;
+          }
+        }
 
-.player-item,
-.leaderboard-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(8, 55, 68, 0.65);
-  border: 1px solid rgba(72, 224, 194, 0.2);
-  padding: 0.85rem 1.2rem;
-  border-radius: 12px;
-  margin-bottom: 0.6rem;
-  font-weight: 700;
-  animation: fadeIn 0.3s ease;
-}
+        if (data.state === 'LOBBY') {
+          showCard('lobby-card');
+        } else if (data.state === 'QUESTION') {
+          if (data.currentIndex !== lastSeenQuestionIndex) {
+            lastSeenQuestionIndex = data.currentIndex;
+            hasAnsweredCurrentRound = false;
+            selectedOption = null;
+            renderQuestion(data.question);
+            showCard('question-card');
+          } else if (!hasAnsweredCurrentRound) {
+            showCard('question-card');
+          }
+        } else if (data.state === 'REVEAL') {
+          if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
+            highlightAnswers(data.revealedAnswer);
+            showCard('question-card');
+          }
+        } else if (data.state === 'FINISHED') {
+          showCard('finished-card');
+          clearInterval(pollInterval);
+        }
+      } catch (err) {
+        console.error('Poll error:', err);
+      }
+    }
 
-.leaderboard-item:first-child {
-  border-color: var(--accent);
-  background: rgba(72, 224, 194, 0.15);
-  color: var(--accent);
-}
+    function renderQuestion(q) {
+      if (!q) return;
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+      document.getElementById('level-badge').innerText = `Q${q.index} • ${q.level || 'TRIVIA'}`;
+      document.getElementById('question-title').innerText = q.question;
 
-/* Mobile Screen Tuning */
-@media (max-width: 600px) {
-  body {
-    padding: 0.75rem;
-  }
-  .container, .card, .panel {
-    padding: 1.5rem 1rem;
-    border-radius: 18px;
-  }
-  .answers-grid {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-  .opt-btn {
-    min-height: 75px;
-    font-size: 1.1rem;
-  }
-}
-/* Force white text on all host and player quiz option buttons */
-.opt-btn,
-.answers-grid > *,
-[class*="opt-"],
-[class*="option-"],
-button[onclick*="submitAnswer"] {
-  color: #ffffff !important;
-}
+      const container = document.getElementById('options-container');
+      container.innerHTML = '';
 
-/* If the card contains child spans/divs/paragraphs */
-.opt-btn *,
-.answers-grid * {
-  color: #ffffff !important;
-}/* Force white text on all host and player quiz option buttons */
-.opt-btn,
-.answers-grid > *,
-[class*="opt-"],
-[class*="option-"],
-button[onclick*="submitAnswer"] {
-  color: #ffffff !important;
-}
+      q.options.forEach((optText, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn option-choice';
+        btn.innerText = optText;
+        btn.onclick = () => selectOption(idx, btn);
+        container.appendChild(btn);
+      });
 
-/* If the card contains child spans/divs/paragraphs */
-.opt-btn *,
-.answers-grid * {
-  color: #ffffff !important;
-}
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.innerText = 'CONFIRM ANSWER';
+    }
+
+    function selectOption(index, btnElement) {
+      if (hasAnsweredCurrentRound) return;
+
+      selectedOption = index;
+      document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+      btnElement.classList.add('selected');
+
+      document.getElementById('confirm-btn').disabled = false;
+    }
+
+    async function submitAnswer() {
+      if (selectedOption === null || hasAnsweredCurrentRound) return;
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.innerText = 'SUBMITTING...';
+
+      try {
+        const res = await fetch('/api/submit-answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pin: currentPin,
+            name: playerName,
+            answerIndex: selectedOption
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          hasAnsweredCurrentRound = true;
+          showCard('wait-card');
+        } else {
+          confirmBtn.disabled = false;
+          confirmBtn.innerText = 'CONFIRM ANSWER';
+          alert(data.error || 'Submission failed.');
+        }
+      } catch (err) {
+        confirmBtn.disabled = false;
+        confirmBtn.innerText = 'CONFIRM ANSWER';
+        alert('Network connection error.');
+      }
+    }
+
+    function highlightAnswers(correctIndex) {
+      const buttons = document.querySelectorAll('.option-btn');
+      buttons.forEach((btn, idx) => {
+        btn.onclick = null;
+        if (idx === correctIndex) {
+          btn.classList.add('correct');
+        } else if (idx === selectedOption) {
+          btn.classList.add('wrong');
+        }
+      });
+      document.getElementById('confirm-btn').disabled = true;
+      document.getElementById('confirm-btn').innerText = 'ANSWER REVEALED';
+    }
+  </script>
+</body>
+</html>
