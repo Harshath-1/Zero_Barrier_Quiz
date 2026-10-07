@@ -12,7 +12,7 @@ app.use(express.static(__dirname, { maxAge: '1h' }));
 // Global in-memory storage for active sessions
 const rooms = new Map();
 
-// Shuffle helper
+// Helper to shuffle answer positions
 function shuffleOptions(questionObj) {
   const indices = [0, 1, 2, 3];
   for (let i = indices.length - 1; i > 0; i--) {
@@ -24,99 +24,49 @@ function shuffleOptions(questionObj) {
   return { ...questionObj, options: newOptions, answer: newAnswer };
 }
 
-// TOPIC-AWARE FALLBACK: NO CRICKET ANYWHERE!
-// Generates 20 authentic questions strictly mapped to the user's topics
-function getTopicBasedQuestions(t1, t2, t3) {
-  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
-  const topic2 = (t2 && t2.trim()) || 'Science';
-  const topic3 = (t3 && t3.trim()) || 'History';
-
-  const list = [];
-
-  // 8 Easy on Topic 1
-  for (let i = 1; i <= 8; i++) {
-    list.push({
-      question: `[${topic1}] Question ${i}: What is a core fundamental principle of ${topic1}?`,
-      options: [
-        `Primary concept of ${topic1}`,
-        `Secondary principle of ${topic1}`,
-        `Unrelated hypothesis`,
-        `Historical misconception`
-      ],
-      answer: 0,
-      level: "EASY"
-    });
-  }
-
-  // 6 Moderate on Topic 2
-  for (let i = 1; i <= 6; i++) {
-    list.push({
-      question: `[${topic2}] Question ${i}: Which of the following is commonly studied under ${topic2}?`,
-      options: [
-        `Essential theory of ${topic2}`,
-        `Alternative non-standard method`,
-        `Irrelevant phenomenon`,
-        `Outdated historical assumption`
-      ],
-      answer: 0,
-      level: "MODERATE"
-    });
-  }
-
-  // 6 Hard on Topic 3
-  for (let i = 1; i <= 6; i++) {
-    list.push({
-      question: `[${topic3}] Question ${i}: In advanced analysis of ${topic3}, what is crucial to evaluate?`,
-      options: [
-        `Critical framework of ${topic3}`,
-        `Minor secondary anomaly`,
-        `Extraneous correlation`,
-        `Inconsequential factor`
-      ],
-      answer: 0,
-      level: "HARD"
-    });
-  }
-
-  return list.map(shuffleOptions);
-}
-
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 
-// AI Question Generator for 20 questions
+// AI Question Generator targeting 20 authentic questions via gemini-3.8-flash
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
-  const topic2 = (t2 && t2.trim()) || 'Science';
-  const topic3 = (t3 && t3.trim()) || 'History';
+  const topic1 = (t1 && t1.trim()) || 'Indian History';
+  const topic2 = (t2 && t2.trim()) || 'General Science';
+  const topic3 = (t3 && t3.trim()) || 'World Geography';
 
   if (!apiKey) {
-    console.error('❌ [AI Error] GEMINI_API_KEY is not defined in Render!');
-    return getTopicBasedQuestions(topic1, topic2, topic3);
+    console.error('❌ [AI Error] GEMINI_API_KEY is missing from Render Environment Variables!');
+    throw new Error('GEMINI_API_KEY is not configured in Render.');
   }
 
-  const prompt = `Return ONLY a valid JSON array containing exactly 20 multiple-choice trivia questions matching these topics:
+  const prompt = `You are a trivia quiz master. Create exactly 20 distinct, high-quality multiple choice questions strictly based on these topics:
 - 8 EASY questions on: "${topic1}"
 - 6 MODERATE questions on: "${topic2}"
 - 6 HARD questions on: "${topic3}"
 
-FORMAT:
+Rules:
+1. Every question must be factual, realistic, and directly test real knowledge of the topic.
+2. Provide 4 plausible options for each question.
+3. Mark the correct option index (0, 1, 2, or 3) in the "answer" field.
+4. Output ONLY valid, raw JSON array. Do not add markdown backticks, intro, or outro text.
+
+JSON format:
 [
   {
-    "question": "Question text here?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "question": "What is the capital of France?",
+    "options": ["Paris", "Rome", "Berlin", "Madrid"],
     "answer": 0,
     "level": "EASY"
   }
 ]`;
 
-  // Model list
-  const models = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+  const modelList = ['gemini-3.8-flash'];
 
-  for (const model of models) {
+  for (const model of modelList) {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
+        console.log(`[AI Call] Requesting 20 questions using ${model} (Attempt ${attempt})...`);
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -124,7 +74,8 @@ FORMAT:
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
               responseMimeType: 'application/json',
-              temperature: 0.7
+              temperature: 0.7,
+              maxOutputTokens: 8192
             }
           })
         });
@@ -137,31 +88,32 @@ FORMAT:
             rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
             const start = rawText.indexOf('[');
             const end = rawText.lastIndexOf(']');
-            if (start !== -1 && end !== -1) rawText = rawText.substring(start, end + 1);
+            if (start !== -1 && end !== -1) {
+              rawText = rawText.substring(start, end + 1);
+            }
 
             const parsed = JSON.parse(rawText);
-            if (Array.isArray(parsed) && parsed.length >= 15) {
-              console.log(`✅ [AI SUCCESS] Generated ${parsed.length} questions using ${model} for: ${topic1}, ${topic2}, ${topic3}`);
+            if (Array.isArray(parsed) && parsed.length >= 10) {
+              console.log(`✅ [AI SUCCESS] Generated ${parsed.length} questions using ${model}!`);
               return parsed.map(shuffleOptions);
             }
           }
         } else if (res.status === 503 && attempt === 1) {
-          console.warn(`⏳ [${model}] 503 spike, retrying in 1.5s...`);
-          await sleep(1500);
+          console.warn(`⏳ [${model}] 503 server spike, retrying after 2s...`);
+          await sleep(2000);
           continue;
         } else {
-          console.warn(`⚠️ [${model}] HTTP ${res.status}:`, data?.error?.message || data);
+          console.error(`⚠️ [${model}] HTTP ${res.status}:`, data?.error?.message || JSON.stringify(data));
           break;
         }
       } catch (err) {
-        console.error(`❌ [${model}] error:`, err.message);
+        console.error(`❌ [${model}] Exception:`, err.message);
         break;
       }
     }
   }
 
-  console.warn(`⚠️ Using topic-based generator for: ${topic1}, ${topic2}, ${topic3}`);
-  return getTopicBasedQuestions(topic1, topic2, topic3);
+  throw new Error('Gemini API failed to generate questions. Check Render logs for the exact Google error.');
 }
 
 // ----------------- REST API ROUTES -----------------
@@ -171,7 +123,7 @@ app.post('/api/create-room', async (req, res) => {
   try {
     const { customPin, topic1, topic2, topic3 } = req.body || {};
     const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
-    console.log(`[Session Setup] Creating Room PIN: ${pin} | Topics: ${topic1}, ${topic2}, ${topic3}`);
+    console.log(`[Session Setup] PIN: ${pin} | Topics: ${topic1}, ${topic2}, ${topic3}`);
 
     const questions = await generateQuizQuestions(topic1, topic2, topic3);
 
@@ -187,7 +139,7 @@ app.post('/api/create-room', async (req, res) => {
 
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
-    console.error('[Create Room Error]:', err);
+    console.error('[Create Room Error]:', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -289,7 +241,7 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-// Port configuration for Render
+// Start listener
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Quiz server running on port ${PORT}`);
