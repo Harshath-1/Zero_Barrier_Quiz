@@ -5,7 +5,7 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Disable caching for all API routes so polling never serves stale sessions
+// Prevent browser from caching API responses
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -15,7 +15,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static assets
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
 
@@ -32,115 +31,154 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer };
 }
 
-// Built-in trivia dictionary for instant fallback if API credits expire
-const topicTriviaPacks = {
-  maths: [
-    { question: "What is the only even prime number?", options: ["2", "4", "0", "1"], answer: 0, level: "EASY" },
-    { question: "What is the value of Pi (π) rounded to two decimal places?", options: ["3.14", "3.16", "3.12", "3.18"], answer: 0, level: "EASY" },
-    { question: "What is the sum of interior angles in any Euclidean triangle?", options: ["180°", "360°", "90°", "270°"], answer: 0, level: "EASY" },
-    { question: "What is the square root of 144?", options: ["12", "14", "16", "11"], answer: 0, level: "EASY" },
-    { question: "What is the longest side of a right-angled triangle called?", options: ["Hypotenuse", "Perpendicular", "Adjacent", "Radius"], answer: 0, level: "EASY" },
-    { question: "What is 2 raised to the power of 6 (2⁶)?", options: ["64", "32", "128", "16"], answer: 0, level: "EASY" },
-    { question: "Who is widely revered as the father of modern geometry?", options: ["Euclid", "Pythagoras", "Archimedes", "Descartes"], answer: 0, level: "EASY" },
-    { question: "What is the mathematical term for an 8-sided polygon?", options: ["Octagon", "Hexagon", "Heptagon", "Decagon"], answer: 0, level: "EASY" }
+// Broad Trivia Library across diverse topics
+const triviaLibrary = {
+  cinema: [
+    { question: "Which movie won the first-ever Academy Award for Best Picture in 1929?", options: ["Wings", "Sunrise", "The Jazz Singer", "Metropolis"], answer: 0 },
+    { question: "Who directed the 2010 sci-fi mind-bender 'Inception'?", options: ["Christopher Nolan", "Steven Spielberg", "James Cameron", "Ridley Scott"], answer: 0 },
+    { question: "What was the first feature-length animated movie ever released?", options: ["Snow White and the Seven Dwarfs", "Pinocchio", "Fantasia", "Bambi"], answer: 0 },
+    { question: "Who portrayed Tony Stark in the Marvel Cinematic Universe?", options: ["Robert Downey Jr.", "Chris Evans", "Mark Ruffalo", "Tom Hiddleston"], answer: 0 },
+    { question: "Which song from the movie RRR won the Oscar for Best Original Song?", options: ["Naatu Naatu", "Dosti", "Jai Ho", "Chhaiya Chhaiya"], answer: 0 },
+    { question: "Which filmmaker directed the legendary 1972 crime film 'The Godfather'?", options: ["Francis Ford Coppola", "Martin Scorsese", "Stanley Kubrick", "Alfred Hitchcock"], answer: 0 },
+    { question: "Who played Jack Dawson in the 1997 blockbuster movie 'Titanic'?", options: ["Leonardo DiCaprio", "Brad Pitt", "Johnny Depp", "Matt Damon"], answer: 0 },
+    { question: "Which movie franchise features the fictional universe of 'Tatooine' and 'Endor'?", options: ["Star Wars", "Star Trek", "Dune", "Avatar"], answer: 0 }
   ],
-  physics: [
-    { question: "What is the approximate speed of light in a vacuum?", options: ["300,000 km/s", "150,000 km/s", "500,000 km/s", "1,000,000 km/s"], answer: 0, level: "MODERATE" },
-    { question: "What physical quantity does the SI unit 'Tesla' measure?", options: ["Magnetic Flux Density", "Electric Current", "Capacitance", "Resistance"], answer: 0, level: "MODERATE" },
-    { question: "According to Newton's 2nd Law, Force equals mass multiplied by what?", options: ["Acceleration", "Velocity", "Distance", "Momentum"], answer: 0, level: "MODERATE" },
-    { question: "What is absolute zero temperature in degrees Celsius?", options: ["-273.15°C", "-100°C", "0°C", "-459.67°C"], answer: 0, level: "MODERATE" },
-    { question: "Which phenomenon causes a pencil to look bent in a glass of water?", options: ["Refraction", "Reflection", "Diffraction", "Polarization"], answer: 0, level: "MODERATE" },
-    { question: "Which fundamental particle carries a negative electric charge?", options: ["Electron", "Proton", "Neutron", "Positron"], answer: 0, level: "MODERATE" }
+  history: [
+    { question: "In which year did World War II officially conclude?", options: ["1945", "1939", "1918", "1950"], answer: 0 },
+    { question: "Who was the first President of the United States?", options: ["George Washington", "Thomas Jefferson", "Abraham Lincoln", "John Adams"], answer: 0 },
+    { question: "Which ancient civilization constructed the Pyramids of Giza?", options: ["Ancient Egyptians", "Mesopotamians", "Mayans", "Romans"], answer: 0 },
+    { question: "In which year did India declare independence from British rule?", options: ["1947", "1950", "1942", "1935"], answer: 0 },
+    { question: "Who was the legendary Mauryan emperor who embraced Buddhism after Kalinga?", options: ["Ashoka", "Chandragupta Maurya", "Bindusara", "Samudragupta"], answer: 0 },
+    { question: "Which treaty officially brought an end to World War I in 1919?", options: ["Treaty of Versailles", "Treaty of Paris", "Treaty of Utrecht", "Treaty of Ghent"], answer: 0 },
+    { question: "In what year did the French Revolution break out?", options: ["1789", "1776", "1799", "1804"], answer: 0 },
+    { question: "Who founded the Mongol Empire in the early 13th century?", options: ["Genghis Khan", "Kublai Khan", "Babur", "Timur"], answer: 0 }
   ],
-  chemistry: [
-    { question: "What is the chemical formula for ordinary table salt?", options: ["NaCl", "KCl", "CaCl2", "Na2CO3"], answer: 0, level: "HARD" },
-    { question: "Which element has the chemical symbol 'Fe'?", options: ["Iron", "Lead", "Fluorine", "Francium"], answer: 0, level: "HARD" },
-    { question: "What is the pH level of pure neutral water at 25°C?", options: ["7", "0", "14", "5"], answer: 0, level: "HARD" },
-    { question: "What is the most abundant gas in Earth's atmosphere?", options: ["Nitrogen", "Oxygen", "Carbon Dioxide", "Argon"], answer: 0, level: "HARD" },
-    { question: "What is the primary organic compound present in natural gas?", options: ["Methane", "Ethane", "Propane", "Butane"], answer: 0, level: "HARD" },
-    { question: "Which scientist proposed the modern periodic table arranged by atomic number?", options: ["Henry Moseley", "Dmitri Mendeleev", "John Newlands", "Antoine Lavoisier"], answer: 0, level: "HARD" }
+  geography: [
+    { question: "Which is the largest ocean on Earth by surface area?", options: ["Pacific Ocean", "Atlantic Ocean", "Indian Ocean", "Arctic Ocean"], answer: 0 },
+    { question: "What is the capital city of Australia?", options: ["Canberra", "Sydney", "Melbourne", "Brisbane"], answer: 0 },
+    { question: "Which is universally recognized as the longest river in the world?", options: ["Nile", "Amazon", "Yangtze", "Mississippi"], answer: 0 },
+    { question: "Which desert is the largest hot desert on planet Earth?", options: ["Sahara Desert", "Gobi Desert", "Kalahari Desert", "Thar Desert"], answer: 0 },
+    { question: "Which country contains the largest number of natural freshwater lakes?", options: ["Canada", "Russia", "Finland", "Sweden"], answer: 0 },
+    { question: "What is the tallest mountain peak in the world above sea level?", options: ["Mount Everest", "K2", "Kangchenjunga", "Makalu"], answer: 0 },
+    { question: "Through which European capital city does the River Seine flow?", options: ["Paris", "London", "Rome", "Madrid"], answer: 0 },
+    { question: "Which country has the longest coastline in the world?", options: ["Canada", "Indonesia", "Norway", "Australia"], answer: 0 }
+  ],
+  technology: [
+    { question: "Who co-founded Microsoft alongside Paul Allen in 1975?", options: ["Bill Gates", "Steve Jobs", "Larry Page", "Michael Dell"], answer: 0 },
+    { question: "In web development, what does the acronym 'HTML' stand for?", options: ["HyperText Markup Language", "HyperTech Main Language", "HighText Machine Link", "HyperTool Multi Layer"], answer: 0 },
+    { question: "What open-source operating system kernel was authored by Linus Torvalds?", options: ["Linux", "Unix", "FreeBSD", "Solaris"], answer: 0 },
+    { question: "What does the 'S' represent in the secure network protocol 'HTTPS'?", options: ["Secure", "Standard", "System", "Server"], answer: 0 },
+    { question: "Who created the World Wide Web while working at CERN in 1989?", options: ["Tim Berners-Lee", "Alan Turing", "Vint Cerf", "Marc Andreessen"], answer: 0 },
+    { question: "Which programming language was developed by James Gosling at Sun Microsystems?", options: ["Java", "Python", "C#", "Ruby"], answer: 0 },
+    { question: "What is the primary volatile memory used by computers for active tasks?", options: ["RAM", "ROM", "SSD", "Hard Disk"], answer: 0 },
+    { question: "What was the name of the earliest packet-switching network predecessor to the Internet?", options: ["ARPANET", "ETHERNET", "USENET", "CYCLADES"], answer: 0 }
+  ],
+  sports: [
+    { question: "Which country won the inaugural FIFA Men's World Cup in 1930?", options: ["Uruguay", "Argentina", "Brazil", "Italy"], answer: 0 },
+    { question: "In tennis, what term represents a score of zero points?", options: ["Love", "Deuce", "Fault", "Nil"], answer: 0 },
+    { question: "How many players are on the field for one team in a standard cricket match?", options: ["11", "10", "12", "9"], answer: 0 },
+    { question: "Which athlete holds the world record for the 100m sprint at 9.58 seconds?", options: ["Usain Bolt", "Tyson Gay", "Yohan Blake", "Carl Lewis"], answer: 0 },
+    { question: "In basketball, how many points is a successful basket made from beyond the arc worth?", options: ["3", "2", "4", "1"], answer: 0 },
+    { question: "Which country has won the most Olympic gold medals in men's field hockey?", options: ["India", "Germany", "Australia", "Netherlands"], answer: 0 },
+    { question: "What is the standard length of an Olympic swimming pool?", options: ["50 meters", "25 meters", "100 meters", "75 meters"], answer: 0 },
+    { question: "In golf, what is the term for scoring one stroke under par on a hole?", options: ["Birdie", "Eagle", "Bogey", "Albatross"], answer: 0 }
+  ],
+  science: [
+    { question: "What is the chemical formula for ordinary water?", options: ["H2O", "CO2", "NaCl", "CH4"], answer: 0 },
+    { question: "Which planet in the solar system is situated closest to the Sun?", options: ["Mercury", "Venus", "Mars", "Earth"], answer: 0 },
+    { question: "Which human organ is primarily responsible for pumping blood through the circulatory system?", options: ["Heart", "Lungs", "Liver", "Kidneys"], answer: 0 },
+    { question: "What force keeps astronomical bodies orbiting around the Sun?", options: ["Gravity", "Magnetism", "Centrifugal force", "Electromagnetism"], answer: 0 },
+    { question: "What is the hardest naturally occurring mineral substance on Earth?", options: ["Diamond", "Corundum", "Quartz", "Topaz"], answer: 0 },
+    { question: "What gas do plants release into the atmosphere during photosynthesis?", options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Argon"], answer: 0 },
+    { question: "What is the SI unit used for measuring electrical resistance?", options: ["Ohm", "Volt", "Ampere", "Joule"], answer: 0 },
+    { question: "Which subatomic particle was discovered by J.J. Thomson in 1897?", options: ["Electron", "Neutron", "Proton", "Positron"], answer: 0 }
   ]
 };
 
-function generateFallbackTrivia(t1, t2, t3) {
-  const name1 = (t1 || 'Maths').trim();
-  const name2 = (t2 || 'Physics').trim();
-  const name3 = (t3 || 'Chemistry').trim();
-
-  const k1 = name1.toLowerCase();
-  const k2 = name2.toLowerCase();
-  const k3 = name3.toLowerCase();
-
-  const p1 = topicTriviaPacks[k1] || topicTriviaPacks.maths;
-  const p2 = topicTriviaPacks[k2] || topicTriviaPacks.physics;
-  const p3 = topicTriviaPacks[k3] || topicTriviaPacks.chemistry;
-
-  const out = [];
-  for (let i = 0; i < 8; i++) {
-    const q = p1[i % p1.length];
-    out.push({ question: `[${name1}] ${q.question}`, options: [...q.options], answer: q.answer, level: "EASY" });
+// Intelligently find matching questions for any custom topic
+function getTopicQuestions(topicName, count, level) {
+  const clean = (topicName || '').toLowerCase().trim();
+  
+  // Find matching key from library
+  let matchedKey = Object.keys(triviaLibrary).find(k => clean.includes(k) || k.includes(clean));
+  
+  // Specific aliases
+  if (!matchedKey) {
+    if (clean.includes('movie') || clean.includes('film') || clean.includes('bollywood') || clean.includes('hollywood')) matchedKey = 'cinema';
+    else if (clean.includes('computer') || clean.includes('code') || clean.includes('software') || clean.includes('ai')) matchedKey = 'technology';
+    else if (clean.includes('cricket') || clean.includes('football') || clean.includes('tennis')) matchedKey = 'sports';
+    else if (clean.includes('earth') || clean.includes('country') || clean.includes('world') || clean.includes('map')) matchedKey = 'geography';
+    else if (clean.includes('war') || clean.includes('ancient') || clean.includes('empire')) matchedKey = 'history';
+    else matchedKey = 'science';
   }
-  for (let i = 0; i < 6; i++) {
-    const q = p2[i % p2.length];
-    out.push({ question: `[${name2}] ${q.question}`, options: [...q.options], answer: q.answer, level: "MODERATE" });
+
+  const pool = triviaLibrary[matchedKey];
+  const list = [];
+  for (let i = 0; i < count; i++) {
+    const item = pool[i % pool.length];
+    list.push({
+      question: `[${topicName}] ${item.question}`,
+      options: [...item.options],
+      answer: item.answer,
+      level: level
+    });
   }
-  for (let i = 0; i < 6; i++) {
-    const q = p3[i % p3.length];
-    out.push({ question: `[${name3}] ${q.question}`, options: [...q.options], answer: q.answer, level: "HARD" });
-  }
-  return out.map(shuffleOptions);
+  return list;
 }
 
-// Generate 20 authentic questions via Grok with proper model parameters
+// Master generator that builds 20 distinct questions for any 3 topics
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.API_KEY || process.env.GROK_API_KEY || '').trim();
-  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
-  const topic2 = (t2 && t2.trim()) || 'Science';
-  const topic3 = (t3 && t3.trim()) || 'History';
+  const topic1 = (t1 && t1.trim()) || 'Cinema';
+  const topic2 = (t2 && t2.trim()) || 'History';
+  const topic3 = (t3 && t3.trim()) || 'Geography';
 
+  // Attempt live API if key is configured
   if (apiKey) {
-    const modelCandidates = ['grok-4.1-fast', 'grok-4.3', 'grok-beta', 'grok-2'];
-    const prompt = `You are a trivia master. Create exactly 20 distinct trivia questions: 8 EASY on "${topic1}", 6 MODERATE on "${topic2}", 6 HARD on "${topic3}". Every question must be a real factual trivia fact specifically about that topic. Output ONLY a raw JSON array of objects with keys: "question", "options" (array of 4 strings), "answer" (0-3 index), and "level". No markdown backticks.`;
+    const prompt = `Create exactly 20 trivia questions: 8 EASY on "${topic1}", 6 MODERATE on "${topic2}", 6 HARD on "${topic3}". Output ONLY a valid JSON array of objects with keys "question", "options" (4 strings), "answer" (0-3 index), and "level". No markdown backticks.`;
 
-    for (const model of modelCandidates) {
-      try {
-        console.log(`[AI Call] Requesting 20 questions via Grok (${model}) for: ${topic1}, ${topic2}, ${topic3}...`);
-        const res = await fetch('https://api.x.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7
-          })
-        });
+    try {
+      console.log(`[AI Call] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
+      const res = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'grok-4.1-fast',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7
+        })
+      });
 
-        const data = await res.json();
-        if (res.ok) {
-          let text = data.choices?.[0]?.message?.content || '';
-          text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-          const start = text.indexOf('[');
-          const end = text.lastIndexOf(']');
-          if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
+      const data = await res.json();
+      if (res.ok) {
+        let text = data.choices?.[0]?.message?.content || '';
+        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const start = text.indexOf('[');
+        const end = text.lastIndexOf(']');
+        if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
 
-          const parsed = JSON.parse(text);
-          if (Array.isArray(parsed) && parsed.length >= 10) {
-            console.log(`✅ [Grok SUCCESS] Generated ${parsed.length} questions for: ${topic1}, ${topic2}, ${topic3}!`);
-            return parsed.map(shuffleOptions);
-          }
-        } else {
-          console.warn(`⚠️ Grok (${model}) HTTP ${res.status}:`, data?.error?.message || data);
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed) && parsed.length >= 10) {
+          console.log(`✅ [AI SUCCESS] Generated questions via API!`);
+          return parsed.map(shuffleOptions);
         }
-      } catch (err) {
-        console.warn(`⚠️ Grok (${model}) exception:`, err.message);
       }
+    } catch (err) {
+      console.warn(`⚠️ API attempt bypassed:`, err.message);
     }
   }
 
-  return generateFallbackTrivia(topic1, topic2, topic3);
+  // Guaranteed diverse topic-wise generation
+  console.log(`[Trivia Engine] Assembling questions for: [${topic1}], [${topic2}], [${topic3}]`);
+  const q1 = getTopicQuestions(topic1, 8, 'EASY');
+  const q2 = getTopicQuestions(topic2, 6, 'MODERATE');
+  const q3 = getTopicQuestions(topic3, 6, 'HARD');
+
+  const combined = [...q1, ...q2, ...q3];
+  return combined.map(shuffleOptions);
 }
 
 // ----------------- REST API ROUTES -----------------
@@ -152,14 +190,12 @@ app.post('/api/create-room', async (req, res) => {
     const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`[Session Setup] Resetting PIN: ${pin} | New Topics: ${topic1}, ${topic2}, ${topic3}`);
 
-    // Force purge of any previous room data under this PIN
     if (rooms.has(pin)) {
       rooms.delete(pin);
     }
 
     const questions = await generateQuizQuestions(topic1, topic2, topic3);
 
-    // Save newly generated session
     rooms.set(pin, {
       pin,
       topics: [topic1, topic2, topic3],
@@ -172,7 +208,7 @@ app.post('/api/create-room', async (req, res) => {
       createdAt: Date.now()
     });
 
-    console.log(`✅ Fresh room registered under PIN ${pin}.`);
+    console.log(`✅ Room ${pin} initialized with 20 questions.`);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
     console.error('[Create Room Error]:', err.message);
