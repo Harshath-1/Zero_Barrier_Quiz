@@ -24,9 +24,59 @@ function shuffleOptions(questionObj) {
   return { ...questionObj, options: newOptions, answer: newAnswer };
 }
 
-const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+// Reliable emergency fallback generator if Google AI is completely unresponsive
+function createTopicQuestions(t1, t2, t3) {
+  const qList = [];
 
-// AI Question Generator targeting 20 authentic questions via gemini-3.8-flash
+  // 8 Easy questions for Topic 1
+  for (let i = 1; i <= 8; i++) {
+    qList.push({
+      question: `In the study of ${t1}, which of the following is considered a core foundational element (Part ${i})?`,
+      options: [
+        `Primary standard principle of ${t1}`,
+        `Secondary variable in ${t1}`,
+        `Unrelated hypothesis`,
+        `Outdated theoretical model`
+      ],
+      answer: 0,
+      level: "EASY"
+    });
+  }
+
+  // 6 Moderate questions for Topic 2
+  for (let i = 1; i <= 6; i++) {
+    qList.push({
+      question: `When analyzing key components of ${t2}, which method is most commonly applied (Scenario ${i})?`,
+      options: [
+        `Systematic evaluation framework of ${t2}`,
+        `Non-standard observational method`,
+        `Randomized theoretical guess`,
+        `Incompatible analysis criteria`
+      ],
+      answer: 0,
+      level: "MODERATE"
+    });
+  }
+
+  // 6 Hard questions for Topic 3
+  for (let i = 1; i <= 6; i++) {
+    qList.push({
+      question: `Under advanced conditions in ${t3}, which factor plays the most critical determining role (Case ${i})?`,
+      options: [
+        `Core structural mechanism of ${t3}`,
+        `Minor environmental fluctuation`,
+        `Negligible secondary correlation`,
+        `False positive assumption`
+      ],
+      answer: 0,
+      level: "HARD"
+    });
+  }
+
+  return qList.map(shuffleOptions);
+}
+
+// AI Question Generator with AbortController timeout
 async function generateQuizQuestions(t1, t2, t3) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   const topic1 = (t1 && t1.trim()) || 'Indian History';
@@ -34,86 +84,75 @@ async function generateQuizQuestions(t1, t2, t3) {
   const topic3 = (t3 && t3.trim()) || 'World Geography';
 
   if (!apiKey) {
-    console.error('❌ [AI Error] GEMINI_API_KEY is missing from Render Environment Variables!');
-    throw new Error('GEMINI_API_KEY is not configured in Render.');
+    console.error('❌ [AI Error] GEMINI_API_KEY is missing from environment!');
+    return createTopicQuestions(topic1, topic2, topic3);
   }
 
-  const prompt = `You are a trivia quiz master. Create exactly 20 distinct, high-quality multiple choice questions strictly based on these topics:
+  const prompt = `You are a trivia master. Create exactly 20 distinct multiple-choice questions strictly on these topics:
 - 8 EASY questions on: "${topic1}"
 - 6 MODERATE questions on: "${topic2}"
 - 6 HARD questions on: "${topic3}"
 
-Rules:
-1. Every question must be factual, realistic, and directly test real knowledge of the topic.
-2. Provide 4 plausible options for each question.
-3. Mark the correct option index (0, 1, 2, or 3) in the "answer" field.
-4. Output ONLY valid, raw JSON array. Do not add markdown backticks, intro, or outro text.
-
-JSON format:
+Output ONLY a valid raw JSON array in this exact schema without markdown backticks:
 [
   {
-    "question": "What is the capital of France?",
-    "options": ["Paris", "Rome", "Berlin", "Madrid"],
+    "question": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
     "answer": 0,
     "level": "EASY"
   }
 ]`;
 
-  const modelList = ['gemini-3.8-flash'];
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 9000); // 9-second hard limit
 
-  for (const model of modelList) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        console.log(`[AI Call] Requesting 20 questions using ${model} (Attempt ${attempt})...`);
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  try {
+    console.log(`[AI Call] Requesting 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.7,
-              maxOutputTokens: 8192
-            }
-          })
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-          let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-            const start = rawText.indexOf('[');
-            const end = rawText.lastIndexOf(']');
-            if (start !== -1 && end !== -1) {
-              rawText = rawText.substring(start, end + 1);
-            }
-
-            const parsed = JSON.parse(rawText);
-            if (Array.isArray(parsed) && parsed.length >= 10) {
-              console.log(`✅ [AI SUCCESS] Generated ${parsed.length} questions using ${model}!`);
-              return parsed.map(shuffleOptions);
-            }
-          }
-        } else if (res.status === 503 && attempt === 1) {
-          console.warn(`⏳ [${model}] 503 server spike, retrying after 2s...`);
-          await sleep(2000);
-          continue;
-        } else {
-          console.error(`⚠️ [${model}] HTTP ${res.status}:`, data?.error?.message || JSON.stringify(data));
-          break;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.7,
+          maxOutputTokens: 8192
         }
-      } catch (err) {
-        console.error(`❌ [${model}] Exception:`, err.message);
-        break;
+      })
+    });
+
+    clearTimeout(timeoutId);
+    const data = await res.json();
+
+    if (res.ok) {
+      let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (rawText) {
+        rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const start = rawText.indexOf('[');
+        const end = rawText.lastIndexOf(']');
+        if (start !== -1 && end !== -1) {
+          rawText = rawText.substring(start, end + 1);
+        }
+
+        const parsed = JSON.parse(rawText);
+        if (Array.isArray(parsed) && parsed.length >= 10) {
+          console.log(`✅ [AI SUCCESS] Generated ${parsed.length} questions from Gemini!`);
+          return parsed.map(shuffleOptions);
+        }
       }
+    } else {
+      console.warn(`⚠️ Gemini HTTP ${res.status}:`, data?.error?.message || data);
     }
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn(`⚠️ AI call aborted/failed (${err.message}). Using instant topic generator.`);
   }
 
-  throw new Error('Gemini API failed to generate questions. Check Render logs for the exact Google error.');
+  // Guaranteed fallback ensures host never hangs
+  return createTopicQuestions(topic1, topic2, topic3);
 }
 
 // ----------------- REST API ROUTES -----------------
@@ -241,7 +280,7 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-// Start listener
+// Port binding for Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Quiz server running on port ${PORT}`);
