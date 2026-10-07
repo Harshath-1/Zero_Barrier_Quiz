@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ALIET Techpreneur Club - Player Portal</title>
+  <title>ALIET Techpreneur Club - Player</title>
   <style>
     * {
       box-sizing: border-box;
@@ -13,73 +14,68 @@
     }
 
     body {
-      background-color: #0b0c10;
+      background-color: #07080b;
       color: #ffffff;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px 16px;
+      padding: 20px 14px;
     }
 
-    /* Single unified card frame matching the Host interface */
-    .host-frame-card {
+    /* Outer Wrapper matching Host's outer container */
+    .host-card {
       width: 100%;
-      max-width: 480px;
-      background: #111216;
-      border: 1px solid #332b00;
+      max-width: 560px;
+      background: #0f1015;
+      border: 1px solid #232014;
       border-radius: 20px;
       padding: 24px;
-      box-shadow: 0 0 40px rgba(0, 0, 0, 0.9);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.85);
     }
 
-    /* Seamless Banner inside the frame */
-    .club-banner {
+    /* Top Logo Banner identical to Host */
+    .banner-container {
       width: 100%;
-      background: #ffffff;
-      border: 8px solid #ffbe00;
+      background: #ffbe00;
       border-radius: 12px;
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 10px 14px;
+      padding: 6px 12px;
       margin-bottom: 24px;
-      gap: 14px;
     }
 
-    .club-banner img {
-      max-height: 64px;
-      width: auto;
+    .banner-container img {
+      max-width: 100%;
+      max-height: 95px;
       object-fit: contain;
+      display: block;
     }
 
-    .club-banner .banner-text {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      line-height: 1.05;
+    /* Headers matching Host screen */
+    .title-section {
+      text-align: center;
+      margin-bottom: 22px;
     }
 
-    .club-banner .banner-text .brand-aliet {
-      font-size: 1.45rem;
+    .main-title {
+      font-size: 1.35rem;
       font-weight: 900;
-      color: #000000;
-      letter-spacing: 1.5px;
-    }
-
-    .club-banner .banner-text .brand-club {
-      font-size: 1.2rem;
-      font-weight: 900;
-      color: #000000;
+      color: #ffbe00;
+      text-transform: uppercase;
       letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .sub-title {
+      font-size: 0.8rem;
+      color: #8b92a5;
     }
 
     .card {
-      width: 100%;
       display: none;
     }
 
@@ -87,48 +83,27 @@
       display: block;
     }
 
-    .title-area {
-      text-align: center;
-      margin-bottom: 22px;
-    }
-
-    .section-title {
-      font-size: 1.3rem;
-      font-weight: 900;
-      color: #ffbe00;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 6px;
-    }
-
-    .section-subtitle {
-      font-size: 0.8rem;
-      color: #7b8191;
-      letter-spacing: 0.3px;
-    }
-
-    /* Labels & Fields */
-    .field-group {
+    /* Form Fields */
+    .input-block {
       margin-bottom: 16px;
-      width: 100%;
     }
 
     label {
       display: block;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 800;
       color: #ffbe00;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     input[type="text"] {
       width: 100%;
       padding: 14px 16px;
-      background: #0d0e12;
-      border: 1px solid #2a2d3c;
-      border-radius: 10px;
+      background: #08090d;
+      border: 1px solid #242735;
+      border-radius: 8px;
       color: #ffffff;
       font-size: 0.95rem;
       outline: none;
@@ -139,58 +114,60 @@
       border-color: #ffbe00;
     }
 
-    /* Full Gold Action Button */
-    .gold-btn {
-      width: 100%;
-      padding: 16px;
-      background: #ffbe00;
-      color: #000000;
-      font-size: 0.95rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      margin-top: 10px;
-      box-shadow: 0 4px 20px rgba(255, 190, 0, 0.25);
-      transition: background 0.2s, transform 0.1s;
+    input[type="text"]::placeholder {
+      color: #4f5366;
     }
 
-    .gold-btn:hover {
+    /* Primary Gold Button identical to "GENERATE SESSION & PIN" */
+    .btn-gold {
+      width: 100%;
+      height: 50px;
+      background: #ffbe00;
+      color: #000000;
+      font-size: 0.92rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.2s, transform 0.05s;
+    }
+
+    .btn-gold:hover {
       background: #e6ab00;
     }
 
-    .gold-btn:active {
+    .btn-gold:active {
       transform: scale(0.99);
     }
 
-    .gold-btn:disabled {
-      background: #232530;
-      color: #5c6275;
-      box-shadow: none;
+    .btn-gold:disabled {
+      background: #252733;
+      color: #555b6e;
       cursor: not-allowed;
     }
 
     /* Player Status Bar */
-    .player-status-bar {
+    .status-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #0d0e12;
-      border: 1px solid #232635;
-      padding: 12px 16px;
-      border-radius: 10px;
-      margin-bottom: 18px;
+      background: #08090d;
+      border: 1px solid #242735;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 16px;
       font-size: 0.85rem;
       font-weight: 800;
     }
 
-    .player-status-bar .tag-name {
+    .status-bar .name {
       color: #ffffff;
     }
 
-    .player-status-bar .tag-score {
+    .status-bar .score {
       color: #ffbe00;
     }
 
@@ -201,77 +178,75 @@
       font-weight: 800;
       color: #ffbe00;
       background: rgba(255, 190, 0, 0.1);
-      border: 1px solid rgba(255, 190, 0, 0.3);
-      padding: 4px 10px;
-      border-radius: 6px;
+      border: 1px solid rgba(255, 190, 0, 0.25);
+      padding: 3px 8px;
+      border-radius: 4px;
       text-transform: uppercase;
-      margin-bottom: 14px;
-      letter-spacing: 0.5px;
+      margin-bottom: 10px;
     }
 
-    .question-heading {
-      font-size: 1.1rem;
+    .question-title {
+      font-size: 1.05rem;
       font-weight: 700;
       line-height: 1.45;
-      margin-bottom: 20px;
-      color: #f1f2f6;
+      margin-bottom: 18px;
+      color: #ffffff;
     }
 
-    /* Options Stack */
-    .options-stack {
+    /* Options List */
+    .options-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin-bottom: 20px;
-      width: 100%;
+      gap: 10px;
+      margin-bottom: 18px;
     }
 
-    .option-item {
+    .opt-btn {
       width: 100%;
       padding: 14px 16px;
       text-align: left;
-      background: #0d0e12;
-      border: 1px solid #2a2d3c;
-      border-radius: 10px;
+      background: #08090d;
+      border: 1px solid #242735;
+      border-radius: 8px;
       color: #d1d5db;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
-    .option-item:hover {
-      background: #171822;
-      border-color: #3b3f54;
+    .opt-btn:hover {
+      background: #14161f;
+      border-color: #383c50;
     }
 
-    .option-item.selected {
+    .opt-btn.selected {
       border: 2px solid #ffbe00 !important;
       background: rgba(255, 190, 0, 0.12) !important;
       color: #ffbe00 !important;
       font-weight: 700;
     }
 
-    .option-item.correct {
+    .opt-btn.correct {
       background: rgba(46, 213, 115, 0.2) !important;
       border: 2px solid #2ed573 !important;
       color: #2ed573 !important;
       font-weight: 700;
     }
 
-    .option-item.wrong {
+    .opt-btn.wrong {
       background: rgba(255, 71, 87, 0.2) !important;
       border: 2px solid #ff4757 !important;
       color: #ff4757 !important;
       font-weight: 700;
     }
 
-    /* Status Notifications */
-    .state-message {
+    /* Information / Waiting message boxes */
+    .info-box {
       text-align: center;
-      padding: 32px 12px;
+      padding: 36px 12px;
     }
 
-    .state-message h2 {
+    .info-box h2 {
       font-size: 1.25rem;
       color: #ffbe00;
       margin-bottom: 8px;
@@ -279,49 +254,44 @@
       font-weight: 900;
     }
 
-    .state-message p {
-      color: #7b8191;
+    .info-box p {
+      color: #8b92a5;
       font-size: 0.9rem;
     }
   </style>
 </head>
 <body>
 
-  <!-- Unified container mirroring the Host Interface Frame -->
-  <div class="host-frame-card">
+  <div class="host-card">
     
-    <!-- Top Techpreneur Club Banner -->
-    <div class="club-banner">
-      <img src="logo.jpeg" alt="ALIET Logo" onerror="this.src='logo_vertical.jpeg'; this.onerror=null;">
-      <div class="banner-text">
-        <span class="brand-aliet">ALIET</span>
-        <span class="brand-club">TECHPRENEUR CLUB</span>
-      </div>
+    <!-- Exact banner container as host screen -->
+    <div class="banner-container">
+      <img src="logo.jpeg" alt="ALIET Techpreneur Club" onerror="this.src='logo_vertical.jpeg'; this.onerror=null;">
     </div>
 
     <!-- 1. JOIN VIEW -->
     <div id="join-card" class="card active">
-      <div class="title-area">
-        <div class="section-title">PLAYER QUIZ PORTAL</div>
-        <div class="section-subtitle">Enter active session PIN & your name</div>
+      <div class="title-section">
+        <div class="main-title">PLAYER QUIZ PORTAL</div>
+        <div class="sub-title">Enter active session PIN & player handle</div>
       </div>
 
-      <div class="field-group">
+      <div class="input-block">
         <label for="pin-input">SESSION PIN</label>
-        <input type="text" id="pin-input" placeholder="e.g. 123123" autocomplete="off">
+        <input type="text" id="pin-input" placeholder="Enter PIN (e.g. 123123)" autocomplete="off">
       </div>
 
-      <div class="field-group">
+      <div class="input-block">
         <label for="name-input">PLAYER NAME</label>
-        <input type="text" id="name-input" placeholder="Enter your full name" autocomplete="off">
+        <input type="text" id="name-input" placeholder="Enter your name" autocomplete="off">
       </div>
 
-      <button class="gold-btn" id="join-btn" onclick="joinGame()">ENTER SESSION</button>
+      <button class="btn-gold" id="join-btn" onclick="joinGame()">ENTER SESSION</button>
     </div>
 
     <!-- 2. LOBBY VIEW -->
     <div id="lobby-card" class="card">
-      <div class="state-message">
+      <div class="info-box">
         <h2>YOU ARE IN!</h2>
         <p>Waiting for the host to launch the first round...</p>
       </div>
@@ -329,24 +299,24 @@
 
     <!-- 3. QUESTION VIEW -->
     <div id="question-card" class="card">
-      <div class="player-status-bar">
-        <span id="player-tag" class="tag-name">Player</span>
-        <span id="score-tag" class="tag-score">SCORE: 0</span>
+      <div class="status-bar">
+        <span id="player-tag" class="name">Player</span>
+        <span id="score-tag" class="score">SCORE: 0</span>
       </div>
 
       <div class="badge-tier" id="level-badge">QUESTION 1</div>
-      <div class="question-heading" id="question-title">Loading question...</div>
+      <div class="question-title" id="question-title">Loading question...</div>
 
-      <div class="options-stack" id="options-container">
-        <!-- Injected dynamically -->
+      <div class="options-list" id="options-container">
+        <!-- Rendered dynamically -->
       </div>
 
-      <button class="gold-btn" id="confirm-btn" onclick="submitAnswer()" disabled>CONFIRM ANSWER</button>
+      <button class="btn-gold" id="confirm-btn" onclick="submitAnswer()" disabled>CONFIRM ANSWER</button>
     </div>
 
     <!-- 4. SUBMITTED WAITING VIEW -->
     <div id="wait-card" class="card">
-      <div class="state-message">
+      <div class="info-box">
         <h2>ANSWER LOCKED IN!</h2>
         <p>Waiting for host to reveal results...</p>
       </div>
@@ -354,7 +324,7 @@
 
     <!-- 5. FINISHED VIEW -->
     <div id="finished-card" class="card">
-      <div class="state-message">
+      <div class="info-box">
         <h2>QUIZ CONCLUDED!</h2>
         <p>Check the host presentation screen for the winners.</p>
       </div>
@@ -432,7 +402,6 @@
 
         const data = await res.json();
 
-        // Update score badge
         if (Array.isArray(data.leaderboard)) {
           const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
           if (me) {
@@ -481,7 +450,7 @@
 
       q.options.forEach((optText, idx) => {
         const btn = document.createElement('button');
-        btn.className = 'option-item';
+        btn.className = 'opt-btn';
         btn.innerText = optText;
         btn.onclick = () => selectOption(idx, btn);
         container.appendChild(btn);
@@ -496,7 +465,7 @@
       if (hasAnsweredCurrentRound) return;
 
       selectedOption = index;
-      document.querySelectorAll('.option-item').forEach(b => b.classList.remove('selected'));
+      document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
       btnElement.classList.add('selected');
 
       const confirmBtn = document.getElementById('confirm-btn');
@@ -538,7 +507,7 @@
     }
 
     function highlightAnswers(correctIndex) {
-      const buttons = document.querySelectorAll('.option-item');
+      const buttons = document.querySelectorAll('.opt-btn');
       buttons.forEach((btn, idx) => {
         btn.onclick = null;
         if (idx === correctIndex) {
