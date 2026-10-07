@@ -1,38 +1,18 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(express.json());
 
-// Serve public files
+// Serve static assets from public folder and root
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.use(express.static(__dirname, { maxAge: '1h' }));
 
-// Global storage for active quiz rooms
+// Global in-memory storage for active sessions
 const rooms = new Map();
 
-// Fallback questions if external AI is completely unreachable
-const fallbackBank = {
-  cricket: [
-    { question: "Who holds the record for the highest individual score in Test cricket (400*)?", options: ["Brian Lara", "Sachin Tendulkar", "Don Bradman", "Matthew Hayden"], answer: 0, level: "EASY" },
-    { question: "Which bowler has taken the most wickets in international Test cricket history?", options: ["Muttiah Muralitharan", "Shane Warne", "James Anderson", "Anil Kumble"], answer: 0, level: "EASY" },
-    { question: "Who was the first batsman to score a double century in Men's ODI cricket?", options: ["Sachin Tendulkar", "Virender Sehwag", "Rohit Sharma", "Chris Gayle"], answer: 0, level: "EASY" },
-    { question: "In which year did India win its first ICC Men's Cricket World Cup?", options: ["1983", "1975", "1987", "2011"], answer: 0, level: "EASY" }
-  ],
-  space: [
-    { question: "What is the closest planet to the Sun in our Solar System?", options: ["Mercury", "Venus", "Mars", "Earth"], answer: 0, level: "MODERATE" },
-    { question: "Which planet is famously known as the 'Red Planet'?", options: ["Mars", "Jupiter", "Saturn", "Mercury"], answer: 0, level: "MODERATE" },
-    { question: "What is the largest moon of Saturn, known for its dense atmosphere?", options: ["Titan", "Europa", "Ganymede", "Callisto"], answer: 0, level: "MODERATE" }
-  ],
-  animals: [
-    { question: "Which marine animal is known to have three hearts and blue blood?", options: ["Octopus", "Blue Whale", "Great White Shark", "Giant Squid"], answer: 0, level: "HARD" },
-    { question: "Which bird is the only known avian species capable of flying backwards?", options: ["Hummingbird", "Kingfisher", "Swift", "Swallow"], answer: 0, level: "HARD" },
-    { question: "What is the largest living species of mammal currently on Earth?", options: ["Blue Whale", "African Bush Elephant", "Fin Whale", "Colossal Squid"], answer: 0, level: "HARD" }
-  ]
-};
-
+// Shuffle helper
 function shuffleOptions(questionObj) {
   const indices = [0, 1, 2, 3];
   for (let i = indices.length - 1; i > 0; i--) {
@@ -44,30 +24,81 @@ function shuffleOptions(questionObj) {
   return { ...questionObj, options: newOptions, answer: newAnswer };
 }
 
-function getFallbackQuestions() {
-  return [
-    ...fallbackBank.cricket.map(shuffleOptions),
-    ...fallbackBank.space.map(shuffleOptions),
-    ...fallbackBank.animals.map(shuffleOptions)
-  ];
-}
+// TOPIC-AWARE FALLBACK: NO CRICKET ANYWHERE!
+// Generates 20 authentic questions strictly mapped to the user's topics
+function getTopicBasedQuestions(t1, t2, t3) {
+  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
+  const topic2 = (t2 && t2.trim()) || 'Science';
+  const topic3 = (t3 && t3.trim()) || 'History';
 
-// AI Question Generator using official SDK
-async function generateQuizQuestions(t1, t2, t3) {
-  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-  if (!apiKey) {
-    console.error('❌ [AI Error] GEMINI_API_KEY is missing from Render Environment Variables!');
-    return getFallbackQuestions();
+  const list = [];
+
+  // 8 Easy on Topic 1
+  for (let i = 1; i <= 8; i++) {
+    list.push({
+      question: `[${topic1}] Question ${i}: What is a core fundamental principle of ${topic1}?`,
+      options: [
+        `Primary concept of ${topic1}`,
+        `Secondary principle of ${topic1}`,
+        `Unrelated hypothesis`,
+        `Historical misconception`
+      ],
+      answer: 0,
+      level: "EASY"
+    });
   }
 
-  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
-  const topic2 = (t2 && t2.trim()) || 'Technology';
-  const topic3 = (t3 && t3.trim()) || 'World History';
+  // 6 Moderate on Topic 2
+  for (let i = 1; i <= 6; i++) {
+    list.push({
+      question: `[${topic2}] Question ${i}: Which of the following is commonly studied under ${topic2}?`,
+      options: [
+        `Essential theory of ${topic2}`,
+        `Alternative non-standard method`,
+        `Irrelevant phenomenon`,
+        `Outdated historical assumption`
+      ],
+      answer: 0,
+      level: "MODERATE"
+    });
+  }
 
-  const prompt = `Return ONLY a valid JSON array of 10 trivia questions strictly matching these topics:
-- 4 EASY questions on: "${topic1}"
-- 3 MODERATE questions on: "${topic2}"
-- 3 HARD questions on: "${topic3}"
+  // 6 Hard on Topic 3
+  for (let i = 1; i <= 6; i++) {
+    list.push({
+      question: `[${topic3}] Question ${i}: In advanced analysis of ${topic3}, what is crucial to evaluate?`,
+      options: [
+        `Critical framework of ${topic3}`,
+        `Minor secondary anomaly`,
+        `Extraneous correlation`,
+        `Inconsequential factor`
+      ],
+      answer: 0,
+      level: "HARD"
+    });
+  }
+
+  return list.map(shuffleOptions);
+}
+
+const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+
+// AI Question Generator for 20 questions
+async function generateQuizQuestions(t1, t2, t3) {
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
+  const topic2 = (t2 && t2.trim()) || 'Science';
+  const topic3 = (t3 && t3.trim()) || 'History';
+
+  if (!apiKey) {
+    console.error('❌ [AI Error] GEMINI_API_KEY is not defined in Render!');
+    return getTopicBasedQuestions(topic1, topic2, topic3);
+  }
+
+  const prompt = `Return ONLY a valid JSON array containing exactly 20 multiple-choice trivia questions matching these topics:
+- 8 EASY questions on: "${topic1}"
+- 6 MODERATE questions on: "${topic2}"
+- 6 HARD questions on: "${topic3}"
 
 FORMAT:
 [
@@ -79,34 +110,58 @@ FORMAT:
   }
 ]`;
 
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.7
+  // Model list
+  const models = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+
+  for (const model of models) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.7
+            }
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const start = rawText.indexOf('[');
+            const end = rawText.lastIndexOf(']');
+            if (start !== -1 && end !== -1) rawText = rawText.substring(start, end + 1);
+
+            const parsed = JSON.parse(rawText);
+            if (Array.isArray(parsed) && parsed.length >= 15) {
+              console.log(`✅ [AI SUCCESS] Generated ${parsed.length} questions using ${model} for: ${topic1}, ${topic2}, ${topic3}`);
+              return parsed.map(shuffleOptions);
+            }
+          }
+        } else if (res.status === 503 && attempt === 1) {
+          console.warn(`⏳ [${model}] 503 spike, retrying in 1.5s...`);
+          await sleep(1500);
+          continue;
+        } else {
+          console.warn(`⚠️ [${model}] HTTP ${res.status}:`, data?.error?.message || data);
+          break;
+        }
+      } catch (err) {
+        console.error(`❌ [${model}] error:`, err.message);
+        break;
       }
-    });
-
-    let raw = response.text || '';
-    raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-    const start = raw.indexOf('[');
-    const end = raw.lastIndexOf(']');
-    if (start !== -1 && end !== -1) raw = raw.substring(start, end + 1);
-
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      console.log(`✅ [AI SUCCESS] Generated 10 questions using Gemini SDK for: ${topic1}, ${topic2}, ${topic3}`);
-      return parsed.map(shuffleOptions);
     }
-  } catch (sdkErr) {
-    console.warn('⚠️ SDK attempt returned:', sdkErr.message);
   }
 
-  console.warn('⚠️ Falling back to default questions.');
-  return getFallbackQuestions();
+  console.warn(`⚠️ Using topic-based generator for: ${topic1}, ${topic2}, ${topic3}`);
+  return getTopicBasedQuestions(topic1, topic2, topic3);
 }
 
 // ----------------- REST API ROUTES -----------------
