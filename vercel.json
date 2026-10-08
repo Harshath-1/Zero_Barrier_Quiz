@@ -6,11 +6,11 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/server.js" },
-    { "src": "^/$", "dest": "/server.js" },
-    { "src": "^/host$", "dest": "/server.js" },
-    { "src": "^/host.html$", "dest": "/server.js" },
-    { "src": "^/player$", "dest": "/server.js" },
-    { "src": "^/player.html$", "dest": "/server.js" },
+    { "src": "^/$", "dest": "/public/host.html" },
+    { "src": "^/player$", "dest": "/public/player.html" },
+    { "src": "^/player.html$", "dest": "/public/player.html" },
+    { "src": "^/host$", "dest": "/public/host.html" },
+    { "src": "^/host.html$", "dest": "/public/host.html" },
     { "src": "/(.*)", "dest": "/public/$1" }
   ]
 }
