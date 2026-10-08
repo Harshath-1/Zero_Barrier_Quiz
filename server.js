@@ -1,11 +1,12 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
-// Prevent caching for all API endpoints
+// Prevent caching on dynamic state
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -15,14 +16,36 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static assets
+// Helper function to serve static HTML whether in root or public folder
+function serveHtml(filename, res) {
+  const rootPath = path.join(__dirname, filename);
+  const publicPath = path.join(__dirname, 'public', filename);
+
+  if (fs.existsSync(rootPath)) {
+    return res.sendFile(rootPath);
+  }
+  if (fs.existsSync(publicPath)) {
+    return res.sendFile(publicPath);
+  }
+  return res.status(404).send(`File ${filename} not found.`);
+}
+
+// Direct Page Routes
+app.get(['/', '/host', '/host.html'], (req, res) => {
+  serveHtml('host.html', res);
+});
+
+app.get(['/player', '/player.html'], (req, res) => {
+  serveHtml('player.html', res);
+});
+
+// Static assets (images, stylesheets, icons)
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
 
 // In-Memory Room Registry
 const rooms = new Map();
 
-// Helper to shuffle choices while preserving the correct index
 function shuffleOptions(item) {
   const indices = [0, 1, 2, 3];
   for (let i = indices.length - 1; i > 0; i--) {
@@ -98,7 +121,6 @@ const triviaLibrary = {
   ]
 };
 
-// Fallback topic retriever
 function getTopicQuestions(topicName, count, level) {
   const clean = (topicName || '').toLowerCase().trim();
   let matchedKey = Object.keys(triviaLibrary).find(k => clean.includes(k) || k.includes(clean));
@@ -126,7 +148,89 @@ function getTopicQuestions(topicName, count, level) {
   return list;
 }
 
-// Google Gemini API Engine
+// 1. Primary Engine: xAI (Grok)
+async function callXAI(apiKey, prompt) {
+  const models = ['grok-2', 'grok-2-latest', 'grok-beta'];
+  let lastError = null;
+
+  for (const model of models) {
+    try {
+      console.log(`[xAI] Attempting model: ${model}...`);
+      const res = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: 'You are a quiz generator. Output ONLY a valid JSON array of question objects without markdown backticks.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        lastError = new Error(data?.error?.message || `HTTP ${res.status}`);
+        continue;
+      }
+
+      let text = data.choices?.[0]?.message?.content || '';
+      text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const start = text.indexOf('[');
+      const end = text.lastIndexOf(']');
+      if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
+
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed) && parsed.length >= 6) {
+        return parsed.map(shuffleOptions);
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('Invalid JSON structure returned by xAI');
+}
+
+// 2. Secondary Engine: OpenAI (ChatGPT gpt-4o-mini)
+async function callOpenAI(apiKey, prompt) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey.trim()}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'You are a quiz generator. Return only a raw JSON array of objects without markdown backticks.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+
+  let text = data.choices?.[0]?.message?.content || '';
+  text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
+
+  const parsed = JSON.parse(text);
+  if (Array.isArray(parsed) && parsed.length >= 6) {
+    return parsed.map(shuffleOptions);
+  }
+  throw new Error('Invalid JSON structure returned by OpenAI');
+}
+
+// 3. Tertiary Engine: Google Gemini (gemini-2.0-flash)
 async function callGemini(apiKey, prompt) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
   const res = await fetch(url, {
@@ -144,49 +248,24 @@ async function callGemini(apiKey, prompt) {
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
 
-  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const start = rawText.indexOf('[');
+  const end = rawText.lastIndexOf(']');
+  if (start !== -1 && end !== -1) rawText = rawText.substring(start, end + 1);
+
   const parsed = JSON.parse(rawText);
-  if (Array.isArray(parsed) && parsed.length >= 8) {
+  if (Array.isArray(parsed) && parsed.length >= 6) {
     return parsed.map(shuffleOptions);
   }
-  throw new Error('Gemini returned an invalid question structure');
+  throw new Error('Invalid JSON structure returned by Gemini');
 }
 
-// xAI Grok API Engine
-async function callXAI(apiKey, prompt) {
-  const res = await fetch('https://api.x.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey.trim()}`
-    },
-    body: JSON.stringify({
-      model: 'grok-beta',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7
-    })
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-
-  let text = data.choices?.[0]?.message?.content || '';
-  text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const start = text.indexOf('[');
-  const end = text.lastIndexOf(']');
-  if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
-
-  const parsed = JSON.parse(text);
-  if (Array.isArray(parsed) && parsed.length >= 8) {
-    return parsed.map(shuffleOptions);
-  }
-  throw new Error('xAI returned an invalid question structure');
-}
-
-// Master AI & Topic Orchestrator
+// Complete Failover Chain: xAI -> OpenAI -> Gemini -> Local Library
 async function generateQuizQuestions(t1, t2, t3) {
+  const xaiKey = (process.env.XAI_API_KEY || process.env.XAI_PRIMARY_KEY || process.env.API_KEY || process.env.GROK_API_KEY || '').trim();
+  const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
   const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
-  const xaiKey = (process.env.XAI_PRIMARY_KEY || process.env.API_KEY || process.env.GROK_API_KEY || '').trim();
 
   const topic1 = (t1 && t1.trim()) || 'Cinema';
   const topic2 = (t2 && t2.trim()) || 'History';
@@ -206,32 +285,44 @@ Each object must follow this structure:
 }
 Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) of the correct choice. Return ONLY the JSON array.`;
 
-  // 1. Attempt Gemini
-  if (geminiKey) {
-    try {
-      console.log(`[Gemini API] Generating questions for: ${topic1}, ${topic2}, ${topic3}...`);
-      const questions = await callGemini(geminiKey, prompt);
-      console.log(`✅ [Gemini SUCCESS] Generated ${questions.length} questions.`);
-      return questions;
-    } catch (err) {
-      console.warn(`⚠️ [Gemini Failed]: ${err.message}`);
-    }
-  }
-
-  // 2. Attempt xAI
+  // 1. Try xAI (Primary)
   if (xaiKey) {
     try {
-      console.log(`[xAI API] Retrying with xAI...`);
+      console.log(`[xAI Primary] Generating questions for: ${topic1}, ${topic2}, ${topic3}...`);
       const questions = await callXAI(xaiKey, prompt);
       console.log(`✅ [xAI SUCCESS] Generated ${questions.length} questions.`);
       return questions;
     } catch (err) {
-      console.warn(`⚠️ [xAI Failed]: ${err.message}`);
+      console.warn(`⚠️ [xAI Failed]: ${err.message}. Passing to OpenAI...`);
     }
   }
 
-  // 3. Fallback to Local Categorized Engine
-  console.log(`[Topic Engine] Assembling questions for: [${topic1}], [${topic2}], [${topic3}]`);
+  // 2. Try OpenAI (Second)
+  if (openaiKey) {
+    try {
+      console.log(`[OpenAI Backup] Generating questions for: ${topic1}, ${topic2}, ${topic3}...`);
+      const questions = await callOpenAI(openaiKey, prompt);
+      console.log(`✅ [OpenAI SUCCESS] Generated ${questions.length} questions.`);
+      return questions;
+    } catch (err) {
+      console.warn(`⚠️ [OpenAI Failed]: ${err.message}. Passing to Gemini...`);
+    }
+  }
+
+  // 3. Try Gemini (Third)
+  if (geminiKey) {
+    try {
+      console.log(`[Gemini Backup] Generating questions for: ${topic1}, ${topic2}, ${topic3}...`);
+      const questions = await callGemini(geminiKey, prompt);
+      console.log(`✅ [Gemini SUCCESS] Generated ${questions.length} questions.`);
+      return questions;
+    } catch (err) {
+      console.warn(`⚠️ [Gemini Failed]: ${err.message}. Falling back to internal engine...`);
+    }
+  }
+
+  // 4. Final Local Fallback
+  console.log(`[Topic Engine] Assembling fallback questions for: [${topic1}], [${topic2}], [${topic3}]`);
   const q1 = getTopicQuestions(topic1, 4, 'EASY');
   const q2 = getTopicQuestions(topic2, 3, 'MODERATE');
   const q3 = getTopicQuestions(topic3, 3, 'HARD');
@@ -254,7 +345,6 @@ app.post('/api/create-room', async (req, res) => {
 
     let questions = [];
 
-    // Branch between manual inputs and topic generation
     if (mode === 'manual' && Array.isArray(manualQuestions) && manualQuestions.length > 0) {
       console.log(`[Manual Mode] Initialized with ${manualQuestions.length} host-defined questions.`);
       questions = manualQuestions.map((q, idx) => ({
@@ -384,7 +474,7 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-// Server listener (compatible with standard servers and serverless runners)
+// Server listener
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, '0.0.0.0', () => {
