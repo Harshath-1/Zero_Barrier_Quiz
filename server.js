@@ -3,9 +3,9 @@ const express = require('express');
 const path = require('path');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
-// Prevent browser from caching API responses
+// Prevent caching for all API endpoints
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -15,11 +15,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve static assets
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
 
+// In-Memory Room Registry
 const rooms = new Map();
 
+// Helper to shuffle choices while preserving the correct index
 function shuffleOptions(item) {
   const indices = [0, 1, 2, 3];
   for (let i = indices.length - 1; i > 0; i--) {
@@ -31,7 +34,7 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer };
 }
 
-// Broad Trivia Library across diverse topics
+// Built-in Categorized Trivia Library
 const triviaLibrary = {
   cinema: [
     { question: "Which movie won the first-ever Academy Award for Best Picture in 1929?", options: ["Wings", "Sunrise", "The Jazz Singer", "Metropolis"], answer: 0 },
@@ -95,24 +98,21 @@ const triviaLibrary = {
   ]
 };
 
-// Intelligently find matching questions for any custom topic
+// Fallback topic retriever
 function getTopicQuestions(topicName, count, level) {
   const clean = (topicName || '').toLowerCase().trim();
-  
-  // Find matching key from library
   let matchedKey = Object.keys(triviaLibrary).find(k => clean.includes(k) || k.includes(clean));
-  
-  // Specific aliases
+
   if (!matchedKey) {
     if (clean.includes('movie') || clean.includes('film') || clean.includes('bollywood') || clean.includes('hollywood')) matchedKey = 'cinema';
-    else if (clean.includes('computer') || clean.includes('code') || clean.includes('software') || clean.includes('ai')) matchedKey = 'technology';
-    else if (clean.includes('cricket') || clean.includes('football') || clean.includes('tennis')) matchedKey = 'sports';
+    else if (clean.includes('computer') || clean.includes('code') || clean.includes('software') || clean.includes('tech') || clean.includes('ai')) matchedKey = 'technology';
+    else if (clean.includes('cricket') || clean.includes('football') || clean.includes('tennis') || clean.includes('sport')) matchedKey = 'sports';
     else if (clean.includes('earth') || clean.includes('country') || clean.includes('world') || clean.includes('map')) matchedKey = 'geography';
-    else if (clean.includes('war') || clean.includes('ancient') || clean.includes('empire')) matchedKey = 'history';
+    else if (clean.includes('war') || clean.includes('ancient') || clean.includes('king') || clean.includes('history')) matchedKey = 'history';
     else matchedKey = 'science';
   }
 
-  const pool = triviaLibrary[matchedKey];
+  const pool = triviaLibrary[matchedKey] || triviaLibrary.science;
   const list = [];
   for (let i = 0; i < count; i++) {
     const item = pool[i % pool.length];
@@ -126,79 +126,150 @@ function getTopicQuestions(topicName, count, level) {
   return list;
 }
 
-// Master generator that builds 20 distinct questions for any 3 topics
+// Google Gemini API Engine
+async function callGemini(apiKey, prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.7
+      }
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const parsed = JSON.parse(rawText);
+  if (Array.isArray(parsed) && parsed.length >= 8) {
+    return parsed.map(shuffleOptions);
+  }
+  throw new Error('Gemini returned an invalid question structure');
+}
+
+// xAI Grok API Engine
+async function callXAI(apiKey, prompt) {
+  const res = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey.trim()}`
+    },
+    body: JSON.stringify({
+      model: 'grok-beta',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+
+  let text = data.choices?.[0]?.message?.content || '';
+  text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
+
+  const parsed = JSON.parse(text);
+  if (Array.isArray(parsed) && parsed.length >= 8) {
+    return parsed.map(shuffleOptions);
+  }
+  throw new Error('xAI returned an invalid question structure');
+}
+
+// Master AI & Topic Orchestrator
 async function generateQuizQuestions(t1, t2, t3) {
-  const apiKey = (process.env.API_KEY || process.env.GROK_API_KEY || '').trim();
+  const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const xaiKey = (process.env.XAI_PRIMARY_KEY || process.env.API_KEY || process.env.GROK_API_KEY || '').trim();
+
   const topic1 = (t1 && t1.trim()) || 'Cinema';
   const topic2 = (t2 && t2.trim()) || 'History';
   const topic3 = (t3 && t3.trim()) || 'Geography';
 
-  // Attempt live API if key is configured
-  if (apiKey) {
-    const prompt = `Create exactly 20 trivia questions: 8 EASY on "${topic1}", 6 MODERATE on "${topic2}", 6 HARD on "${topic3}". Output ONLY a valid JSON array of objects with keys "question", "options" (4 strings), "answer" (0-3 index), and "level". No markdown backticks.`;
+  const prompt = `Generate exactly 10 multiple-choice trivia questions as a JSON array of objects:
+- 4 EASY questions on "${topic1}" with level "EASY"
+- 3 MODERATE questions on "${topic2}" with level "MODERATE"
+- 3 HARD questions on "${topic3}" with level "HARD"
 
+Each object must follow this structure:
+{
+  "question": "string text of the question",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "answer": 0,
+  "level": "EASY"
+}
+Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) of the correct choice. Return ONLY the JSON array.`;
+
+  // 1. Attempt Gemini
+  if (geminiKey) {
     try {
-      console.log(`[AI Call] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
-      const res = await fetch('https://api.x.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'grok-4.1-fast',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7
-        })
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        let text = data.choices?.[0]?.message?.content || '';
-        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const start = text.indexOf('[');
-        const end = text.lastIndexOf(']');
-        if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
-
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed) && parsed.length >= 10) {
-          console.log(`✅ [AI SUCCESS] Generated questions via API!`);
-          return parsed.map(shuffleOptions);
-        }
-      }
+      console.log(`[Gemini API] Generating questions for: ${topic1}, ${topic2}, ${topic3}...`);
+      const questions = await callGemini(geminiKey, prompt);
+      console.log(`✅ [Gemini SUCCESS] Generated ${questions.length} questions.`);
+      return questions;
     } catch (err) {
-      console.warn(`⚠️ API attempt bypassed:`, err.message);
+      console.warn(`⚠️ [Gemini Failed]: ${err.message}`);
     }
   }
 
-  // Guaranteed diverse topic-wise generation
-  console.log(`[Trivia Engine] Assembling questions for: [${topic1}], [${topic2}], [${topic3}]`);
-  const q1 = getTopicQuestions(topic1, 8, 'EASY');
-  const q2 = getTopicQuestions(topic2, 6, 'MODERATE');
-  const q3 = getTopicQuestions(topic3, 6, 'HARD');
+  // 2. Attempt xAI
+  if (xaiKey) {
+    try {
+      console.log(`[xAI API] Retrying with xAI...`);
+      const questions = await callXAI(xaiKey, prompt);
+      console.log(`✅ [xAI SUCCESS] Generated ${questions.length} questions.`);
+      return questions;
+    } catch (err) {
+      console.warn(`⚠️ [xAI Failed]: ${err.message}`);
+    }
+  }
 
-  const combined = [...q1, ...q2, ...q3];
-  return combined.map(shuffleOptions);
+  // 3. Fallback to Local Categorized Engine
+  console.log(`[Topic Engine] Assembling questions for: [${topic1}], [${topic2}], [${topic3}]`);
+  const q1 = getTopicQuestions(topic1, 4, 'EASY');
+  const q2 = getTopicQuestions(topic2, 3, 'MODERATE');
+  const q3 = getTopicQuestions(topic3, 3, 'HARD');
+
+  return [...q1, ...q2, ...q3].map(shuffleOptions);
 }
 
 // ----------------- REST API ROUTES -----------------
 
-// 1. Create Room (Host) - Always forces a clean reset
+// 1. Create Room (Supports both Manual & Topic modes)
 app.post('/api/create-room', async (req, res) => {
   try {
-    const { customPin, topic1, topic2, topic3 } = req.body || {};
+    const { customPin, mode, manualQuestions, topic1, topic2, topic3 } = req.body || {};
     const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
-    console.log(`[Session Setup] Resetting PIN: ${pin} | New Topics: ${topic1}, ${topic2}, ${topic3}`);
+    console.log(`[Session Setup] Resetting PIN: ${pin} | Mode: ${mode || 'topic'}`);
 
     if (rooms.has(pin)) {
       rooms.delete(pin);
     }
 
-    const questions = await generateQuizQuestions(topic1, topic2, topic3);
+    let questions = [];
+
+    // Branch between manual inputs and topic generation
+    if (mode === 'manual' && Array.isArray(manualQuestions) && manualQuestions.length > 0) {
+      console.log(`[Manual Mode] Initialized with ${manualQuestions.length} host-defined questions.`);
+      questions = manualQuestions.map((q, idx) => ({
+        index: idx + 1,
+        question: q.question,
+        options: q.options,
+        answer: Number(q.answer),
+        level: q.level || 'CUSTOM'
+      }));
+    } else {
+      questions = await generateQuizQuestions(topic1, topic2, topic3);
+    }
 
     rooms.set(pin, {
       pin,
-      topics: [topic1, topic2, topic3],
       questions,
       currentIndex: 0,
       state: 'LOBBY',
@@ -208,7 +279,7 @@ app.post('/api/create-room', async (req, res) => {
       createdAt: Date.now()
     });
 
-    console.log(`✅ Room ${pin} initialized with 20 questions.`);
+    console.log(`✅ Room ${pin} initialized with ${questions.length} total questions.`);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
     console.error('[Create Room Error]:', err.message);
@@ -313,9 +384,12 @@ app.post('/api/submit-answer', (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Quiz server running on port ${PORT}`);
-});
+// Server listener (compatible with standard servers and serverless runners)
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Quiz server running on port ${PORT}`);
+  });
+}
 
 module.exports = app;
