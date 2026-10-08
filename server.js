@@ -16,18 +16,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// Helper function to serve static HTML whether in root or public folder
+// Robust HTML file resolver targeting the public/ directory
 function serveHtml(filename, res) {
-  const rootPath = path.join(__dirname, filename);
-  const publicPath = path.join(__dirname, 'public', filename);
+  const candidates = [
+    path.resolve(__dirname, 'public', filename),
+    path.join(process.cwd(), 'public', filename),
+    path.resolve(__dirname, filename),
+    path.join(process.cwd(), filename)
+  ];
 
-  if (fs.existsSync(rootPath)) {
-    return res.sendFile(rootPath);
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
+    }
   }
-  if (fs.existsSync(publicPath)) {
-    return res.sendFile(publicPath);
-  }
-  return res.status(404).send(`File ${filename} not found.`);
+  return res.status(404).send(`Cannot find ${filename} in public or root directory.`);
 }
 
 // Direct Page Routes
