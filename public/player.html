@@ -7,8 +7,8 @@
   <style>
     :root {
       --bg-black: #080808;
-      --card-bg: rgba(18, 18, 18, 0.92);
-      --card-border: rgba(250, 204, 21, 0.35);
+      --card-bg: rgba(18, 18, 18, 0.95);
+      --card-border: rgba(250, 204, 21, 0.4);
       --yellow-bright: #facc15;
       --text-white: #ffffff;
       --text-muted: #a3a3a3;
@@ -26,7 +26,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px 20px;
+      padding: 20px 16px;
     }
     .glass-card {
       background: var(--card-bg);
@@ -34,11 +34,12 @@
       -webkit-backdrop-filter: blur(18px);
       border-radius: 20px;
       border: 1px solid var(--card-border);
-      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.15);
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.18);
       width: 100%;
       max-width: 580px;
-      padding: 28px;
+      padding: 24px 28px;
     }
+
     .club-banner-wrapper {
       width: 100%;
       border-radius: 12px;
@@ -49,11 +50,12 @@
     .club-banner {
       width: 100%;
       display: block;
-      max-height: 145px;
+      max-height: 140px;
       object-fit: cover;
     }
+
     .title-banner {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 900;
       letter-spacing: 2px;
       text-transform: uppercase;
@@ -67,6 +69,7 @@
       text-align: center;
       margin-bottom: 20px;
     }
+
     .field-label {
       display: block;
       font-size: 12px;
@@ -91,6 +94,7 @@
       font-weight: 700;
       border-color: var(--yellow-bright);
     }
+
     .yellow-btn {
       width: 100%;
       padding: 15px;
@@ -103,17 +107,97 @@
       text-transform: uppercase;
       cursor: pointer;
       box-shadow: 0 0 20px rgba(250, 204, 21, 0.45);
-      transition: background 0.2s;
+      transition: background 0.2s, box-shadow 0.2s;
+      margin-top: 10px;
     }
     .yellow-btn:hover {
       background: #fde047;
     }
     .yellow-btn:disabled {
-      background: #262626;
-      color: #525252;
-      box-shadow: none;
+      background: #232530 !important;
+      color: #717789 !important;
+      box-shadow: none !important;
       cursor: not-allowed;
     }
+
+    .badge-hud {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 900;
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid var(--yellow-bright);
+      color: var(--yellow-bright);
+      text-transform: uppercase;
+    }
+
+    /* Top Player Status Bar */
+    .player-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f0f0f;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+    }
+    .player-header-bar .user-tag {
+      font-size: 13px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+    .player-header-bar .score-tag {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--yellow-bright);
+    }
+
+    /* 2x2 Options Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .host-tile {
+      background: #141414;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 16px 14px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      text-align: left;
+      cursor: pointer;
+      opacity: 1 !important;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .host-tile:hover:not(:disabled) {
+      background: #202020;
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .host-tile.selected {
+      border: 2px solid var(--yellow-bright) !important;
+      background: rgba(250, 204, 21, 0.2) !important;
+      color: var(--yellow-bright) !important;
+      box-shadow: 0 0 15px rgba(250, 204, 21, 0.35);
+    }
+    .host-tile.correct {
+      border: 2px solid #2ed573 !important;
+      background: rgba(46, 213, 115, 0.3) !important;
+      color: #ffffff !important;
+    }
+    .host-tile.wrong {
+      border: 2px solid #ff4757 !important;
+      background: rgba(255, 71, 87, 0.3) !important;
+      color: #ffffff !important;
+    }
+    .host-tile.dimmed {
+      opacity: 0.35 !important;
+    }
+
     .pin-display-box {
       background: #0f0f0f;
       border: 1.5px dashed var(--yellow-bright);
@@ -122,121 +206,73 @@
       margin: 18px 0;
       text-align: center;
     }
-    .badge-hud {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 900;
-      background: rgba(250, 204, 21, 0.12);
-      border: 1px solid var(--yellow-bright);
-      color: var(--yellow-bright);
-      text-transform: uppercase;
-    }
-    /* Options 2x2 grid identical to Host view */
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin: 18px 0;
-    }
-    .host-tile {
-      background: #121212;
-      border: 1.5px solid rgba(255, 255, 255, 0.15);
-      border-radius: 12px;
-      padding: 16px 14px;
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--text-white);
-      text-align: left;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .host-tile:hover {
-      background: #1a1a1a;
-      border-color: rgba(255, 255, 255, 0.3);
-    }
-    .host-tile.selected {
-      border: 2px solid var(--yellow-bright) !important;
-      background: rgba(250, 204, 21, 0.15) !important;
-      color: var(--yellow-bright) !important;
-      box-shadow: 0 0 15px rgba(250, 204, 21, 0.35);
-    }
-    .host-tile.correct {
-      border: 2px solid #2ed573 !important;
-      background: rgba(46, 213, 115, 0.25) !important;
-      color: #ffffff !important;
-    }
-    .host-tile.wrong {
-      border: 2px solid #ff4757 !important;
-      background: rgba(255, 71, 87, 0.25) !important;
-      color: #ffffff !important;
-      opacity: 0.5;
-    }
   </style>
 </head>
 <body>
 
-  <!-- 1. PLAYER JOIN CARD -->
-  <div id="join-card" class="glass-card">
+  <div class="glass-card">
+    
+    <!-- Permanent Club Banner Header -->
     <div class="club-banner-wrapper">
       <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" />
     </div>
-    <div class="title-banner">PLAYER QUIZ PORTAL</div>
-    <div class="info-line">Enter active session PIN & your name</div>
 
-    <label class="field-label">Session PIN</label>
-    <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" autocomplete="off" />
+    <!-- 1. JOIN VIEW -->
+    <div id="join-card">
+      <div class="title-banner">PLAYER QUIZ PORTAL</div>
+      <div class="info-line">Enter active session PIN & your name</div>
 
-    <label class="field-label">Player Name</label>
-    <input id="name-input" class="category-input" type="text" placeholder="Enter your full name" autocomplete="off" />
+      <label class="field-label">Session PIN</label>
+      <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" autocomplete="off" />
 
-    <button id="join-btn" class="yellow-btn" onclick="joinGame()">Enter Session</button>
-  </div>
+      <label class="field-label">Player Name</label>
+      <input id="name-input" class="category-input" type="text" placeholder="Enter your full name" autocomplete="off" />
 
-  <!-- 2. LOBBY WAITING CARD -->
-  <div id="lobby-card" class="glass-card" style="display: none; text-align: center;">
-    <div class="badge-hud">LOBBY CONNECTED</div>
-    <div class="pin-display-box">
-      <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Player Handle</div>
-      <div id="display-player" style="font-size: 32px; font-weight: 900; color: var(--yellow-bright);">Player</div>
-      <div style="font-size: 14px; color: var(--text-muted); margin-top: 10px;">Waiting for host to launch the quiz...</div>
-    </div>
-  </div>
-
-  <!-- 3. QUESTION CARD -->
-  <div id="question-card" class="glass-card" style="display: none;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-      <span id="level-badge" class="badge-hud">EASY</span>
-      <span id="score-counter" style="color: var(--yellow-bright); font-size: 14px; font-weight: 800;">Score: 0</span>
+      <button id="join-btn" class="yellow-btn" onclick="joinGame()">Enter Session</button>
     </div>
 
-    <div id="question-text" style="font-size: 20px; font-weight: 800; text-align: center; margin: 16px 0;">Loading question...</div>
-
-    <div class="grid">
-      <button class="host-tile" id="tile-0" onclick="selectOption(0)">A. <span id="opt-0"></span></button>
-      <button class="host-tile" id="tile-1" onclick="selectOption(1)">B. <span id="opt-1"></span></button>
-      <button class="host-tile" id="tile-2" onclick="selectOption(2)">C. <span id="opt-2"></span></button>
-      <button class="host-tile" id="tile-3" onclick="selectOption(3)">D. <span id="opt-3"></span></button>
+    <!-- 2. LOBBY WAITING VIEW -->
+    <div id="lobby-card" style="display: none; text-align: center;">
+      <div class="badge-hud">LOBBY CONNECTED</div>
+      <div class="pin-display-box">
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Connected As</div>
+        <div id="display-player" style="font-size: 28px; font-weight: 900; color: var(--yellow-bright);">Player</div>
+        <div style="font-size: 14px; color: var(--text-muted); margin-top: 10px;">Waiting for host to launch the quiz...</div>
+      </div>
     </div>
 
-    <button id="confirm-btn" class="yellow-btn" onclick="submitAnswer()" disabled>Confirm Answer</button>
-  </div>
+    <!-- 3. QUESTION VIEW -->
+    <div id="question-card" style="display: none;">
+      <div class="player-header-bar">
+        <span class="user-tag" id="player-hud-name">👤 Player</span>
+        <span class="badge-hud" id="level-badge">EASY</span>
+        <span class="score-tag" id="score-counter">Score: 0</span>
+      </div>
 
-  <!-- 4. ANSWER LOCKED IN WAITING CARD -->
-  <div id="wait-card" class="glass-card" style="display: none; text-align: center;">
-    <div class="badge-hud">RESPONSE RECORDED</div>
-    <div class="pin-display-box">
-      <div style="font-size: 26px; font-weight: 900; color: var(--yellow-bright); margin-bottom: 6px;">Answer Locked In!</div>
-      <div style="font-size: 14px; color: var(--text-muted);">Waiting for the host to reveal the correct result...</div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 800;" id="q-counter">Question 1</span>
+        <span id="response-status-text" style="font-size: 12px; color: var(--yellow-bright); font-weight: 700;">Select an answer</span>
+      </div>
+
+      <div id="question-text" style="font-size: 18px; font-weight: 800; margin: 10px 0 16px; color: #ffffff; line-height: 1.4;">Loading question...</div>
+
+      <div class="grid">
+        <button class="host-tile" id="tile-0" onclick="selectOption(0)">A. <span id="opt-0"></span></button>
+        <button class="host-tile" id="tile-1" onclick="selectOption(1)">B. <span id="opt-1"></span></button>
+        <button class="host-tile" id="tile-2" onclick="selectOption(2)">C. <span id="opt-2"></span></button>
+        <button class="host-tile" id="tile-3" onclick="selectOption(3)">D. <span id="opt-3"></span></button>
+      </div>
+
+      <button id="confirm-btn" class="yellow-btn" onclick="submitAnswer()" disabled>Confirm Answer</button>
     </div>
-  </div>
 
-  <!-- 5. FINAL STANDINGS CARD -->
-  <div id="end-card" class="glass-card" style="display: none; text-align: center;">
-    <div class="badge-hud">QUIZ COMPLETED</div>
-    <div class="title-banner" style="font-size: 20px; margin-top: 10px;">FINAL STANDINGS</div>
-    <div id="leaderboard-container" style="margin-top: 16px;"></div>
+    <!-- 4. FINAL STANDINGS VIEW -->
+    <div id="end-card" style="display: none; text-align: center;">
+      <div class="badge-hud">QUIZ COMPLETED</div>
+      <div class="title-banner" style="font-size: 20px; margin-top: 10px;">FINAL STANDINGS</div>
+      <div id="leaderboard-container" style="margin-top: 16px;"></div>
+    </div>
+
   </div>
 
   <script>
@@ -248,8 +284,9 @@
     let pollTimer = null;
 
     function showCard(cardId) {
-      ['join-card', 'lobby-card', 'question-card', 'wait-card', 'end-card'].forEach(id => {
-        document.getElementById(id).style.display = (id === cardId) ? 'block' : 'none';
+      ['join-card', 'lobby-card', 'question-card', 'end-card'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (id === cardId) ? 'block' : 'none';
       });
     }
 
@@ -278,10 +315,11 @@
           currentPin = pin;
           playerName = name;
           document.getElementById('display-player').textContent = name;
+          document.getElementById('player-hud-name').textContent = `👤 ${name}`;
           showCard('lobby-card');
           startPolling();
         } else {
-          alert('Failed to join: ' + (data.error || 'Invalid session PIN'));
+          alert('Failed to join: ' + (data.error || 'Invalid PIN'));
           btn.textContent = 'Enter Session';
           btn.disabled = false;
         }
@@ -306,7 +344,7 @@
         if (!res.ok) return;
         const data = await res.json();
 
-        // Update score
+        // Update current score
         if (data.leaderboard) {
           const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
           if (me) {
@@ -317,6 +355,7 @@
         if (data.state === 'LOBBY') {
           showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
+          // Detect brand new question round
           if (data.currentIndex !== lastSeenQuestionIndex) {
             lastSeenQuestionIndex = data.currentIndex;
             hasAnsweredCurrentRound = false;
@@ -324,11 +363,7 @@
             renderQuestion(data.question);
             showCard('question-card');
           } else {
-            if (hasAnsweredCurrentRound) {
-              showCard('wait-card');
-            } else {
-              showCard('question-card');
-            }
+            showCard('question-card');
           }
         } else if (data.state === 'REVEAL') {
           if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
@@ -358,9 +393,12 @@
     function renderQuestion(q) {
       if (!q) return;
 
+      document.getElementById('q-counter').textContent = `Question ${q.index} of ${q.total}`;
       document.getElementById('level-badge').textContent = q.level || 'QUESTION';
       document.getElementById('question-text').textContent = q.question;
+      document.getElementById('response-status-text').textContent = 'Select an answer';
 
+      // Reset tile brightness and clear any reveal dimming
       for (let i = 0; i < 4; i++) {
         const tile = document.getElementById(`tile-${i}`);
         const span = document.getElementById(`opt-${i}`);
@@ -409,7 +447,12 @@
         const data = await res.json();
         if (res.ok && (data.success || data.message)) {
           hasAnsweredCurrentRound = true;
-          showCard('wait-card');
+          confirmBtn.textContent = 'Answer Locked In';
+          document.getElementById('response-status-text').textContent = 'Waiting for reveal...';
+          // Disable clicking without turning the card dark
+          for (let i = 0; i < 4; i++) {
+            document.getElementById(`tile-${i}`).disabled = true;
+          }
         } else {
           confirmBtn.disabled = false;
           confirmBtn.textContent = 'Confirm Answer';
@@ -418,7 +461,7 @@
       } catch (err) {
         confirmBtn.disabled = false;
         confirmBtn.textContent = 'Confirm Answer';
-        alert('Network error while submitting answer.');
+        alert('Network connection error.');
       }
     }
 
@@ -431,13 +474,13 @@
         } else if (i === selectedOption) {
           tile.className = 'host-tile wrong';
         } else {
-          tile.className = 'host-tile';
-          tile.style.opacity = '0.3';
+          tile.className = 'host-tile dimmed';
         }
       }
       const confirmBtn = document.getElementById('confirm-btn');
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Answer Revealed';
+      document.getElementById('response-status-text').textContent = 'Round ended';
     }
   </script>
 </body>
