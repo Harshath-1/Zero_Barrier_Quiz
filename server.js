@@ -62,48 +62,93 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
 }
 
-// ----------------- INSTANT 20-QUESTION GENERATOR -----------------
+// ----------------- GEMINI API INTEGRATION -----------------
 
-function generateInstantQuestions(t1, t2, t3) {
-  const top1 = (t1 && t1.trim()) || 'Mathematics';
-  const top2 = (t2 && t2.trim()) || 'Physics';
-  const top3 = (t3 && t3.trim()) || 'Chemistry';
+// The key copied from your Google AI Studio cURL
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AQ.Ab8RN6JU5tI6FERNp_IrVVJw2ou_4dsf2pmWZIqyDgtQKs_4mA';
 
-  const questions = [
-    // 8 EASY (Topic 1)
-    { question: `What is the square root of 144? (${top1})`, options: ["10", "12", "14", "16"], answer: 1, level: "EASY" },
-    { question: `What is the value of 15 multiplied by 4? (${top1})`, options: ["45", "50", "60", "65"], answer: 2, level: "EASY" },
-    { question: `What is the only even prime number? (${top1})`, options: ["0", "2", "4", "6"], answer: 1, level: "EASY" },
-    { question: `What is 25% written as a decimal fraction? (${top1})`, options: ["0.025", "0.25", "2.5", "0.5"], answer: 1, level: "EASY" },
-    { question: `What is the perimeter of a square with a side length of 5? (${top1})`, options: ["15", "20", "25", "30"], answer: 1, level: "EASY" },
-    { question: `What is the sum of the angles inside a triangle? (${top1})`, options: ["90°", "180°", "270°", "360°"], answer: 1, level: "EASY" },
-    { question: `If a car travels at 60 km/h, how far does it go in 2 hours? (${top1})`, options: ["90 km", "100 km", "120 km", "150 km"], answer: 2, level: "EASY" },
-    { question: `What is the value of 7 squared (7²)? (${top1})`, options: ["14", "42", "49", "56"], answer: 2, level: "EASY" },
+async function fetchQuestionsFromGemini(topic1, topic2, topic3) {
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 
-    // 6 MODERATE (Topic 2)
-    { question: `Which fundamental physical constant has the approximate value 9.8 m/s² on Earth? (${top2})`, options: ["Speed of Sound", "Gravitational Acceleration", "Atmospheric Pressure", "Hubble Constant"], answer: 1, level: "MODERATE" },
-    { question: `Which law of motion states that for every action there is an equal and opposite reaction? (${top2})`, options: ["Newton's First Law", "Newton's Second Law", "Newton's Third Law", "Law of Gravitation"], answer: 2, level: "MODERATE" },
-    { question: `What unit is used to measure electrical frequency? (${top2})`, options: ["Volt", "Joule", "Watt", "Hertz"], answer: 3, level: "MODERATE" },
-    { question: `In optics, what phenomenon causes a straw to look bent in a glass of water? (${top2})`, options: ["Reflection", "Refraction", "Diffraction", "Dispersion"], answer: 1, level: "MODERATE" },
-    { question: `What device transforms mechanical energy into electrical energy? (${top2})`, options: ["Generator", "Capacitor", "Resistor", "Transformer"], answer: 0, level: "MODERATE" },
-    { question: `What is the approximate speed of light in a vacuum? (${top2})`, options: ["150,000 km/s", "300,000 km/s", "450,000 km/s", "600,000 km/s"], answer: 1, level: "MODERATE" },
+  const prompt = `Generate a JSON array of 12 concise trivia questions:
+- 4 EASY questions about "${topic1}" (level: "EASY")
+- 4 MODERATE questions about "${topic2}" (level: "MODERATE")
+- 4 HARD questions about "${topic3}" (level: "HARD")
 
-    // 6 HARD (Topic 3)
-    { question: `What is the primary chemical bond holding water molecules together internally? (${top3})`, options: ["Ionic bond", "Polar covalent bond", "Hydrogen bond", "Metallic bond"], answer: 1, level: "HARD" },
-    { question: `What is the pH value of a completely neutral aqueous solution at 25°C? (${top3})`, options: ["0", "5", "7", "14"], answer: 2, level: "HARD" },
-    { question: `Which element has the atomic number 6 on the periodic table? (${top3})`, options: ["Helium", "Boron", "Carbon", "Nitrogen"], answer: 2, level: "HARD" },
-    { question: `What noble gas is commonly used in bright blue-red illuminating sign lamps? (${top3})`, options: ["Argon", "Neon", "Krypton", "Radon"], answer: 1, level: "HARD" },
-    { question: `What is Avogadro's constant approximately equal to? (${top3})`, options: ["6.022 × 10²³", "3.141 × 10¹²", "1.602 × 10⁻¹⁹", "9.109 × 10⁻³¹"], answer: 0, level: "HARD" },
-    { question: `What is the oxidation state of pure oxygen gas (O₂)? (${top3})`, options: ["-2", "-1", "0", "+2"], answer: 2, level: "HARD" }
-  ];
+Rules:
+1. Every question must strictly test factual knowledge of these topics: "${topic1}", "${topic2}", "${topic3}".
+2. Exactly 4 short options per question.
+3. "answer" must be the 0-indexed number (0, 1, 2, or 3) of the correct option.
+4. Output ONLY the JSON array. No markdown code blocks, no other text.
 
-  return questions.map(shuffleOptions);
+JSON format:
+[
+  {
+    "question": "Question text?",
+    "options": ["A", "B", "C", "D"],
+    "answer": 0,
+    "level": "EASY"
+  }
+]`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8500);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': GEMINI_API_KEY
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.6,
+          maxOutputTokens: 2048
+        }
+      })
+    });
+
+    clearTimeout(timeout);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.error?.message || `Gemini error status ${res.status}`);
+    }
+
+    let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    text = text.trim();
+
+    if (text.startsWith('```json')) text = text.slice(7);
+    if (text.startsWith('```')) text = text.slice(3);
+    if (text.endsWith('```')) text = text.slice(0, -3);
+    text = text.trim();
+
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']');
+    if (start !== -1 && end !== -1) {
+      text = text.substring(start, end + 1);
+    }
+
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error('Malformed JSON received from Gemini');
+    }
+
+    console.log(`Generated ${parsed.length} questions from Gemini for ${topic1}, ${topic2}, ${topic3}`);
+    return parsed.map(shuffleOptions);
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
+  }
 }
 
 // ----------------- API ENDPOINTS -----------------
 
 // Create Room
-app.post(['/api/create-room', '/create-room'], (req, res) => {
+app.post(['/api/create-room', '/create-room'], async (req, res) => {
   try {
     const { customPin, mode, manualQuestions, topic1, topic2, topic3 } = req.body || {};
     const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
@@ -118,7 +163,11 @@ app.post(['/api/create-room', '/create-room'], (req, res) => {
         level: q.level || 'CUSTOM'
       }));
     } else {
-      questions = generateInstantQuestions(topic1, topic2, topic3);
+      const t1 = (topic1 && topic1.trim()) || 'Maths';
+      const t2 = (topic2 && topic2.trim()) || 'Physics';
+      const t3 = (topic3 && topic3.trim()) || 'Chemistry';
+
+      questions = await fetchQuestionsFromGemini(t1, t2, t3);
     }
 
     rooms.set(pin, {
@@ -132,7 +181,7 @@ app.post(['/api/create-room', '/create-room'], (req, res) => {
       createdAt: Date.now()
     });
 
-    console.log(`Room [${pin}] established immediately with ${questions.length} questions.`);
+    console.log(`Room [${pin}] established with ${questions.length} questions.`);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
     console.error('Create Room Error:', err.message);
