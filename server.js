@@ -300,7 +300,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   }
 });
 
-// Room Status (Host & Player polling)
+// Room Status (Host & Player Polling + Sync)
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const room = getRoom(pin);
@@ -359,7 +359,7 @@ app.post(['/api/host-action', '/host-action'], (req, res) => {
   return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
 });
 
-// Player Join
+// Player Join & Re-entry / Re-login Support
 app.post(['/api/join-room', '/join-room'], (req, res) => {
   const { pin, name } = req.body || {};
   const room = getRoom(pin);
@@ -369,12 +369,42 @@ app.post(['/api/join-room', '/join-room'], (req, res) => {
   const playerKey = cleanName.toLowerCase();
 
   if (!room.players) room.players = {};
+  if (!room.answersThisRound) room.answersThisRound = {};
+
+  // If player already exists, restore their record; if not, create new
   if (!room.players[playerKey]) {
-    room.players[playerKey] = { name: cleanName, score: 0, correctCount: 0 };
+    room.players[playerKey] = {
+      name: cleanName,
+      score: 0,
+      correctCount: 0,
+      joinedAt: Date.now()
+    };
   }
 
   saveRoom(pin, room);
-  return res.status(200).json({ success: true, name: cleanName, score: room.players[playerKey].score });
+
+  // Determine current active question
+  const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
+    ? room.questions[room.currentIndex - 1]
+    : null;
+
+  return res.status(200).json({
+    success: true,
+    reconnected: true,
+    name: room.players[playerKey].name,
+    score: room.players[playerKey].score,
+    state: room.state,
+    currentIndex: room.currentIndex,
+    totalQuestions: room.questions.length,
+    hasAnsweredCurrentRound: room.answersThisRound[playerKey] !== undefined,
+    currentQuestion: currentQ ? {
+      index: room.currentIndex,
+      total: room.questions.length,
+      level: currentQ.level,
+      question: currentQ.question,
+      options: currentQ.options
+    } : null
+  });
 });
 
 // Player Submit Answer
@@ -382,29 +412,34 @@ app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   const { pin, name, answerIndex } = req.body || {};
   const room = getRoom(pin);
   if (!room || room.state !== 'QUESTION') {
-    return res.status(400).json({ error: 'Not accepting answers' });
+    return res.status(400).json({ error: 'Not accepting answers right now.' });
   }
 
   if (!room.answersThisRound) room.answersThisRound = {};
   if (!room.players) room.players = {};
 
   const playerKey = String(name || '').trim().toLowerCase();
+  
+  // Ensure player is registered
+  if (!room.players[playerKey]) {
+    room.players[playerKey] = { name: String(name || '').trim(), score: 0, correctCount: 0 };
+  }
+
+  // Prevent multiple answers for the same question
   if (room.answersThisRound[playerKey] !== undefined) {
-    return res.status(200).json({ message: 'Answer already submitted' });
+    return res.status(200).json({ success: true, message: 'Answer already recorded' });
   }
 
   room.answersThisRound[playerKey] = Number(answerIndex);
   const currentQ = room.questions[room.currentIndex - 1];
 
   if (currentQ && Number(answerIndex) === currentQ.answer) {
-    if (room.players[playerKey]) {
-      room.players[playerKey].score = (room.players[playerKey].score || 0) + 100;
-      room.players[playerKey].correctCount = (room.players[playerKey].correctCount || 0) + 1;
-    }
+    room.players[playerKey].score = (room.players[playerKey].score || 0) + 100;
+    room.players[playerKey].correctCount = (room.players[playerKey].correctCount || 0) + 1;
   }
 
   saveRoom(pin, room);
-  return res.status(200).json({ success: true });
+  return res.status(200).json({ success: true, score: room.players[playerKey].score });
 });
 
 // Catch-all 404
