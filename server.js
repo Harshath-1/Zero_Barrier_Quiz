@@ -6,9 +6,17 @@ const fs = require('fs');
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
-// Prevent caching on dynamic state
+// CORS and Dynamic Cache-Buster headers
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/')) {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.path.includes('/api/') || req.path.includes('-room') || req.path.includes('-answer')) {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
@@ -33,7 +41,7 @@ function serveHtml(filename, res) {
   return res.status(404).send(`Cannot find ${filename} in public or root directory.`);
 }
 
-// Direct Page Routes
+// Static Direct Page Routes
 app.get(['/', '/host', '/host.html'], (req, res) => {
   serveHtml('host.html', res);
 });
@@ -334,9 +342,10 @@ Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) of the correct choi
 }
 
 // ----------------- REST API ROUTES -----------------
+// Note: Each endpoint accepts both '/api/...' and '/...' paths to prevent Vercel route rewrites from 404ing
 
 // 1. Create Room (Supports both Manual & Topic modes)
-app.post('/api/create-room', async (req, res) => {
+app.post(['/api/create-room', '/create-room'], async (req, res) => {
   try {
     const { customPin, mode, manualQuestions, topic1, topic2, topic3 } = req.body || {};
     const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
@@ -381,7 +390,7 @@ app.post('/api/create-room', async (req, res) => {
 });
 
 // 2. Poll Room State (Host & Player)
-app.get('/api/room-status', (req, res) => {
+app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const room = rooms.get(pin);
   if (!room) return res.status(404).json({ error: 'Room not found' });
@@ -412,7 +421,7 @@ app.get('/api/room-status', (req, res) => {
 });
 
 // 3. Host Actions: Next, Reveal, End
-app.post('/api/host-action', (req, res) => {
+app.post(['/api/host-action', '/host-action'], (req, res) => {
   const { pin, action } = req.body || {};
   const room = rooms.get(String(pin || '').trim());
   if (!room) return res.status(404).json({ error: 'Room not found' });
@@ -439,7 +448,7 @@ app.post('/api/host-action', (req, res) => {
 });
 
 // 4. Player Join
-app.post('/api/join-room', (req, res) => {
+app.post(['/api/join-room', '/join-room'], (req, res) => {
   const { pin, name } = req.body || {};
   const room = rooms.get(String(pin || '').trim());
   if (!room) return res.status(404).json({ error: 'Invalid PIN. Room not found.' });
@@ -455,7 +464,7 @@ app.post('/api/join-room', (req, res) => {
 });
 
 // 5. Player Answer Submit
-app.post('/api/submit-answer', (req, res) => {
+app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   const { pin, name, answerIndex } = req.body || {};
   const room = rooms.get(String(pin || '').trim());
   if (!room || room.state !== 'QUESTION') return res.status(400).json({ error: 'Not accepting answers' });
@@ -475,6 +484,14 @@ app.post('/api/submit-answer', (req, res) => {
   }
 
   return res.status(200).json({ success: true });
+});
+
+// Catch-all 404 for unhandled API calls to always return JSON (never HTML doctype)
+app.use((req, res) => {
+  if (req.path.startsWith('/api/') || req.method === 'POST') {
+    return res.status(404).json({ success: false, error: `Endpoint not found: ${req.method} ${req.path}` });
+  }
+  return res.status(404).send('Page not found');
 });
 
 // Server listener
