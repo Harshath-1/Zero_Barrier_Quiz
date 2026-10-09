@@ -62,87 +62,75 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
 }
 
-// ----------------- GEMINI API INTEGRATION -----------------
+// ----------------- DYNAMIC GEMINI API GENERATOR -----------------
 
-// The key copied from your Google AI Studio cURL
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AQ.Ab8RN6JU5tI6FERNp_IrVVJw2ou_4dsf2pmWZIqyDgtQKs_4mA';
 
-async function fetchQuestionsFromGemini(topic1, topic2, topic3) {
+async function generateDynamicQuestions(topic1, topic2, topic3) {
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 
-  const prompt = `Generate a JSON array of 12 concise trivia questions:
+  const prompt = `Generate a JSON array of 12 questions based strictly on these topics:
 - 4 EASY questions about "${topic1}" (level: "EASY")
 - 4 MODERATE questions about "${topic2}" (level: "MODERATE")
 - 4 HARD questions about "${topic3}" (level: "HARD")
 
 Rules:
-1. Every question must strictly test factual knowledge of these topics: "${topic1}", "${topic2}", "${topic3}".
+1. Every question must be factual and directly test "${topic1}", "${topic2}", or "${topic3}".
 2. Exactly 4 short options per question.
-3. "answer" must be the 0-indexed number (0, 1, 2, or 3) of the correct option.
-4. Output ONLY the JSON array. No markdown code blocks, no other text.
+3. "answer" must be the integer index (0, 1, 2, or 3) of the correct choice.
+4. Output ONLY valid JSON array. No markdown, no commentary.
 
-JSON format:
-[
-  {
-    "question": "Question text?",
-    "options": ["A", "B", "C", "D"],
-    "answer": 0,
-    "level": "EASY"
-  }
-]`;
+Format:
+[{"question": "Q text?", "options": ["A", "B", "C", "D"], "answer": 0, "level": "EASY"}]`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8500);
+  const timeout = setTimeout(() => controller.abort(), 7000);
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': GEMINI_API_KEY
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 2048
-        }
-      })
-    });
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-goog-api-key': GEMINI_API_KEY
+    },
+    signal: controller.signal,
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2048,
+        responseMimeType: 'application/json'
+      }
+    })
+  });
 
-    clearTimeout(timeout);
-    const data = await res.json();
+  clearTimeout(timeout);
+  const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data?.error?.message || `Gemini error status ${res.status}`);
-    }
-
-    let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    text = text.trim();
-
-    if (text.startsWith('```json')) text = text.slice(7);
-    if (text.startsWith('```')) text = text.slice(3);
-    if (text.endsWith('```')) text = text.slice(0, -3);
-    text = text.trim();
-
-    const start = text.indexOf('[');
-    const end = text.lastIndexOf(']');
-    if (start !== -1 && end !== -1) {
-      text = text.substring(start, end + 1);
-    }
-
-    const parsed = JSON.parse(text);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      throw new Error('Malformed JSON received from Gemini');
-    }
-
-    console.log(`Generated ${parsed.length} questions from Gemini for ${topic1}, ${topic2}, ${topic3}`);
-    return parsed.map(shuffleOptions);
-  } catch (err) {
-    clearTimeout(timeout);
-    throw err;
+  if (!res.ok) {
+    throw new Error(data?.error?.message || `Gemini failed with status ${res.status}`);
   }
+
+  let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  text = text.trim();
+
+  if (text.startsWith('```json')) text = text.slice(7);
+  if (text.startsWith('```')) text = text.slice(3);
+  if (text.endsWith('```')) text = text.slice(0, -3);
+  text = text.trim();
+
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start !== -1 && end !== -1) {
+    text = text.substring(start, end + 1);
+  }
+
+  const parsed = JSON.parse(text);
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error('Malformed JSON received from Gemini');
+  }
+
+  console.log(`Successfully generated ${parsed.length} dynamic questions for topics: ${topic1}, ${topic2}, ${topic3}`);
+  return parsed.map(shuffleOptions);
 }
 
 // ----------------- API ENDPOINTS -----------------
@@ -163,11 +151,11 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
         level: q.level || 'CUSTOM'
       }));
     } else {
-      const t1 = (topic1 && topic1.trim()) || 'Maths';
+      const t1 = (topic1 && topic1.trim()) || 'Mathematics';
       const t2 = (topic2 && topic2.trim()) || 'Physics';
       const t3 = (topic3 && topic3.trim()) || 'Chemistry';
 
-      questions = await fetchQuestionsFromGemini(t1, t2, t3);
+      questions = await generateDynamicQuestions(t1, t2, t3);
     }
 
     rooms.set(pin, {
