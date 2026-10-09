@@ -67,17 +67,17 @@ function shuffleOptions(item) {
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
 async function generateAIQuestions(topic1, topic2, topic3) {
-  const prompt = `You are an expert trivia quiz generator.
-Generate a valid JSON object containing an array of exactly 12 realistic, high-quality multiple choice questions testing these specific topics:
+  const prompt = `You are a trivia quiz generator.
+Generate a valid JSON object containing an array named "questions" with exactly 12 authentic, high-quality multiple choice questions based on these topics:
 - 4 EASY questions strictly on: "${topic1}" (level: "EASY")
 - 4 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
 - 4 HARD questions strictly on: "${topic3}" (level: "HARD")
 
 Rules:
-1. Every question must be factual and test "${topic1}", "${topic2}", or "${topic3}".
+1. Every question must be factual, unique, and strictly test "${topic1}", "${topic2}", or "${topic3}".
 2. Provide 4 plausible choices per question.
 3. "answer" must be the integer index (0, 1, 2, or 3) of the correct choice.
-4. Return strictly JSON with the key "questions".
+4. Output valid JSON only.
 
 Format:
 {
@@ -91,44 +91,47 @@ Format:
   ]
 }`;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const supportedModels = ['llama-3.1-8b-instant', 'llama3-8b-8192', 'mixtral-8x7b-32768'];
+  let lastErr = null;
 
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`
-    },
-    signal: controller.signal,
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: 'You only reply with valid JSON.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.6,
-      response_format: { type: 'json_object' }
-    })
-  });
+  for (const model of supportedModels) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: 'You are a quiz assistant that only responds in JSON.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.6,
+          response_format: { type: 'json_object' }
+        })
+      });
 
-  clearTimeout(timeout);
-  const data = await res.json();
+      const data = await res.json();
+      if (!res.ok) {
+        lastErr = new Error(data?.error?.message || `Groq error on ${model}`);
+        continue;
+      }
 
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `Groq status ${res.status}`);
+      const rawText = data.choices?.[0]?.message?.content || '{}';
+      const parsed = JSON.parse(rawText);
+      const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+
+      if (Array.isArray(list) && list.length > 0) {
+        return list.map(shuffleOptions);
+      }
+    } catch (err) {
+      lastErr = err;
+    }
   }
 
-  const rawText = data.choices?.[0]?.message?.content || '{}';
-  const parsed = JSON.parse(rawText);
-  const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
-
-  if (!Array.isArray(list) || list.length === 0) {
-    throw new Error('Groq returned invalid question structure');
-  }
-
-  console.log(`Generated ${list.length} dynamic questions via Groq!`);
-  return list.map(shuffleOptions);
+  throw lastErr || new Error('Failed to generate questions via Groq');
 }
 
 // ----------------- API ENDPOINTS -----------------
