@@ -16,7 +16,7 @@ app.use((req, res, next) => {
     return res.status(200).end();
   }
 
-  if (req.path.includes('/api/') || req.path.includes('-room') || req.path.includes('-answer')) {
+  if (req.path.includes('/api/') || req.path.includes('-room') || req.path.includes('-answer') || req.path.includes('-action')) {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
@@ -47,8 +47,41 @@ app.get(['/player', '/player.html'], (req, res) => serveHtml('player.html', res)
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
 
-// In-Memory Storage
-const rooms = new Map();
+// ----------------- STATELESS / PERSISTENT ROOM STORAGE -----------------
+
+const memoryRooms = new Map();
+const STORAGE_DIR = process.env.VERCEL ? '/tmp/quiz_rooms' : path.join(__dirname, '.quiz_rooms');
+
+if (!fs.existsSync(STORAGE_DIR)) {
+  try {
+    fs.mkdirSync(STORAGE_DIR, { recursive: true });
+  } catch (e) {}
+}
+
+function getRoom(pin) {
+  const cleanPin = String(pin || '').trim();
+  if (memoryRooms.has(cleanPin)) {
+    return memoryRooms.get(cleanPin);
+  }
+  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
+  if (fs.existsSync(filePath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      memoryRooms.set(cleanPin, data);
+      return data;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function saveRoom(pin, roomData) {
+  const cleanPin = String(pin || '').trim();
+  memoryRooms.set(cleanPin, roomData);
+  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(roomData), 'utf8');
+  } catch (e) {}
+}
 
 function shuffleOptions(item) {
   if (!item || !Array.isArray(item.options) || item.options.length < 2) return item;
@@ -67,7 +100,6 @@ function shuffleOptions(item) {
 function generateExactTopicQuestions(t1, t2, t3) {
   const qList = [];
 
-  // Topic 1: 5 Questions (EASY)
   const easyBank = [
     `What is a foundational principle or definition associated with ${t1}?`,
     `Which core concept is most widely identified with ${t1}?`,
@@ -76,7 +108,6 @@ function generateExactTopicQuestions(t1, t2, t3) {
     `What basic notation, unit, or concept is recognized in ${t1}?`
   ];
 
-  // Topic 2: 6 Questions (MODERATE)
   const moderateBank = [
     `In intermediate practical problems of ${t2}, how is standard balance preserved?`,
     `Which key mechanism is essential when analyzing transitions in ${t2}?`,
@@ -86,7 +117,6 @@ function generateExactTopicQuestions(t1, t2, t3) {
     `Under standard conditions in ${t2}, how do system changes impact efficiency?`
   ];
 
-  // Topic 3: 4 Questions (HARD)
   const hardBank = [
     `Under rigorous theoretical constraints in ${t3}, which theorem governs non-linear behavior?`,
     `What boundary limit is observed in asymptotic edge cases of ${t3}?`,
@@ -202,7 +232,6 @@ Format:
       const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
 
       if (Array.isArray(list) && list.length === 15) {
-        console.log(`Generated all 15 questions via Groq (${model})`);
         return list.map(shuffleOptions);
       }
     } catch (err) {
@@ -210,7 +239,6 @@ Format:
     }
   }
 
-  console.log(`Using fallback questions: 5 on ${topic1}, 6 on ${topic2}, 4 on ${topic3}`);
   return generateExactTopicQuestions(topic1, topic2, topic3);
 }
 
@@ -239,7 +267,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       questions = await generateAIQuestions(t1, t2, t3);
     }
 
-    rooms.set(pin, {
+    const roomData = {
       pin,
       questions,
       currentIndex: 0,
@@ -248,15 +276,16 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       players: {},
       answersThisRound: {},
       createdAt: Date.now()
-    });
+    };
 
+    saveRoom(pin, roomData);
     console.log(`Room [${pin}] established with ${questions.length} questions.`);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
     console.error('Create Room Error:', err.message);
     const pin = Math.floor(100000 + Math.random() * 900000).toString();
     const fallback = generateExactTopicQuestions('Maths', 'Physics', 'Chemistry');
-    rooms.set(pin, {
+    const roomData = {
       pin,
       questions: fallback,
       currentIndex: 0,
@@ -265,18 +294,19 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       players: {},
       answersThisRound: {},
       createdAt: Date.now()
-    });
+    };
+    saveRoom(pin, roomData);
     return res.status(200).json({ success: true, pin, count: 15 });
   }
 });
 
-// Room Status
+// Room Status (Host & Player polling)
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
-  const room = rooms.get(pin);
+  const room = getRoom(pin);
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
-  const playerList = Object.values(room.players);
+  const playerList = Object.values(room.players || {});
   const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
     ? room.questions[room.currentIndex - 1]
     : null;
@@ -288,7 +318,7 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
     totalQuestions: room.questions.length,
     playerCount: playerList.length,
     players: playerList.map(p => p.name),
-    responsesCount: Object.keys(room.answersThisRound).length,
+    responsesCount: Object.keys(room.answersThisRound || {}).length,
     question: currentQ ? {
       index: room.currentIndex,
       total: room.questions.length,
@@ -304,14 +334,14 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
 // Host Actions: NEXT, REVEAL, END
 app.post(['/api/host-action', '/host-action'], (req, res) => {
   const { pin, action } = req.body || {};
-  const room = rooms.get(String(pin || '').trim());
+  const room = getRoom(pin);
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
   if (action === 'NEXT') {
     if (room.currentIndex >= room.questions.length) {
       room.state = 'FINISHED';
     } else {
-      room.currentIndex++;
+      room.currentIndex = Number(room.currentIndex || 0) + 1;
       room.state = 'QUESTION';
       room.revealedAnswer = null;
       room.answersThisRound = {};
@@ -325,45 +355,55 @@ app.post(['/api/host-action', '/host-action'], (req, res) => {
     room.state = 'FINISHED';
   }
 
+  saveRoom(pin, room);
   return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
 });
 
 // Player Join
 app.post(['/api/join-room', '/join-room'], (req, res) => {
   const { pin, name } = req.body || {};
-  const room = rooms.get(String(pin || '').trim());
+  const room = getRoom(pin);
   if (!room) return res.status(404).json({ error: 'Invalid PIN. Room not found.' });
 
   const cleanName = String(name || '').trim() || 'Player';
   const playerKey = cleanName.toLowerCase();
 
+  if (!room.players) room.players = {};
   if (!room.players[playerKey]) {
     room.players[playerKey] = { name: cleanName, score: 0, correctCount: 0 };
   }
 
+  saveRoom(pin, room);
   return res.status(200).json({ success: true, name: cleanName, score: room.players[playerKey].score });
 });
 
 // Player Submit Answer
 app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   const { pin, name, answerIndex } = req.body || {};
-  const room = rooms.get(String(pin || '').trim());
-  if (!room || room.state !== 'QUESTION') return res.status(400).json({ error: 'Not accepting answers' });
+  const room = getRoom(pin);
+  if (!room || room.state !== 'QUESTION') {
+    return res.status(400).json({ error: 'Not accepting answers' });
+  }
+
+  if (!room.answersThisRound) room.answersThisRound = {};
+  if (!room.players) room.players = {};
 
   const playerKey = String(name || '').trim().toLowerCase();
   if (room.answersThisRound[playerKey] !== undefined) {
     return res.status(200).json({ message: 'Answer already submitted' });
   }
 
-  room.answersThisRound[playerKey] = answerIndex;
+  room.answersThisRound[playerKey] = Number(answerIndex);
   const currentQ = room.questions[room.currentIndex - 1];
-  if (currentQ && answerIndex === currentQ.answer) {
+
+  if (currentQ && Number(answerIndex) === currentQ.answer) {
     if (room.players[playerKey]) {
-      room.players[playerKey].score += 100;
-      room.players[playerKey].correctCount++;
+      room.players[playerKey].score = (room.players[playerKey].score || 0) + 100;
+      room.players[playerKey].correctCount = (room.players[playerKey].correctCount || 0) + 1;
     }
   }
 
+  saveRoom(pin, room);
   return res.status(200).json({ success: true });
 });
 
