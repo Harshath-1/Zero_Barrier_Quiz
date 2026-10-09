@@ -64,30 +64,15 @@ function shuffleOptions(item) {
 
 // ----------------- HARDCODED API KEYS & RESOLVERS -----------------
 
-// 1. PRIMARY: OpenAI
+// 1. PRIMARY: Google Gemini (From AI Studio Auth Key)
+const HARDCODED_GEMINI_KEY = 'AQ.Ab8RN6L8ghpulqk2mzyh_TBRGxEZsc8pB5nerlDfVeNezNyyZw';
+
+// 2. FALLBACK: OpenAI
 const HARDCODED_OPENAI_KEY = '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';
-
-// 2. BACKUP: Google Gemini
-const HARDCODED_GEMINI_KEY = 'AQ.Ab8RN6LVQQdawFKFisAxNJK0qdK7LieandMIjlT3WVFTI2jyBQ';
-
-// 3. OPTIONAL FALLBACK: xAI
-const HARDCODED_XAI_KEY = 'xai-qAAAn7YE4usKnBtRTGHLeR3TgTuaVHcwJMuUIFaevwQeMUh7ykuZchFVHARhmwcVvZ9l6O9beJrn9nzW';
-
-function getOpenAIApiKeys() {
-  const keys = [];
-  const envVal = process.env.OPENAI_API_KEY || '';
-  if (envVal) {
-    keys.push(...envVal.split(',').map(k => k.trim()).filter(Boolean));
-  }
-  if (HARDCODED_OPENAI_KEY && !keys.includes(HARDCODED_OPENAI_KEY)) {
-    keys.push(HARDCODED_OPENAI_KEY);
-  }
-  return keys;
-}
 
 function getGeminiApiKeys() {
   const keys = [];
-  const envVal = process.env.GEMINI_API_KEY || '';
+  const envVal = (process.env.GEMINI_API_KEY || '').trim();
   if (envVal) {
     keys.push(...envVal.split(',').map(k => k.trim()).filter(Boolean));
   }
@@ -97,86 +82,27 @@ function getGeminiApiKeys() {
   return keys;
 }
 
-function getXAIApiKeys() {
+function getOpenAIApiKeys() {
   const keys = [];
-  const envVal = (process.env.XAI_API_KEY || process.env.GROK_API_KEY || '').trim();
+  const envVal = (process.env.OPENAI_API_KEY || '').trim();
   if (envVal) {
     keys.push(...envVal.split(',').map(k => k.trim()).filter(Boolean));
   }
-  if (HARDCODED_XAI_KEY && !keys.includes(HARDCODED_XAI_KEY)) {
-    keys.push(HARDCODED_XAI_KEY);
+  if (HARDCODED_OPENAI_KEY && !keys.includes(HARDCODED_OPENAI_KEY)) {
+    keys.push(HARDCODED_OPENAI_KEY);
   }
   return keys;
 }
 
 // ----------------- AI CALLERS -----------------
 
-// 1. OpenAI (PRIMARY)
-async function callOpenAIWithKeys(apiKeys, prompt) {
-  let lastErr = null;
-
-  for (let kIdx = 0; kIdx < apiKeys.length; kIdx++) {
-    const apiKey = apiKeys[kIdx];
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-
-    try {
-      console.log(`[OpenAI Engine] Querying Key #${kIdx + 1}...`);
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey.trim()}`
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an authentic trivia quiz engine. Return a JSON object with a "questions" key containing exactly 20 real trivia questions matching the requested topics and levels.'
-            },
-            { role: 'user', content: prompt }
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.7
-        })
-      });
-
-      clearTimeout(timeout);
-      const data = await res.json();
-
-      if (!res.ok) {
-        lastErr = new Error(data?.error?.message || `OpenAI status ${res.status}`);
-        console.warn(`[OpenAI Engine] Key #${kIdx + 1} failed: ${lastErr.message}`);
-        continue;
-      }
-
-      let content = data.choices?.[0]?.message?.content || '{}';
-      let parsed = JSON.parse(content);
-      let questionList = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || Object.values(parsed)[0]);
-
-      if (Array.isArray(questionList) && questionList.length >= 10) {
-        console.log(`✅ [OpenAI SUCCESS] Generated ${questionList.length} questions!`);
-        return questionList.map(shuffleOptions);
-      }
-    } catch (err) {
-      clearTimeout(timeout);
-      lastErr = err;
-      console.warn(`[OpenAI Engine] Key #${kIdx + 1} error: ${err.message}`);
-    }
-  }
-
-  throw lastErr || new Error('All OpenAI keys exhausted');
-}
-
-// 2. Google Gemini (BACKUP)
+// 1. Google Gemini (Supports standard keys and new AQ. auth tokens)
 async function callGeminiWithKeys(apiKeys, prompt) {
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   let lastErr = null;
 
   for (let kIdx = 0; kIdx < apiKeys.length; kIdx++) {
-    const apiKey = apiKeys[kIdx].trim();
+    const rawKey = apiKeys[kIdx].trim();
     console.log(`[Gemini Engine] Trying Key #${kIdx + 1}...`);
 
     for (const model of models) {
@@ -184,13 +110,25 @@ async function callGeminiWithKeys(apiKeys, prompt) {
       const timeout = setTimeout(() => controller.abort(), 12000);
 
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+        const isAuthKey = rawKey.startsWith('AQ.');
+        const url = isAuthKey
+          ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+          : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${rawKey}`;
+
+        const headers = {
+          'Content-Type': 'application/json'
+        };
+
+        if (isAuthKey) {
+          headers['Authorization'] = `Bearer ${rawKey}`;
+          headers['x-goog-api-key'] = rawKey;
+        } else {
+          headers['x-goog-api-key'] = rawKey;
+        }
+
         const res = await fetch(url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
-          },
+          headers,
           signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
@@ -207,10 +145,8 @@ async function callGeminiWithKeys(apiKeys, prompt) {
 
         if (!res.ok) {
           lastErr = new Error(data?.error?.message || `Gemini status ${res.status}`);
-          console.warn(`[Gemini Engine] Model ${model} failed: ${lastErr.message}`);
-          if (res.status === 429 || res.status === 403 || res.status === 401) {
-            break;
-          }
+          console.warn(`[Gemini Engine] Key #${kIdx + 1} (${model}) failed: ${lastErr.message}`);
+          if (res.status === 401 || res.status === 403) break;
           continue;
         }
 
@@ -234,29 +170,94 @@ async function callGeminiWithKeys(apiKeys, prompt) {
       } catch (e) {
         clearTimeout(timeout);
         lastErr = e;
-        console.warn(`[Gemini Engine] Model ${model} exception: ${e.message}`);
+        console.warn(`[Gemini Engine] Attempt error: ${e.message}`);
       }
     }
   }
 
-  throw lastErr || new Error('All Gemini models and keys exhausted');
+  throw lastErr || new Error('All Gemini attempts failed');
 }
 
-// ----------------- COMPLETE GENERATION PIPELINE -----------------
+// 2. OpenAI Fallback
+async function callOpenAIWithKeys(apiKeys, prompt) {
+  let lastErr = null;
+
+  for (let kIdx = 0; kIdx < apiKeys.length; kIdx++) {
+    const apiKey = apiKeys[kIdx].trim();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    try {
+      console.log(`[OpenAI Engine] Trying Fallback Key #${kIdx + 1}...`);
+      const res = await fetch('[https://api.openai.com/v1/chat/completions](https://api.openai.com/v1/chat/completions)', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'Return a JSON array of 20 trivia questions strictly testing the topics provided.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7
+        })
+      });
+
+      clearTimeout(timeout);
+      const data = await res.json();
+
+      if (!res.ok) {
+        lastErr = new Error(data?.error?.message || `OpenAI status ${res.status}`);
+        console.warn(`[OpenAI Engine] Key #${kIdx + 1} failed: ${lastErr.message}`);
+        continue;
+      }
+
+      let content = data.choices?.[0]?.message?.content || '[]';
+      content = content.trim();
+      if (content.startsWith('```json')) content = content.slice(7);
+      if (content.startsWith('```')) content = content.slice(3);
+      if (content.endsWith('```')) content = content.slice(0, -3);
+      content = content.trim();
+
+      const s = content.indexOf('[');
+      const e = content.lastIndexOf(']');
+      if (s !== -1 && e !== -1) content = content.substring(s, e + 1);
+
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed) && parsed.length >= 10) {
+        console.log(`✅ [OpenAI SUCCESS] Generated ${parsed.length} questions!`);
+        return parsed.map(shuffleOptions);
+      }
+    } catch (err) {
+      clearTimeout(timeout);
+      lastErr = err;
+    }
+  }
+
+  throw lastErr || new Error('All OpenAI attempts failed');
+}
+
+// ----------------- QUIZ GENERATION PIPELINE -----------------
 
 async function generateQuizQuestions(t1, t2, t3) {
-  const openaiKeys = getOpenAIApiKeys();
   const geminiKeys = getGeminiApiKeys();
+  const openaiKeys = getOpenAIApiKeys();
 
   const topic1 = (t1 && t1.trim()) || 'World Cinema';
   const topic2 = (t2 && t2.trim()) || 'World Geography';
   const topic3 = (t3 && t3.trim()) || 'Modern Science';
 
-  console.log(`[Diagnostic] Generating questions for:`);
+  console.log(`[Diagnostic] Generating questions:`);
   console.log(`  Tier 1 (EASY): "${topic1}" (8 Qs)`);
   console.log(`  Tier 2 (MODERATE): "${topic2}" (6 Qs)`);
   console.log(`  Tier 3 (HARD): "${topic3}" (6 Qs)`);
-  console.log(`  Keys Configured -> OpenAI: ${openaiKeys.length}, Gemini: ${geminiKeys.length}`);
+  console.log(`  Keys -> Gemini (Primary): ${geminiKeys.length}, OpenAI: ${openaiKeys.length}`);
 
   const prompt = `Write exactly 20 authentic, factual multiple-choice questions matching these topics:
 - 8 EASY questions strictly on: "${topic1}" (level: "EASY")
@@ -264,12 +265,12 @@ async function generateQuizQuestions(t1, t2, t3) {
 - 6 HARD questions strictly on: "${topic3}" (level: "HARD")
 
 Rules:
-1. Every question must test real facts specifically about the assigned topic. Never produce boilerplate or template questions.
+1. Every question must test real facts specifically about the assigned topic. Never produce placeholder or template questions.
 2. Provide exactly 4 plausible choices per question.
 3. "answer" must be the integer index (0, 1, 2, or 3) of the correct answer.
-4. Distribute the correct answer across indices 0, 1, 2, and 3.
+4. Output ONLY a valid JSON array of 20 objects. No markdown backticks, no comments.
 
-Return a JSON array of 20 objects like this:
+Format:
 [
   {
     "question": "Question text?",
@@ -279,29 +280,29 @@ Return a JSON array of 20 objects like this:
   }
 ]`;
 
-  // 1. PRIMARY: OpenAI
-  if (openaiKeys.length > 0) {
-    try {
-      console.log(`[Engine] Calling OpenAI (Primary)...`);
-      const q = await callOpenAIWithKeys(openaiKeys, prompt);
-      if (q && q.length >= 10) return q;
-    } catch (e) {
-      console.warn(`⚠️ [OpenAI Primary Failed]: ${e.message}`);
-    }
-  }
-
-  // 2. BACKUP: Google Gemini
+  // 1. PRIMARY: Gemini
   if (geminiKeys.length > 0) {
     try {
-      console.log(`[Engine] Calling Google Gemini (Backup)...`);
+      console.log(`[Engine] Calling Gemini (Primary)...`);
       const q = await callGeminiWithKeys(geminiKeys, prompt);
       if (q && q.length >= 10) return q;
     } catch (e) {
-      console.warn(`⚠️ [Gemini Backup Failed]: ${e.message}`);
+      console.warn(`⚠️ [Gemini Failed]: ${e.message}`);
     }
   }
 
-  throw new Error("Both OpenAI and Gemini failed to generate questions. Verify your account quota or key status.");
+  // 2. FALLBACK: OpenAI
+  if (openaiKeys.length > 0) {
+    try {
+      console.log(`[Engine] Calling OpenAI (Fallback)...`);
+      const q = await callOpenAIWithKeys(openaiKeys, prompt);
+      if (q && q.length >= 10) return q;
+    } catch (e) {
+      console.warn(`⚠️ [OpenAI Failed]: ${e.message}`);
+    }
+  }
+
+  throw new Error("Failed to generate questions. Verify key validity and rate limits.");
 }
 
 // ----------------- API ENDPOINTS -----------------
