@@ -62,150 +62,46 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
 }
 
-// ----------------- HARDCODED API KEYS & RESOLVERS -----------------
+// ----------------- GEMINI CONFIGURATION -----------------
 
-// 1. PRIMARY: Google Gemini (From AI Studio Auth Key)
-const HARDCODED_GEMINI_KEY = 'AQ.Ab8RN6L8ghpulqk2mzyh_TBRGxEZsc8pB5nerlDfVeNezNyyZw';
+const HARDCODED_GEMINI_KEY = 'AQ.Ab8RN6JU5tI6FERNp_IrVVJw2ou_4dsf2pmWZIqyDgtQKs_4mA';
 
-// 2. FALLBACK: OpenAI
-const HARDCODED_OPENAI_KEY = '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';
-
-function getGeminiApiKeys() {
-  const keys = [];
-  const envVal = (process.env.GEMINI_API_KEY || '').trim();
-  if (envVal) {
-    keys.push(...envVal.split(',').map(k => k.trim()).filter(Boolean));
-  }
-  if (HARDCODED_GEMINI_KEY && !keys.includes(HARDCODED_GEMINI_KEY)) {
-    keys.push(HARDCODED_GEMINI_KEY);
-  }
-  return keys;
+function getGeminiApiKey() {
+  const envKey = (process.env.GEMINI_API_KEY || '').trim();
+  return envKey || HARDCODED_GEMINI_KEY;
 }
 
-function getOpenAIApiKeys() {
-  const keys = [];
-  const envVal = (process.env.OPENAI_API_KEY || '').trim();
-  if (envVal) {
-    keys.push(...envVal.split(',').map(k => k.trim()).filter(Boolean));
-  }
-  if (HARDCODED_OPENAI_KEY && !keys.includes(HARDCODED_OPENAI_KEY)) {
-    keys.push(HARDCODED_OPENAI_KEY);
-  }
-  return keys;
-}
-
-// ----------------- AI CALLERS -----------------
-
-// 1. Google Gemini (Supports standard keys and new AQ. auth tokens)
-async function callGeminiWithKeys(apiKeys, prompt) {
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+async function callGemini(prompt) {
+  const apiKey = getGeminiApiKey();
+  const models = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-1.5-flash'];
   let lastErr = null;
 
-  for (let kIdx = 0; kIdx < apiKeys.length; kIdx++) {
-    const rawKey = apiKeys[kIdx].trim();
-    console.log(`[Gemini Engine] Trying Key #${kIdx + 1}...`);
-
-    for (const model of models) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
-
-      try {
-        const isAuthKey = rawKey.startsWith('AQ.');
-        const url = isAuthKey
-          ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
-          : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${rawKey}`;
-
-        const headers = {
-          'Content-Type': 'application/json'
-        };
-
-        if (isAuthKey) {
-          headers['Authorization'] = `Bearer ${rawKey}`;
-          headers['x-goog-api-key'] = rawKey;
-        } else {
-          headers['x-goog-api-key'] = rawKey;
-        }
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers,
-          signal: controller.signal,
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.65,
-              maxOutputTokens: 8192,
-              responseMimeType: 'application/json'
-            }
-          })
-        });
-
-        clearTimeout(timeout);
-        const data = await res.json();
-
-        if (!res.ok) {
-          lastErr = new Error(data?.error?.message || `Gemini status ${res.status}`);
-          console.warn(`[Gemini Engine] Key #${kIdx + 1} (${model}) failed: ${lastErr.message}`);
-          if (res.status === 401 || res.status === 403) break;
-          continue;
-        }
-
-        let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        text = text.trim();
-
-        if (text.startsWith('```json')) text = text.slice(7);
-        if (text.startsWith('```')) text = text.slice(3);
-        if (text.endsWith('```')) text = text.slice(0, -3);
-        text = text.trim();
-
-        const s = text.indexOf('[');
-        const e = text.lastIndexOf(']');
-        if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
-
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          console.log(`✅ [Gemini SUCCESS] Generated ${parsed.length} questions using ${model}!`);
-          return parsed.map(shuffleOptions);
-        }
-      } catch (e) {
-        clearTimeout(timeout);
-        lastErr = e;
-        console.warn(`[Gemini Engine] Attempt error: ${e.message}`);
-      }
-    }
-  }
-
-  throw lastErr || new Error('All Gemini attempts failed');
-}
-
-// 2. OpenAI Fallback
-async function callOpenAIWithKeys(apiKeys, prompt) {
-  let lastErr = null;
-
-  for (let kIdx = 0; kIdx < apiKeys.length; kIdx++) {
-    const apiKey = apiKeys[kIdx].trim();
+  for (const model of models) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 14000);
 
     try {
-      console.log(`[OpenAI Engine] Trying Fallback Key #${kIdx + 1}...`);
-      const res = await fetch('[https://api.openai.com/v1/chat/completions](https://api.openai.com/v1/chat/completions)', {
+      console.log(`[Gemini Engine] Requesting model: ${model}...`);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+          'X-goog-api-key': apiKey
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
+          contents: [
             {
-              role: 'system',
-              content: 'Return a JSON array of 20 trivia questions strictly testing the topics provided.'
-            },
-            { role: 'user', content: prompt }
+              parts: [{ text: prompt }]
+            }
           ],
-          temperature: 0.7
+          generationConfig: {
+            temperature: 0.65,
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json'
+          }
         })
       });
 
@@ -213,51 +109,45 @@ async function callOpenAIWithKeys(apiKeys, prompt) {
       const data = await res.json();
 
       if (!res.ok) {
-        lastErr = new Error(data?.error?.message || `OpenAI status ${res.status}`);
-        console.warn(`[OpenAI Engine] Key #${kIdx + 1} failed: ${lastErr.message}`);
+        lastErr = new Error(data?.error?.message || `Gemini HTTP status ${res.status}`);
+        console.warn(`[Gemini Engine] ${model} failed: ${lastErr.message}`);
         continue;
       }
 
-      let content = data.choices?.[0]?.message?.content || '[]';
-      content = content.trim();
-      if (content.startsWith('```json')) content = content.slice(7);
-      if (content.startsWith('```')) content = content.slice(3);
-      if (content.endsWith('```')) content = content.slice(0, -3);
-      content = content.trim();
+      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      text = text.trim();
 
-      const s = content.indexOf('[');
-      const e = content.lastIndexOf(']');
-      if (s !== -1 && e !== -1) content = content.substring(s, e + 1);
+      if (text.startsWith('```json')) text = text.slice(7);
+      if (text.startsWith('```')) text = text.slice(3);
+      if (text.endsWith('```')) text = text.slice(0, -3);
+      text = text.trim();
 
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed) && parsed.length >= 10) {
-        console.log(`✅ [OpenAI SUCCESS] Generated ${parsed.length} questions!`);
+      const s = text.indexOf('[');
+      const e = text.lastIndexOf(']');
+      if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
+
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        console.log(`✅ [Gemini SUCCESS] Generated ${parsed.length} questions using ${model}!`);
         return parsed.map(shuffleOptions);
       }
-    } catch (err) {
+    } catch (e) {
       clearTimeout(timeout);
-      lastErr = err;
+      lastErr = e;
+      console.warn(`[Gemini Engine] ${model} threw an error: ${e.message}`);
     }
   }
 
-  throw lastErr || new Error('All OpenAI attempts failed');
+  throw lastErr || new Error('Gemini generation failed on all models.');
 }
 
-// ----------------- QUIZ GENERATION PIPELINE -----------------
-
 async function generateQuizQuestions(t1, t2, t3) {
-  const geminiKeys = getGeminiApiKeys();
-  const openaiKeys = getOpenAIApiKeys();
-
   const topic1 = (t1 && t1.trim()) || 'World Cinema';
   const topic2 = (t2 && t2.trim()) || 'World Geography';
   const topic3 = (t3 && t3.trim()) || 'Modern Science';
 
-  console.log(`[Diagnostic] Generating questions:`);
-  console.log(`  Tier 1 (EASY): "${topic1}" (8 Qs)`);
-  console.log(`  Tier 2 (MODERATE): "${topic2}" (6 Qs)`);
-  console.log(`  Tier 3 (HARD): "${topic3}" (6 Qs)`);
-  console.log(`  Keys -> Gemini (Primary): ${geminiKeys.length}, OpenAI: ${openaiKeys.length}`);
+  console.log(`[Diagnostic] Generating 20 questions:`);
+  console.log(`  Tier 1: "${topic1}" (8 Qs) | Tier 2: "${topic2}" (6 Qs) | Tier 3: "${topic3}" (6 Qs)`);
 
   const prompt = `Write exactly 20 authentic, factual multiple-choice questions matching these topics:
 - 8 EASY questions strictly on: "${topic1}" (level: "EASY")
@@ -268,9 +158,9 @@ Rules:
 1. Every question must test real facts specifically about the assigned topic. Never produce placeholder or template questions.
 2. Provide exactly 4 plausible choices per question.
 3. "answer" must be the integer index (0, 1, 2, or 3) of the correct answer.
-4. Output ONLY a valid JSON array of 20 objects. No markdown backticks, no comments.
+4. Distribute correct answers across indices 0, 1, 2, and 3.
 
-Format:
+Return a JSON array of 20 objects like this:
 [
   {
     "question": "Question text?",
@@ -280,29 +170,7 @@ Format:
   }
 ]`;
 
-  // 1. PRIMARY: Gemini
-  if (geminiKeys.length > 0) {
-    try {
-      console.log(`[Engine] Calling Gemini (Primary)...`);
-      const q = await callGeminiWithKeys(geminiKeys, prompt);
-      if (q && q.length >= 10) return q;
-    } catch (e) {
-      console.warn(`⚠️ [Gemini Failed]: ${e.message}`);
-    }
-  }
-
-  // 2. FALLBACK: OpenAI
-  if (openaiKeys.length > 0) {
-    try {
-      console.log(`[Engine] Calling OpenAI (Fallback)...`);
-      const q = await callOpenAIWithKeys(openaiKeys, prompt);
-      if (q && q.length >= 10) return q;
-    } catch (e) {
-      console.warn(`⚠️ [OpenAI Failed]: ${e.message}`);
-    }
-  }
-
-  throw new Error("Failed to generate questions. Verify key validity and rate limits.");
+  return await callGemini(prompt);
 }
 
 // ----------------- API ENDPOINTS -----------------
@@ -367,95 +235,4 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
     question: currentQ ? {
       index: room.currentIndex,
       total: room.questions.length,
-      level: currentQ.level,
-      question: currentQ.question,
-      options: currentQ.options
-    } : null,
-    revealedAnswer: room.revealedAnswer,
-    leaderboard: [...playerList].sort((a, b) => b.score - a.score)
-  });
-});
-
-// Host Actions: NEXT, REVEAL, END
-app.post(['/api/host-action', '/host-action'], (req, res) => {
-  const { pin, action } = req.body || {};
-  const room = rooms.get(String(pin || '').trim());
-  if (!room) return res.status(404).json({ error: 'Room not found' });
-
-  if (action === 'NEXT') {
-    if (room.currentIndex >= room.questions.length) {
-      room.state = 'FINISHED';
-    } else {
-      room.currentIndex++;
-      room.state = 'QUESTION';
-      room.revealedAnswer = null;
-      room.answersThisRound = {};
-    }
-  } else if (action === 'REVEAL') {
-    if (room.currentIndex > 0 && room.currentIndex <= room.questions.length) {
-      room.state = 'REVEAL';
-      room.revealedAnswer = room.questions[room.currentIndex - 1].answer;
-    }
-  } else if (action === 'END') {
-    room.state = 'FINISHED';
-  }
-
-  return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
-});
-
-// Player Join
-app.post(['/api/join-room', '/join-room'], (req, res) => {
-  const { pin, name } = req.body || {};
-  const room = rooms.get(String(pin || '').trim());
-  if (!room) return res.status(404).json({ error: 'Invalid PIN. Room not found.' });
-
-  const cleanName = String(name || '').trim() || 'Player';
-  const playerKey = cleanName.toLowerCase();
-
-  if (!room.players[playerKey]) {
-    room.players[playerKey] = { name: cleanName, score: 0, correctCount: 0 };
-  }
-
-  return res.status(200).json({ success: true, name: cleanName, score: room.players[playerKey].score });
-});
-
-// Player Submit Answer
-app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
-  const { pin, name, answerIndex } = req.body || {};
-  const room = rooms.get(String(pin || '').trim());
-  if (!room || room.state !== 'QUESTION') return res.status(400).json({ error: 'Not accepting answers' });
-
-  const playerKey = String(name || '').trim().toLowerCase();
-  if (room.answersThisRound[playerKey] !== undefined) {
-    return res.status(200).json({ message: 'Answer already submitted' });
-  }
-
-  room.answersThisRound[playerKey] = answerIndex;
-  const currentQ = room.questions[room.currentIndex - 1];
-  if (currentQ && answerIndex === currentQ.answer) {
-    if (room.players[playerKey]) {
-      room.players[playerKey].score += 100;
-      room.players[playerKey].correctCount++;
-    }
-  }
-
-  return res.status(200).json({ success: true });
-});
-
-// Catch-all 404
-app.use((req, res) => {
-  if (req.path.startsWith('/api/') || req.method === 'POST') {
-    return res.status(404).json({ success: false, error: `Endpoint not found: ${req.method} ${req.path}` });
-  }
-  return res.status(404).send('Page not found');
-});
-
-// Local dev listener
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Quiz server active on port ${PORT}`);
-  });
-}
-
-module.exports = app;
+      level: current
