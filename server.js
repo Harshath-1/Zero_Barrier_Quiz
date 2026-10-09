@@ -62,54 +62,52 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
 }
 
-// ----------------- GROQ AI 20-QUESTION GENERATOR -----------------
+// ----------------- GROQ AI 20-QUESTION ENGINE -----------------
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
-async function getAvailableGroqModel() {
+async function getUsableGroqModel() {
   try {
     const res = await fetch('https://api.groq.com/openai/v1/models', {
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`
-      }
+      headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` }
     });
     if (res.ok) {
       const data = await res.json();
-      const models = (data.data || []).map(m => m.id);
-      const textModels = models.filter(id => !id.includes('whisper') && !id.includes('guard'));
+      const list = (data.data || []).map(m => m.id);
+      // Pick the first available chat model, avoiding audio/moderation models
+      const textModels = list.filter(id => !id.includes('whisper') && !id.includes('guard'));
       if (textModels.length > 0) {
         return textModels[0];
       }
     }
-  } catch (e) {
-    console.warn(`[Groq Autodetect failed]: ${e.message}`);
+  } catch (err) {
+    console.warn('Model list discovery error:', err.message);
   }
   return 'llama-3.1-8b-instant';
 }
 
 async function generateAIQuestions(topic1, topic2, topic3) {
-  const chosenModel = await getAvailableGroqModel();
-  console.log(`[Groq] Generating 20 topic-specific questions using: ${chosenModel}`);
+  const chosenModel = await getUsableGroqModel();
+  console.log(`[Groq] Using available model: ${chosenModel}`);
 
-  const prompt = `You are a professional trivia generator.
-Create exactly 20 real, high-quality, authentic trivia questions strictly based on the host's topics:
-- 8 EASY questions directly and exclusively about: "${topic1}" (level: "EASY")
-- 6 MODERATE questions directly and exclusively about: "${topic2}" (level: "MODERATE")
-- 6 HARD questions directly and exclusively about: "${topic3}" (level: "HARD")
+  const prompt = `You are a quiz master.
+Create exactly 20 real, authentic, informative multiple-choice trivia questions based strictly on the host's topics:
+- 8 EASY questions strictly testing knowledge about: "${topic1}" (level: "EASY")
+- 6 MODERATE questions strictly testing knowledge about: "${topic2}" (level: "MODERATE")
+- 6 HARD questions strictly testing knowledge about: "${topic3}" (level: "HARD")
 
-Strict Requirements:
-1. Every question must be factual and explicitly test knowledge of the given topic. Do not generate generic placeholders.
-2. Provide exactly 4 plausible multiple-choice options per question.
+Rules:
+1. Every question must be factual and directly relevant to "${topic1}", "${topic2}", or "${topic3}".
+2. Exactly 4 realistic options per question.
 3. "answer" must be the 0-indexed integer (0, 1, 2, or 3) of the correct choice.
-4. Distribute correct answers across indices 0, 1, 2, and 3.
-5. Return strictly a JSON object with a single array property called "questions" containing all 20 objects.
+4. Output strictly a JSON object with a single "questions" array containing all 20 question objects.
 
 Format:
 {
   "questions": [
     {
-      "question": "Clear question text?",
-      "options": ["Choice A", "Choice B", "Choice C", "Choice D"],
+      "question": "What is...",
+      "options": ["A", "B", "C", "D"],
       "answer": 0,
       "level": "EASY"
     }
@@ -125,10 +123,10 @@ Format:
     body: JSON.stringify({
       model: chosenModel,
       messages: [
-        { role: 'system', content: 'You are a quiz assistant that responds only in strictly valid JSON.' },
+        { role: 'system', content: 'You are a quiz assistant that only responds in strictly valid JSON.' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.7,
+      temperature: 0.65,
       response_format: { type: 'json_object' }
     })
   });
@@ -143,10 +141,10 @@ Format:
   const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
 
   if (!Array.isArray(list) || list.length === 0) {
-    throw new Error('Groq returned an invalid questions payload');
+    throw new Error('Groq returned an invalid questions structure');
   }
 
-  console.log(`✅ Successfully generated ${list.length} questions for: "${topic1}", "${topic2}", "${topic3}"`);
+  console.log(`Successfully generated ${list.length} questions for: "${topic1}", "${topic2}", "${topic3}"`);
   return list.map(shuffleOptions);
 }
 
@@ -194,7 +192,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   }
 });
 
-// Room Status (Host & Player polling)
+// Room Status
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const room = rooms.get(pin);
