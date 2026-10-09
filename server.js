@@ -103,7 +103,7 @@ async function callGeminiWithKeys(apiKeys, prompt) {
 
     for (const model of models) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 14000); // 14s guard
+      const timeout = setTimeout(() => controller.abort(), 14000);
 
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -113,8 +113,13 @@ async function callGeminiWithKeys(apiKeys, prompt) {
           signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: {
+              parts: [{
+                text: "You are a professional trivia generator. You write authentic, factual trivia strictly tied to specific real-world topics. Never generate placeholder or boilerplate templates."
+              }]
+            },
             generationConfig: {
-              temperature: 0.65,
+              temperature: 0.6,
               maxOutputTokens: 8192,
               responseMimeType: 'application/json'
             }
@@ -127,7 +132,6 @@ async function callGeminiWithKeys(apiKeys, prompt) {
         if (!res.ok) {
           lastErr = new Error(data?.error?.message || `Gemini status ${res.status}`);
           console.warn(`[Gemini Engine] Key #${kIdx + 1} with model ${model} failed: ${lastErr.message}`);
-          // If quota exceeded or auth error, skip directly to next key
           if (res.status === 429 || res.status === 403 || res.status === 400) {
             break;
           }
@@ -182,10 +186,10 @@ async function callOpenAIWithKeys(apiKeys, prompt) {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'You are a quiz engine. Return ONLY a valid JSON array of trivia question objects.' },
+            { role: 'system', content: 'You are an authentic trivia engine. Return ONLY a valid JSON array of 20 trivia question objects directly testing knowledge of the assigned topics.' },
             { role: 'user', content: prompt }
           ],
-          temperature: 0.7
+          temperature: 0.6
         })
       });
 
@@ -280,36 +284,20 @@ function createDynamicFallback(topic, count, level) {
   const questions = [];
   const baseTemplates = [
     {
-      q: `Which of the following is considered a foundational milestone in ${topic}?`,
-      opts: [`Pioneering Phase of ${topic}`, `Early Modern Discovery`, `The Standard Model`, `The Classical Hypothesis`]
+      q: `Which notable milestone or prominent subject is closely identified with ${topic}?`,
+      opts: [`Foundational Tradition in ${topic}`, `Modern Paradigm of ${topic}`, `The Standard Convention`, `The Contemporary Method`]
     },
     {
-      q: `What is a primary principle or key focus when studying ${topic}?`,
-      opts: [`Core Structural Mechanics`, `Secondary Variant Analysis`, `Empirical Observation`, `Applied Optimization`]
+      q: `What is considered a core element or widely recognized concept within ${topic}?`,
+      opts: [`Primary Structure of ${topic}`, `Secondary Variant`, `Comparative Framework`, `Empirical Methodology`]
     },
     {
-      q: `In the context of ${topic}, which concept is most frequently analyzed?`,
-      opts: [`Fundamental Dynamics`, `Peripheral Effects`, `Static Equilibriums`, `Systemic Formulations`]
+      q: `In the study or practice of ${topic}, which area of focus is most central?`,
+      opts: [`Core Mechanics of ${topic}`, `Peripheral Concepts`, `Auxiliary Processes`, `Contextual Analysis`]
     },
     {
-      q: `Who or what played a major transformative role in modern ${topic}?`,
-      opts: [`Key Theoretical Innovations`, `Conventional Standards`, `Baseline Frameworks`, `Legacy Protocols`]
-    },
-    {
-      q: `Which critical distinction is essential to understand regarding ${topic}?`,
-      opts: [`Operational vs Theoretical Parameters`, `Linear Scaling Factors`, `Temporal Variance`, `Boundary Thresholds`]
-    },
-    {
-      q: `What is considered one of the most widely acknowledged breakthroughs in ${topic}?`,
-      opts: [`Integrated Standard Evolution`, `Initial Synthetic Phase`, `Discrete Formulations`, `The Primary Benchmark`]
-    },
-    {
-      q: `How do practitioners and analysts categorize the major tiers of ${topic}?`,
-      opts: [`By Functional Hierarchy`, `By Regional Variance`, `By Chronological Decay`, `By Random Distribution`]
-    },
-    {
-      q: `Which key challenge continues to be actively addressed within ${topic}?`,
-      opts: [`Efficiency and Scalability`, `Legacy Incompatibility`, `Absolute Redundancy`, `Universal Stagnation`]
+      q: `Which breakthrough or transformation is most historic in the domain of ${topic}?`,
+      opts: [`Primary Innovation in ${topic}`, `Baseline Foundation`, `Legacy Standards`, `Historical Reform`]
     }
   ];
 
@@ -331,29 +319,42 @@ async function generateQuizQuestions(t1, t2, t3) {
   const openaiKeys = getOpenAIApiKeys();
   const xaiKey = (process.env.XAI_API_KEY || process.env.GROK_API_KEY || '').trim();
 
-  const topic1 = (t1 && t1.trim()) || 'General Knowledge';
+  const topic1 = (t1 && t1.trim()) || 'World Cinema';
   const topic2 = (t2 && t2.trim()) || 'World Geography';
   const topic3 = (t3 && t3.trim()) || 'Modern Science';
 
-  console.log(`[Diagnostic] Generating questions for: "${topic1}", "${topic2}", "${topic3}". Gemini Keys Available: ${geminiKeys.length}`);
+  console.log(`[Diagnostic] Generating questions for:`);
+  console.log(`  Tier 1 (EASY): "${topic1}" (8 Qs)`);
+  console.log(`  Tier 2 (MODERATE): "${topic2}" (6 Qs)`);
+  console.log(`  Tier 3 (HARD): "${topic3}" (6 Qs)`);
+  console.log(`  Gemini Keys Configured: ${geminiKeys.length}`);
 
-  const prompt = `You are an expert trivia quiz author. Generate exactly 20 authentic, high-quality, multiple-choice trivia questions strictly matching these 3 user topics:
-- Exactly 8 EASY questions strictly on the topic: "${topic1}" (level: "EASY")
-- Exactly 6 MODERATE questions strictly on the topic: "${topic2}" (level: "MODERATE")
-- Exactly 6 HARD questions strictly on the topic: "${topic3}" (level: "HARD")
+  const prompt = `You are a trivia quiz master. Write exactly 20 authentic, factual, well-researched multiple choice questions based specifically on the following user-provided topics:
 
-STRICT INSTRUCTIONS:
-1. Every question must test real-world factual trivia about the specified topics. Do NOT write generic placeholder or template questions.
-2. Provide exactly 4 realistic, plausible options for each question.
-3. The "answer" field must be an integer index (0, 1, 2, or 3) corresponding to the correct answer in the "options" array.
-4. Output ONLY a valid JSON array of 20 question objects. No markdown backticks.
+TOPIC BREAKDOWN:
+- 8 EASY questions strictly on the topic: "${topic1}"
+  * Level: "EASY"
+  * Criteria: Widely known facts, famous names, memorable milestones, or iconic elements of "${topic1}".
+- 6 MODERATE questions strictly on the topic: "${topic2}"
+  * Level: "MODERATE"
+  * Criteria: Intermediate trivia, specific records, technical details, or notable moments requiring solid knowledge of "${topic2}".
+- 6 HARD questions strictly on the topic: "${topic3}"
+  * Level: "HARD"
+  * Criteria: Deep trivia, obscure details, niche achievements, or advanced facts about "${topic3}".
 
-Format:
+CRITICAL INSTRUCTIONS:
+1. Every question MUST explicitly test real trivia about the exact named topic. Never write generic, placeholder, or template questions.
+2. Provide exactly 4 realistic, plausible multiple-choice options per question.
+3. The "answer" field must be the integer index (0, 1, 2, or 3) representing the correct choice in the "options" array.
+4. Distribute the correct answer across indices 0, 1, 2, and 3 (do not make 0 the answer every time).
+5. Output ONLY a valid JSON array of 20 objects. No markdown backticks, no comments, no explanation.
+
+JSON format:
 [
   {
-    "question": "Question text here?",
-    "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-    "answer": 0,
+    "question": "Clear, factual question text specifically about the topic?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": 1,
     "level": "EASY"
   }
 ]`;
