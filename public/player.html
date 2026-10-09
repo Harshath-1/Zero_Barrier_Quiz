@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Player Quiz Portal</title>
   <style>
     :root {
@@ -23,11 +23,13 @@
       background-color: var(--bg-black);
       color: var(--text-white);
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px 16px;
+      padding: 16px;
     }
+
     .glass-card {
       background: var(--card-bg);
       backdrop-filter: blur(18px);
@@ -36,26 +38,57 @@
       border: 1px solid var(--card-border);
       box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.18);
       width: 100%;
-      max-width: 580px;
-      padding: 24px 28px;
+      transition: all 0.3s ease;
+    }
+
+    /* DESKTOP (16:9 / 16:10 Presentation View) */
+    @media (min-width: 900px) {
+      .glass-card {
+        max-width: 980px;
+        padding: 36px 44px;
+        min-height: 560px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .title-banner { font-size: 28px; }
+      .grid { grid-template-columns: 1fr 1fr; gap: 18px; }
+      .host-tile { font-size: 18px; padding: 22px 18px; min-height: 75px; }
+      #question-text { font-size: 24px; margin: 20px 0; }
+    }
+
+    /* MOBILE (9:16 Vertical View) */
+    @media (max-width: 899px) {
+      body { padding: 12px 10px; align-items: flex-start; }
+      .glass-card {
+        max-width: 480px;
+        padding: 18px 16px;
+        min-height: calc(100dvh - 24px);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .title-banner { font-size: 20px; }
+      .grid { grid-template-columns: 1fr; gap: 10px; }
+      .host-tile { font-size: 15px; padding: 14px 12px; }
+      #question-text { font-size: 17px; margin: 12px 0; }
     }
 
     .club-banner-wrapper {
       width: 100%;
       border-radius: 12px;
       overflow: hidden;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
       border: 1.5px solid var(--yellow-bright);
     }
     .club-banner {
       width: 100%;
       display: block;
-      max-height: 140px;
+      max-height: 125px;
       object-fit: cover;
     }
 
     .title-banner {
-      font-size: 22px;
       font-weight: 900;
       letter-spacing: 2px;
       text-transform: uppercase;
@@ -67,7 +100,7 @@
       font-size: 13px;
       color: var(--text-muted);
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     .field-label {
@@ -83,7 +116,7 @@
       background: #0f0f0f;
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 10px;
-      padding: 12px 16px;
+      padding: 12px 14px;
       color: var(--text-white);
       font-size: 15px;
       margin-bottom: 14px;
@@ -107,12 +140,10 @@
       text-transform: uppercase;
       cursor: pointer;
       box-shadow: 0 0 20px rgba(250, 204, 21, 0.45);
+      margin-top: auto;
       transition: background 0.2s, box-shadow 0.2s;
-      margin-top: 10px;
     }
-    .yellow-btn:hover {
-      background: #fde047;
-    }
+    .yellow-btn:hover { background: #fde047; }
     .yellow-btn:disabled {
       background: #232530 !important;
       color: #717789 !important;
@@ -132,7 +163,6 @@
       text-transform: uppercase;
     }
 
-    /* Top Player Status Bar */
     .player-header-bar {
       display: flex;
       justify-content: space-between;
@@ -143,35 +173,20 @@
       padding: 10px 14px;
       margin-bottom: 14px;
     }
-    .player-header-bar .user-tag {
-      font-size: 13px;
-      font-weight: 800;
-      color: #ffffff;
-    }
-    .player-header-bar .score-tag {
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--yellow-bright);
-    }
+    .player-header-bar .user-tag { font-size: 13px; font-weight: 800; color: #ffffff; }
+    .player-header-bar .score-tag { font-size: 13px; font-weight: 800; color: var(--yellow-bright); }
 
-    /* 2x2 Options Grid */
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin: 16px 0;
-    }
+    .grid { display: grid; margin: 14px 0; }
     .host-tile {
       background: #141414;
       border: 1.5px solid rgba(255, 255, 255, 0.2);
       border-radius: 12px;
-      padding: 16px 14px;
-      font-size: 15px;
       font-weight: 700;
       color: #ffffff;
       text-align: left;
       cursor: pointer;
-      opacity: 1 !important;
+      display: flex;
+      align-items: center;
       transition: background 0.15s, border-color 0.15s;
     }
     .host-tile:hover:not(:disabled) {
@@ -194,9 +209,7 @@
       background: rgba(255, 71, 87, 0.3) !important;
       color: #ffffff !important;
     }
-    .host-tile.dimmed {
-      opacity: 0.35 !important;
-    }
+    .host-tile.dimmed { opacity: 0.35 !important; }
 
     .pin-display-box {
       background: #0f0f0f;
@@ -218,7 +231,7 @@
     </div>
 
     <!-- 1. JOIN VIEW -->
-    <div id="join-card">
+    <div id="join-card" style="display: flex; flex-direction: column; flex: 1; justify-content: center;">
       <div class="title-banner">PLAYER QUIZ PORTAL</div>
       <div class="info-line">Enter active session PIN & your name</div>
 
@@ -232,17 +245,17 @@
     </div>
 
     <!-- 2. LOBBY WAITING VIEW -->
-    <div id="lobby-card" style="display: none; text-align: center;">
+    <div id="lobby-card" style="display: none; text-align: center; flex: 1;">
       <div class="badge-hud">LOBBY CONNECTED</div>
       <div class="pin-display-box">
         <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Connected As</div>
-        <div id="display-player" style="font-size: 28px; font-weight: 900; color: var(--yellow-bright);">Player</div>
+        <div id="display-player" style="font-size: 32px; font-weight: 900; color: var(--yellow-bright);">Player</div>
         <div style="font-size: 14px; color: var(--text-muted); margin-top: 10px;">Waiting for host to launch the quiz...</div>
       </div>
     </div>
 
     <!-- 3. QUESTION VIEW -->
-    <div id="question-card" style="display: none;">
+    <div id="question-card" style="display: none; flex-direction: column; flex: 1;">
       <div class="player-header-bar">
         <span class="user-tag" id="player-hud-name">👤 Player</span>
         <span class="badge-hud" id="level-badge">EASY</span>
@@ -254,23 +267,23 @@
         <span id="response-status-text" style="font-size: 12px; color: var(--yellow-bright); font-weight: 700;">Select an answer</span>
       </div>
 
-      <div id="question-text" style="font-size: 18px; font-weight: 800; margin: 10px 0 16px; color: #ffffff; line-height: 1.4;">Loading question...</div>
+      <div id="question-text" style="font-weight: 800; color: #ffffff; line-height: 1.4;">Loading question...</div>
 
       <div class="grid">
-        <button class="host-tile" id="tile-0" onclick="selectOption(0)">A. <span id="opt-0"></span></button>
-        <button class="host-tile" id="tile-1" onclick="selectOption(1)">B. <span id="opt-1"></span></button>
-        <button class="host-tile" id="tile-2" onclick="selectOption(2)">C. <span id="opt-2"></span></button>
-        <button class="host-tile" id="tile-3" onclick="selectOption(3)">D. <span id="opt-3"></span></button>
+        <button class="host-tile" id="tile-0" onclick="selectOption(0)">A. <span id="opt-0" style="margin-left: 8px;"></span></button>
+        <button class="host-tile" id="tile-1" onclick="selectOption(1)">B. <span id="opt-1" style="margin-left: 8px;"></span></button>
+        <button class="host-tile" id="tile-2" onclick="selectOption(2)">C. <span id="opt-2" style="margin-left: 8px;"></span></button>
+        <button class="host-tile" id="tile-3" onclick="selectOption(3)">D. <span id="opt-3" style="margin-left: 8px;"></span></button>
       </div>
 
       <button id="confirm-btn" class="yellow-btn" onclick="submitAnswer()" disabled>Confirm Answer</button>
     </div>
 
     <!-- 4. FINAL STANDINGS VIEW -->
-    <div id="end-card" style="display: none; text-align: center;">
+    <div id="end-card" style="display: none; text-align: center; flex: 1;">
       <div class="badge-hud">QUIZ COMPLETED</div>
       <div class="title-banner" style="font-size: 20px; margin-top: 10px;">FINAL STANDINGS</div>
-      <div id="leaderboard-container" style="margin-top: 16px;"></div>
+      <div id="leaderboard-container" style="margin-top: 16px; max-height: 380px; overflow-y: auto;"></div>
     </div>
 
   </div>
@@ -293,7 +306,7 @@
     function showCard(cardId) {
       ['join-card', 'lobby-card', 'question-card', 'end-card'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = (id === cardId) ? 'block' : 'none';
+        if (el) el.style.display = (id === cardId) ? 'flex' : 'none';
       });
     }
 
@@ -351,7 +364,6 @@
         if (!res.ok) return;
         const data = await res.json();
 
-        // Update current player's score
         if (data.leaderboard) {
           const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
           if (me) {
@@ -362,7 +374,6 @@
         if (data.state === 'LOBBY') {
           showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
-          // Detect transition to a new question round
           if (data.currentIndex !== lastSeenQuestionIndex) {
             lastSeenQuestionIndex = data.currentIndex;
             hasAnsweredCurrentRound = false;
@@ -380,7 +391,7 @@
           showCard('end-card');
 
           const rows = (data.leaderboard || []).map((p, idx) => `
-            <div style="display:flex; justify-content:space-between; padding: 10px 16px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
+            <div style="display:flex; justify-content:space-between; padding: 12px 18px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
               <span>#${idx + 1} ${escapeHtml(p.name)}</span>
               <span style="color:var(--yellow-bright);"><strong>${p.score} pts</strong> (${p.correctCount} correct)</span>
             </div>
