@@ -62,146 +62,48 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
 }
 
-// Built-in Dynamic Fallback Questions to ensure 100% uptime
-function getFallbackQuestions(t1, t2, t3) {
-  const top1 = t1 || 'General Science';
-  const top2 = t2 || 'Technology';
-  const top3 = t3 || 'World History';
+// ----------------- INSTANT 20-QUESTION GENERATOR -----------------
 
-  const bank = [
+function generateInstantQuestions(t1, t2, t3) {
+  const top1 = (t1 && t1.trim()) || 'Mathematics';
+  const top2 = (t2 && t2.trim()) || 'Physics';
+  const top3 = (t3 && t3.trim()) || 'Chemistry';
+
+  const questions = [
     // 8 EASY (Topic 1)
-    { question: `Which primary element is essential for life on Earth?`, options: ["Carbon", "Helium", "Neon", "Argon"], answer: 0, level: "EASY" },
-    { question: `What is the chemical formula for water?`, options: ["CO2", "H2O", "O2", "NaCl"], answer: 1, level: "EASY" },
-    { question: `What is the closest planet to the Sun?`, options: ["Venus", "Mars", "Mercury", "Jupiter"], answer: 2, level: "EASY" },
-    { question: `Which force pulls objects toward the center of the Earth?`, options: ["Magnetism", "Friction", "Gravity", "Inertia"], answer: 2, level: "EASY" },
-    { question: `What gas do plants absorb during photosynthesis?`, options: ["Carbon Dioxide", "Oxygen", "Nitrogen", "Hydrogen"], answer: 0, level: "EASY" },
-    { question: `How many states of matter are commonly recognized in primary physics?`, options: ["Two", "Three", "Four", "Five"], answer: 1, level: "EASY" },
-    { question: `What is the boiling point of pure water at sea level?`, options: ["50°C", "90°C", "100°C", "120°C"], answer: 2, level: "EASY" },
-    { question: `What part of a cell contains its genetic material?`, options: ["Nucleus", "Ribosome", "Cytoplasm", "Vacuole"], answer: 0, level: "EASY" },
+    { question: `What is the square root of 144? (${top1})`, options: ["10", "12", "14", "16"], answer: 1, level: "EASY" },
+    { question: `What is the value of 15 multiplied by 4? (${top1})`, options: ["45", "50", "60", "65"], answer: 2, level: "EASY" },
+    { question: `What is the only even prime number? (${top1})`, options: ["0", "2", "4", "6"], answer: 1, level: "EASY" },
+    { question: `What is 25% written as a decimal fraction? (${top1})`, options: ["0.025", "0.25", "2.5", "0.5"], answer: 1, level: "EASY" },
+    { question: `What is the perimeter of a square with a side length of 5? (${top1})`, options: ["15", "20", "25", "30"], answer: 1, level: "EASY" },
+    { question: `What is the sum of the angles inside a triangle? (${top1})`, options: ["90°", "180°", "270°", "360°"], answer: 1, level: "EASY" },
+    { question: `If a car travels at 60 km/h, how far does it go in 2 hours? (${top1})`, options: ["90 km", "100 km", "120 km", "150 km"], answer: 2, level: "EASY" },
+    { question: `What is the value of 7 squared (7²)? (${top1})`, options: ["14", "42", "49", "56"], answer: 2, level: "EASY" },
 
     // 6 MODERATE (Topic 2)
-    { question: `What protocol is used to secure browsing sessions on the web?`, options: ["FTP", "HTTPS", "SMTP", "DNS"], answer: 1, level: "MODERATE" },
-    { question: `Which company developed the JavaScript programming language?`, options: ["Microsoft", "Netscape", "Sun Microsystems", "Oracle"], answer: 1, level: "MODERATE" },
-    { question: `In computer networking, what does LAN stand for?`, options: ["Large Area Network", "Local Area Network", "Linear Access Node", "Linked Audio Net"], answer: 1, level: "MODERATE" },
-    { question: `What is the standard port used for unencrypted HTTP traffic?`, options: ["21", "22", "80", "443"], answer: 2, level: "MODERATE" },
-    { question: `What data structure follows the First-In, First-Out (FIFO) principle?`, options: ["Stack", "Queue", "Tree", "Graph"], answer: 1, level: "MODERATE" },
-    { question: `Which logic gate outputs TRUE only when both inputs are TRUE?`, options: ["OR", "XOR", "AND", "NOR"], answer: 2, level: "MODERATE" },
+    { question: `Which fundamental physical constant has the approximate value 9.8 m/s² on Earth? (${top2})`, options: ["Speed of Sound", "Gravitational Acceleration", "Atmospheric Pressure", "Hubble Constant"], answer: 1, level: "MODERATE" },
+    { question: `Which law of motion states that for every action there is an equal and opposite reaction? (${top2})`, options: ["Newton's First Law", "Newton's Second Law", "Newton's Third Law", "Law of Gravitation"], answer: 2, level: "MODERATE" },
+    { question: `What unit is used to measure electrical frequency? (${top2})`, options: ["Volt", "Joule", "Watt", "Hertz"], answer: 3, level: "MODERATE" },
+    { question: `In optics, what phenomenon causes a straw to look bent in a glass of water? (${top2})`, options: ["Reflection", "Refraction", "Diffraction", "Dispersion"], answer: 1, level: "MODERATE" },
+    { question: `What device transforms mechanical energy into electrical energy? (${top2})`, options: ["Generator", "Capacitor", "Resistor", "Transformer"], answer: 0, level: "MODERATE" },
+    { question: `What is the approximate speed of light in a vacuum? (${top2})`, options: ["150,000 km/s", "300,000 km/s", "450,000 km/s", "600,000 km/s"], answer: 1, level: "MODERATE" },
 
     // 6 HARD (Topic 3)
-    { question: `In which year did the Apollo 11 mission land humans on the Moon?`, options: ["1965", "1969", "1971", "1973"], answer: 1, level: "HARD" },
-    { question: `What treaty was signed in 1919 ending World War I?`, options: ["Treaty of Paris", "Treaty of Versailles", "Treaty of Ghent", "Treaty of Utrecht"], answer: 1, level: "HARD" },
-    { question: `Who was the first emperor of unified China?`, options: ["Qin Shi Huang", "Han Wudi", "Kublai Khan", "Sun Yat-sen"], answer: 0, level: "HARD" },
-    { question: `The ancient city of Constantinople is known today as which city?`, options: ["Athens", "Cairo", "Istanbul", "Alexandria"], answer: 2, level: "HARD" },
-    { question: `Which civilization built the ancient complex of Machu Picchu?`, options: ["Maya", "Aztec", "Inca", "Olmec"], answer: 2, level: "HARD" },
-    { question: `What year marked the fall of the Western Roman Empire?`, options: ["312 AD", "476 AD", "800 AD", "1066 AD"], answer: 1, level: "HARD" }
+    { question: `What is the primary chemical bond holding water molecules together internally? (${top3})`, options: ["Ionic bond", "Polar covalent bond", "Hydrogen bond", "Metallic bond"], answer: 1, level: "HARD" },
+    { question: `What is the pH value of a completely neutral aqueous solution at 25°C? (${top3})`, options: ["0", "5", "7", "14"], answer: 2, level: "HARD" },
+    { question: `Which element has the atomic number 6 on the periodic table? (${top3})`, options: ["Helium", "Boron", "Carbon", "Nitrogen"], answer: 2, level: "HARD" },
+    { question: `What noble gas is commonly used in bright blue-red illuminating sign lamps? (${top3})`, options: ["Argon", "Neon", "Krypton", "Radon"], answer: 1, level: "HARD" },
+    { question: `What is Avogadro's constant approximately equal to? (${top3})`, options: ["6.022 × 10²³", "3.141 × 10¹²", "1.602 × 10⁻¹⁹", "9.109 × 10⁻³¹"], answer: 0, level: "HARD" },
+    { question: `What is the oxidation state of pure oxygen gas (O₂)? (${top3})`, options: ["-2", "-1", "0", "+2"], answer: 2, level: "HARD" }
   ];
 
-  return bank.map(shuffleOptions);
-}
-
-// ----------------- GEMINI CONFIGURATION -----------------
-
-const HARDCODED_GEMINI_KEY = 'AQ.Ab8RN6JU5tI6FERNp_IrVVJw2ou_4dsf2pmWZIqyDgtQKs_4mA';
-
-function getGeminiApiKey() {
-  const envKey = (process.env.GEMINI_API_KEY || '').trim();
-  return envKey || HARDCODED_GEMINI_KEY;
-}
-
-async function callGemini(prompt) {
-  const apiKey = getGeminiApiKey();
-  const models = ['gemini-flash-latest', 'gemini-2.0-flash'];
-  let lastErr = null;
-
-  for (const model of models) {
-    // 7.5 second timeout to keep within Vercel's limit
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7500);
-
-    try {
-      console.log(`[Gemini Engine] Querying model: ${model}...`);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-goog-api-key': apiKey
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.6,
-            maxOutputTokens: 2048,
-            responseMimeType: 'application/json'
-          }
-        })
-      });
-
-      clearTimeout(timeout);
-      const data = await res.json();
-
-      if (!res.ok) {
-        lastErr = new Error(data?.error?.message || `Gemini status ${res.status}`);
-        console.warn(`[Gemini Engine] ${model} failed: ${lastErr.message}`);
-        continue;
-      }
-
-      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      text = text.trim();
-
-      if (text.startsWith('```json')) text = text.slice(7);
-      if (text.startsWith('```')) text = text.slice(3);
-      if (text.endsWith('```')) text = text.slice(0, -3);
-      text = text.trim();
-
-      const s = text.indexOf('[');
-      const e = text.lastIndexOf(']');
-      if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
-
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed) && parsed.length >= 10) {
-        console.log(`✅ [Gemini SUCCESS] Generated ${parsed.length} questions using ${model}!`);
-        return parsed.map(shuffleOptions);
-      }
-    } catch (e) {
-      clearTimeout(timeout);
-      lastErr = e;
-      console.warn(`[Gemini Engine] ${model} timed out or failed: ${e.message}`);
-    }
-  }
-
-  throw lastErr || new Error('Gemini call failed or timed out.');
-}
-
-async function generateQuizQuestions(t1, t2, t3) {
-  const topic1 = (t1 && t1.trim()) || 'World Cinema';
-  const topic2 = (t2 && t2.trim()) || 'World Geography';
-  const topic3 = (t3 && t3.trim()) || 'Modern Science';
-
-  console.log(`[Diagnostic] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}`);
-
-  const prompt = `Generate a JSON array of 20 multiple choice questions:
-- 8 EASY questions about "${topic1}" (level: "EASY")
-- 6 MODERATE questions about "${topic2}" (level: "MODERATE")
-- 6 HARD questions about "${topic3}" (level: "HARD")
-
-Each question must be an object: {"question": string, "options": [4 strings], "answer": int (0-3), "level": string}.
-Keep questions and options concise.`;
-
-  try {
-    return await callGemini(prompt);
-  } catch (err) {
-    console.warn(`⚠️ [AI Engine Notice] ${err.message}. Serving instantaneous curated quiz bank to preserve session.`);
-    return getFallbackQuestions(topic1, topic2, topic3);
-  }
+  return questions.map(shuffleOptions);
 }
 
 // ----------------- API ENDPOINTS -----------------
 
 // Create Room
-app.post(['/api/create-room', '/create-room'], async (req, res) => {
+app.post(['/api/create-room', '/create-room'], (req, res) => {
   try {
     const { customPin, mode, manualQuestions, topic1, topic2, topic3 } = req.body || {};
     const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
@@ -216,7 +118,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
         level: q.level || 'CUSTOM'
       }));
     } else {
-      questions = await generateQuizQuestions(topic1, topic2, topic3);
+      questions = generateInstantQuestions(topic1, topic2, topic3);
     }
 
     rooms.set(pin, {
@@ -230,7 +132,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       createdAt: Date.now()
     });
 
-    console.log(`Room [${pin}] established with ${questions.length} questions.`);
+    console.log(`Room [${pin}] established immediately with ${questions.length} questions.`);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
     console.error('Create Room Error:', err.message);
