@@ -214,7 +214,7 @@
     
     <!-- Permanent Club Banner Header -->
     <div class="club-banner-wrapper">
-      <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" />
+      <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" onerror="this.parentElement.style.display='none'" />
     </div>
 
     <!-- 1. JOIN VIEW -->
@@ -283,6 +283,13 @@
     let lastSeenQuestionIndex = 0;
     let pollTimer = null;
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+      });
+    }
+
     function showCard(cardId) {
       ['join-card', 'lobby-card', 'question-card', 'end-card'].forEach(id => {
         const el = document.getElementById(id);
@@ -315,7 +322,7 @@
           currentPin = pin;
           playerName = name;
           document.getElementById('display-player').textContent = name;
-          document.getElementById('player-hud-name').textContent = `👤 ${name}`;
+          document.getElementById('player-hud-name').textContent = `👤 ${escapeHtml(name)}`;
           showCard('lobby-card');
           startPolling();
         } else {
@@ -340,11 +347,11 @@
       if (!currentPin) return;
 
       try {
-        const res = await fetch(`/api/room-status?pin=${currentPin}`);
+        const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}`);
         if (!res.ok) return;
         const data = await res.json();
 
-        // Update current score
+        // Update current player's score
         if (data.leaderboard) {
           const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
           if (me) {
@@ -355,16 +362,14 @@
         if (data.state === 'LOBBY') {
           showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
-          // Detect brand new question round
+          // Detect transition to a new question round
           if (data.currentIndex !== lastSeenQuestionIndex) {
             lastSeenQuestionIndex = data.currentIndex;
             hasAnsweredCurrentRound = false;
             selectedOption = null;
             renderQuestion(data.question);
-            showCard('question-card');
-          } else {
-            showCard('question-card');
           }
+          showCard('question-card');
         } else if (data.state === 'REVEAL') {
           if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
             highlightAnswers(data.revealedAnswer);
@@ -374,9 +379,9 @@
           clearInterval(pollTimer);
           showCard('end-card');
 
-          const rows = data.leaderboard.map((p, idx) => `
+          const rows = (data.leaderboard || []).map((p, idx) => `
             <div style="display:flex; justify-content:space-between; padding: 10px 16px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
-              <span>#${idx + 1} ${p.name}</span>
+              <span>#${idx + 1} ${escapeHtml(p.name)}</span>
               <span style="color:var(--yellow-bright);"><strong>${p.score} pts</strong> (${p.correctCount} correct)</span>
             </div>
           `).join('');
@@ -398,11 +403,10 @@
       document.getElementById('question-text').textContent = q.question;
       document.getElementById('response-status-text').textContent = 'Select an answer';
 
-      // Reset tile brightness and clear any reveal dimming
       for (let i = 0; i < 4; i++) {
         const tile = document.getElementById(`tile-${i}`);
         const span = document.getElementById(`opt-${i}`);
-        span.textContent = q.options[i];
+        span.textContent = (q.options && q.options[i]) ? q.options[i] : '';
         tile.className = 'host-tile';
         tile.disabled = false;
       }
@@ -449,7 +453,6 @@
           hasAnsweredCurrentRound = true;
           confirmBtn.textContent = 'Answer Locked In';
           document.getElementById('response-status-text').textContent = 'Waiting for reveal...';
-          // Disable clicking without turning the card dark
           for (let i = 0; i < 4; i++) {
             document.getElementById(`tile-${i}`).disabled = true;
           }
