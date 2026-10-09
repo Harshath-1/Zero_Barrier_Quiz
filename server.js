@@ -143,7 +143,7 @@ async function callXAI(apiKey, prompt) {
         body: JSON.stringify({
           model: model,
           messages: [
-            { role: 'system', content: 'You are an expert trivia quiz generator. Output ONLY a raw, valid JSON array of 20 question objects strictly without markdown syntax or backticks.' },
+            { role: 'system', content: 'You are an expert trivia quiz generator. Output ONLY a valid JSON array of question objects without markdown backticks.' },
             { role: 'user', content: prompt }
           ],
           temperature: 0.7
@@ -185,7 +185,7 @@ async function callOpenAI(apiKey, prompt) {
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'You are an expert trivia quiz generator. Output ONLY a raw JSON array of 20 question objects strictly without markdown backticks.' },
+        { role: 'system', content: 'You are an expert trivia quiz generator. Return only a raw JSON array of objects without markdown backticks.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7
@@ -208,35 +208,51 @@ async function callOpenAI(apiKey, prompt) {
   throw new Error('Invalid JSON structure returned by OpenAI');
 }
 
-// 3. Tertiary Engine: Google Gemini (gemini-2.0-flash)
+// 3. Tertiary Engine: Google Gemini (gemini-2.0-flash / gemini-1.5-flash)
 async function callGemini(apiKey, prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.7
+  // Try 2.0-flash, fallback to 1.5-flash
+  const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+  let lastError = null;
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 8192
+          }
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        lastError = new Error(data?.error?.message || `HTTP ${res.status}`);
+        continue;
       }
-    })
-  });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const start = rawText.indexOf('[');
+      const end = rawText.lastIndexOf(']');
+      if (start !== -1 && end !== -1) {
+        rawText = rawText.substring(start, end + 1);
+      }
 
-  let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const start = rawText.indexOf('[');
-  const end = rawText.lastIndexOf(']');
-  if (start !== -1 && end !== -1) rawText = rawText.substring(start, end + 1);
-
-  const parsed = JSON.parse(rawText);
-  if (Array.isArray(parsed) && parsed.length >= 10) {
-    return parsed.map(shuffleOptions);
+      const parsed = JSON.parse(rawText);
+      if (Array.isArray(parsed) && parsed.length >= 10) {
+        return parsed.map(shuffleOptions);
+      }
+    } catch (err) {
+      lastError = err;
+    }
   }
-  throw new Error('Invalid JSON structure returned by Gemini');
+
+  throw lastError || new Error('Invalid JSON structure returned by Gemini');
 }
 
 // Complete Failover Chain: xAI -> OpenAI -> Gemini -> Dynamic Topic Engine
@@ -249,7 +265,7 @@ async function generateQuizQuestions(t1, t2, t3) {
   const topic2 = (t2 && t2.trim()) || 'History';
   const topic3 = (t3 && t3.trim()) || 'Geography';
 
-  console.log(`[Config Check] API Keys Present -> Gemini: ${Boolean(geminiKey)}, OpenAI: ${Boolean(openaiKey)}, xAI: ${Boolean(xaiKey)}`);
+  console.log(`[Config Check] Active Keys Found -> Gemini: ${Boolean(geminiKey)}, OpenAI: ${Boolean(openaiKey)}, xAI: ${Boolean(xaiKey)}`);
 
   const prompt = `Generate exactly 20 trivia questions strictly about the following three topics. Do NOT generate generic or unrelated questions.
 
@@ -259,13 +275,15 @@ Topic Distribution:
 - 6 HARD questions strictly about: "${topic3}" (mark level as "HARD")
 
 Return ONLY a raw JSON array of 20 objects. Every object must follow this structure:
-{
-  "question": "question text strictly about the topic",
-  "options": ["Option A", "Option B", "Option C", "Option D"],
-  "answer": 0,
-  "level": "EASY"
-}
-Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) corresponding to the correct option.`;
+[
+  {
+    "question": "question text strictly about the topic",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": 0,
+    "level": "EASY"
+  }
+]
+Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) corresponding to the correct option. Output ONLY the JSON array without any markdown formatting.`;
 
   // 1. Try xAI (Primary)
   if (xaiKey) {
@@ -303,7 +321,7 @@ Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) corresponding to th
     }
   }
 
-  // 4. Topic-Aware Dynamic Fallback (Generates 20 questions matching topics)
+  // 4. Topic-Aware Dynamic Fallback
   console.log(`[Dynamic Engine] Generating 20 fallback questions specifically for: [${topic1}], [${topic2}], [${topic3}]`);
   return generateDynamicTopicFallback(topic1, topic2, topic3);
 }
