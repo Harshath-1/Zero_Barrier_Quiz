@@ -62,50 +62,74 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
 }
 
-// ----------------- ZERO-FAIL FALLBACK ENGINE -----------------
+// ----------------- GUARANTEED FALLBACK GENERATOR (5-6-4 SPLIT) -----------------
 
-function generateOfflineFallbackQuestions(t1, t2, t3) {
+function generateExactTopicQuestions(t1, t2, t3) {
   const qList = [];
-  
-  // 8 Easy for Topic 1
-  for (let i = 1; i <= 8; i++) {
+
+  // Topic 1: 5 Questions (EASY)
+  const easyBank = [
+    `What is a foundational principle or definition associated with ${t1}?`,
+    `Which core concept is most widely identified with ${t1}?`,
+    `When learning elementary ${t1}, which basic rule universally applies?`,
+    `What standard term or feature distinguishes ${t1}?`,
+    `What basic notation, unit, or concept is recognized in ${t1}?`
+  ];
+
+  // Topic 2: 6 Questions (MODERATE)
+  const moderateBank = [
+    `In intermediate practical problems of ${t2}, how is standard balance preserved?`,
+    `Which key mechanism is essential when analyzing transitions in ${t2}?`,
+    `What common variable is calculated when measuring dynamics in ${t2}?`,
+    `How does an increase in operational scale typically influence ${t2}?`,
+    `Which relationship describes standard intermediate interactions in ${t2}?`,
+    `Under standard conditions in ${t2}, how do system changes impact efficiency?`
+  ];
+
+  // Topic 3: 4 Questions (HARD)
+  const hardBank = [
+    `Under rigorous theoretical constraints in ${t3}, which theorem governs non-linear behavior?`,
+    `What boundary limit is observed in asymptotic edge cases of ${t3}?`,
+    `Which advanced paradox challenges conventional interpretations of ${t3}?`,
+    `In higher-level proofs, which invariant property remains conserved across ${t3}?`
+  ];
+
+  for (let i = 0; i < 5; i++) {
     qList.push({
-      question: `What fundamental principle or element is most commonly associated with ${t1} (Concept ${i})?`,
+      question: easyBank[i],
       options: [
-        `Primary rule of ${t1}`,
-        `Secondary variance of ${t2}`,
-        `Contradictory premise in ${t3}`,
-        `Unrelated empirical baseline`
+        `The primary baseline principle of ${t1}`,
+        `A secondary empirical deviation seen in ${t2}`,
+        `An inverse variable derived from ${t3}`,
+        `An arbitrary unverified assumption`
       ],
       answer: 0,
       level: 'EASY'
     });
   }
 
-  // 6 Moderate for Topic 2
-  for (let i = 1; i <= 6; i++) {
+  for (let i = 0; i < 6; i++) {
     qList.push({
-      question: `In intermediate studies of ${t2}, how does condition #${i} alter the primary outcome?`,
+      question: moderateBank[i],
       options: [
-        `Neutralizes standard variations in ${t1}`,
-        `Exponentially increases the operational efficiency`,
-        `Reverses the observable reaction`,
-        `Has negligible impact under normal bounds`
+        `Decreases linearly at a uniform rate`,
+        `Exponentially increases the operational efficiency of ${t2}`,
+        `Inverts the standard state vector`,
+        `Remains invariant under standard conditions`
       ],
       answer: 1,
       level: 'MODERATE'
     });
   }
 
-  // 6 Hard for Topic 3
-  for (let i = 1; i <= 6; i++) {
+  for (let i = 0; i < 4; i++) {
     qList.push({
-      question: `Under rigorous theoretical analysis in ${t3}, which theorem governs phase #${i}?`,
+      question: hardBank[i],
       options: [
-        `Asymptotic stability limit`,
-        `Heuristic equilibrium threshold`,
-        `Classical derivation from ${t1}`,
-        `Empirical approximation paradox`
+        `The asymptotic perturbation threshold of ${t3}`,
+        `The heuristic derivative equilibrium`,
+        `The deterministic limit derived from ${t1}`,
+        `The stochastic uncertainty coefficient`
       ],
       answer: 0,
       level: 'HARD'
@@ -115,29 +139,24 @@ function generateOfflineFallbackQuestions(t1, t2, t3) {
   return qList.map(shuffleOptions);
 }
 
-// ----------------- GROQ AI 20-QUESTION ENGINE -----------------
+// ----------------- GROQ AI GENERATION (5-6-4 SPLIT) -----------------
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
 async function generateAIQuestions(topic1, topic2, topic3) {
-  const candidateModels = [
-    'openai/gpt-oss-20b',
-    'openai/gpt-oss-120b',
-    'llama-3.1-8b-instant',
-    'qwen/qwen3.8-27b'
-  ];
+  const activeModels = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
 
-  const prompt = `You are an expert quiz master.
-Create exactly 20 real multiple-choice trivia questions based strictly on these topics:
-- 8 EASY questions strictly on: "${topic1}" (level: "EASY")
-- 6 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
-- 6 HARD questions strictly on: "${topic3}" (level: "HARD")
+  const prompt = `You are an expert trivia quiz generator.
+Create exactly 15 authentic multiple-choice trivia questions based strictly on these topics:
+- Exactly 5 EASY questions strictly on: "${topic1}" (level: "EASY")
+- Exactly 6 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
+- Exactly 4 HARD questions strictly on: "${topic3}" (level: "HARD")
 
-Rules:
-1. Every question must be factual and test "${topic1}", "${topic2}", or "${topic3}".
-2. Exactly 4 realistic options per question.
+Requirements:
+1. Every question must be factual and test knowledge of "${topic1}", "${topic2}", or "${topic3}".
+2. Exactly 4 plausible multiple-choice options per question.
 3. "answer" must be the 0-indexed integer (0, 1, 2, or 3) of the correct choice.
-4. Output strictly a JSON object with the property "questions" containing the 20 objects.
+4. Output strictly a JSON object with a single "questions" array containing all 15 question objects.
 
 Format:
 {
@@ -151,7 +170,7 @@ Format:
   ]
 }`;
 
-  for (const model of candidateModels) {
+  for (const model of activeModels) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 6500);
@@ -166,10 +185,10 @@ Format:
         body: JSON.stringify({
           model: model,
           messages: [
-            { role: 'system', content: 'You are a quiz assistant that only responds in valid JSON.' },
+            { role: 'system', content: 'You are a quiz assistant that responds only in strictly valid JSON.' },
             { role: 'user', content: prompt }
           ],
-          temperature: 0.6,
+          temperature: 0.65,
           response_format: { type: 'json_object' }
         })
       });
@@ -182,19 +201,17 @@ Format:
       const parsed = JSON.parse(rawText);
       const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
 
-      if (Array.isArray(list) && list.length >= 10) {
-        console.log(`Generated ${list.length} dynamic questions via Groq (${model})`);
+      if (Array.isArray(list) && list.length === 15) {
+        console.log(`Generated all 15 questions via Groq (${model})`);
         return list.map(shuffleOptions);
       }
     } catch (err) {
-      // Try next model if timeout or error
       continue;
     }
   }
 
-  // Guaranteed fallback ensures no error alert will ever be displayed
-  console.log('Using robust topic fallback questions');
-  return generateOfflineFallbackQuestions(topic1, topic2, topic3);
+  console.log(`Using fallback questions: 5 on ${topic1}, 6 on ${topic2}, 4 on ${topic3}`);
+  return generateExactTopicQuestions(topic1, topic2, topic3);
 }
 
 // ----------------- API ENDPOINTS -----------------
@@ -238,7 +255,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   } catch (err) {
     console.error('Create Room Error:', err.message);
     const pin = Math.floor(100000 + Math.random() * 900000).toString();
-    const fallback = generateOfflineFallbackQuestions('Maths', 'Physics', 'Chemistry');
+    const fallback = generateExactTopicQuestions('Maths', 'Physics', 'Chemistry');
     rooms.set(pin, {
       pin,
       questions: fallback,
@@ -249,11 +266,11 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       answersThisRound: {},
       createdAt: Date.now()
     });
-    return res.status(200).json({ success: true, pin, count: fallback.length });
+    return res.status(200).json({ success: true, pin, count: 15 });
   }
 });
 
-// Room Status (Host & Player polling)
+// Room Status
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const room = rooms.get(pin);
