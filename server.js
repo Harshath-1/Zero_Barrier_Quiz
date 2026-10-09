@@ -62,13 +62,39 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
 }
 
-// ----------------- GROQ AI GENERATION -----------------
+// ----------------- DYNAMIC GROQ AI GENERATION -----------------
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
+async function getAvailableGroqModel() {
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const models = (data.data || []).map(m => m.id);
+      // Filter out whisper, vision, or embedding models
+      const textModels = models.filter(id => !id.includes('whisper') && !id.includes('guard'));
+      if (textModels.length > 0) {
+        console.log(`[Groq Autodetect] Discovered active models: ${textModels.join(', ')}`);
+        return textModels[0];
+      }
+    }
+  } catch (e) {
+    console.warn(`[Groq Autodetect failed]: ${e.message}`);
+  }
+  return 'llama-3.1-8b-instant';
+}
+
 async function generateAIQuestions(topic1, topic2, topic3) {
+  const chosenModel = await getAvailableGroqModel();
+  console.log(`[Groq] Using detected active model: ${chosenModel}`);
+
   const prompt = `You are a trivia quiz generator.
-Generate a valid JSON object containing an array named "questions" with exactly 12 authentic, high-quality multiple choice questions testing these specific topics:
+Generate a valid JSON object containing an array named "questions" with exactly 12 authentic, high-quality multiple choice questions based on these topics:
 - 4 EASY questions strictly on: "${topic1}" (level: "EASY")
 - 4 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
 - 4 HARD questions strictly on: "${topic3}" (level: "HARD")
@@ -98,7 +124,7 @@ Format:
       'Authorization': `Bearer ${GROQ_API_KEY}`
     },
     body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
+      model: chosenModel,
       messages: [
         { role: 'system', content: 'You are a quiz assistant that only responds in valid JSON.' },
         { role: 'user', content: prompt }
