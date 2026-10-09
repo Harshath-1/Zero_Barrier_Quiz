@@ -6,7 +6,7 @@ const fs = require('fs');
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
-// CORS and Dynamic Cache-Buster headers
+// CORS & Cache Busting Headers
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -24,7 +24,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Robust HTML file resolver targeting the public/ directory
+// HTML File Resolver
 function serveHtml(filename, res) {
   const candidates = [
     path.resolve(__dirname, 'public', filename),
@@ -41,20 +41,13 @@ function serveHtml(filename, res) {
   return res.status(404).send(`Cannot find ${filename} in public or root directory.`);
 }
 
-// Static Direct Page Routes
-app.get(['/', '/host', '/host.html'], (req, res) => {
-  serveHtml('host.html', res);
-});
+app.get(['/', '/host', '/host.html'], (req, res) => serveHtml('host.html', res));
+app.get(['/player', '/player.html'], (req, res) => serveHtml('player.html', res));
 
-app.get(['/player', '/player.html'], (req, res) => {
-  serveHtml('player.html', res);
-});
-
-// Static assets (images, stylesheets, icons)
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
 
-// In-Memory Room Registry
+// In-Memory Storage
 const rooms = new Map();
 
 function shuffleOptions(item) {
@@ -68,151 +61,12 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer };
 }
 
-// Fallback question generator strictly using the supplied topic names
-function generateDynamicTopicFallback(topic1, topic2, topic3) {
-  const generateQuestionsForTopic = (topic, count, level) => {
-    const questions = [];
-    const templates = [
-      {
-        q: (t) => `Which of the following is considered a core, fundamental concept of ${t}?`,
-        opts: (t) => [`Core Element of ${t}`, `Secondary aspect of ${t}`, `Unrelated concept`, `General alternative`]
-      },
-      {
-        q: (t) => `What major breakthrough or milestone is traditionally associated with ${t}?`,
-        opts: (t) => [`Foundational achievement in ${t}`, `Recent minor development`, `Obsolete technique`, `Irrelevant milestone`]
-      },
-      {
-        q: (t) => `Who among the following is historically recognized as an influential pioneer in ${t}?`,
-        opts: (t) => [`Key historical pioneer of ${t}`, `Modern commentator`, `Independent observer`, `Unrelated historical figure`]
-      },
-      {
-        q: (t) => `Which standard terminology is most commonly encountered in ${t}?`,
-        opts: (t) => [`Standard term in ${t}`, `Hypothetical notation`, `Common slang`, `Colloquialism`]
-      },
-      {
-        q: (t) => `In modern practice, what is considered the primary advantage of ${t}?`,
-        opts: (t) => [`Primary distinct capability`, `Lower overall relevance`, `High complexity overhead`, `Limited applicability`]
-      },
-      {
-        q: (t) => `What distinguishes standard approaches in ${t} from traditional methods?`,
-        opts: (t) => [`Specialized principles of ${t}`, `Identical implementation`, `Strict randomness`, `Universal omission`]
-      },
-      {
-        q: (t) => `Which of the following problems or challenges is most directly tackled by ${t}?`,
-        opts: (t) => [`Critical domain challenges`, `Superficial styling issues`, `Unrelated network latency`, `Generic maintenance`]
-      },
-      {
-        q: (t) => `What is universally recognized as the central objective in ${t}?`,
-        opts: (t) => [`Optimization of core goals`, `Temporary experimentation`, `Random trial-and-error`, `Arbitrary variation`]
-      }
-    ];
+// ----------------- AI CALLERS -----------------
 
-    for (let i = 0; i < count; i++) {
-      const template = templates[i % templates.length];
-      questions.push({
-        question: template.q(topic),
-        options: template.opts(topic),
-        answer: 0,
-        level: level
-      });
-    }
-    return questions;
-  };
-
-  const q1 = generateQuestionsForTopic(topic1, 8, 'EASY');
-  const q2 = generateQuestionsForTopic(topic2, 6, 'MODERATE');
-  const q3 = generateQuestionsForTopic(topic3, 6, 'HARD');
-
-  return [...q1, ...q2, ...q3].map(shuffleOptions);
-}
-
-// 1. Primary Engine: xAI (Grok)
-async function callXAI(apiKey, prompt) {
-  const models = ['grok-2', 'grok-2-latest', 'grok-beta'];
-  let lastError = null;
-
-  for (const model of models) {
-    try {
-      console.log(`[xAI] Attempting model: ${model}...`);
-      const res = await fetch('https://api.x.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey.trim()}`
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: 'system', content: 'You are an expert trivia quiz generator. Output ONLY a valid JSON array of question objects without markdown backticks.' },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.7
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        lastError = new Error(data?.error?.message || `HTTP ${res.status}`);
-        continue;
-      }
-
-      let text = data.choices?.[0]?.message?.content || '';
-      text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const start = text.indexOf('[');
-      const end = text.lastIndexOf(']');
-      if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
-
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed) && parsed.length >= 10) {
-        return parsed.map(shuffleOptions);
-      }
-    } catch (err) {
-      lastError = err;
-    }
-  }
-
-  throw lastError || new Error('Invalid JSON structure returned by xAI');
-}
-
-// 2. Secondary Engine: OpenAI (ChatGPT gpt-4o-mini)
-async function callOpenAI(apiKey, prompt) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey.trim()}`
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'You are an expert trivia quiz generator. Return only a raw JSON array of objects without markdown backticks.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7
-    })
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-
-  let text = data.choices?.[0]?.message?.content || '';
-  text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const start = text.indexOf('[');
-  const end = text.lastIndexOf(']');
-  if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
-
-  const parsed = JSON.parse(text);
-  if (Array.isArray(parsed) && parsed.length >= 10) {
-    return parsed.map(shuffleOptions);
-  }
-  throw new Error('Invalid JSON structure returned by OpenAI');
-}
-
-// 3. Tertiary Engine: Google Gemini (gemini-2.0-flash / gemini-1.5-flash)
+// 1. Google Gemini (gemini-1.5-flash / gemini-2.0-flash)
 async function callGemini(apiKey, prompt) {
-  // Try 2.0-flash, fallback to 1.5-flash
-  const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
-  let lastError = null;
+  const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+  let lastErr = null;
 
   for (const model of models) {
     try {
@@ -223,126 +77,294 @@ async function callGemini(apiKey, prompt) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 8192
+            temperature: 0.6,
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json'
           }
         })
       });
 
       const data = await res.json();
       if (!res.ok) {
-        lastError = new Error(data?.error?.message || `HTTP ${res.status}`);
+        lastErr = new Error(data?.error?.message || `Gemini status ${res.status}`);
         continue;
       }
 
-      let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const start = rawText.indexOf('[');
-      const end = rawText.lastIndexOf(']');
-      if (start !== -1 && end !== -1) {
-        rawText = rawText.substring(start, end + 1);
-      }
+      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const s = text.indexOf('[');
+      const e = text.lastIndexOf(']');
+      if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
 
-      const parsed = JSON.parse(rawText);
+      const parsed = JSON.parse(text);
       if (Array.isArray(parsed) && parsed.length >= 10) {
         return parsed.map(shuffleOptions);
       }
-    } catch (err) {
-      lastError = err;
+    } catch (e) {
+      lastErr = e;
     }
   }
-
-  throw lastError || new Error('Invalid JSON structure returned by Gemini');
+  throw lastErr || new Error('Gemini failed to output question array');
 }
 
-// Complete Failover Chain: xAI -> OpenAI -> Gemini -> Dynamic Topic Engine
+// 2. OpenAI (gpt-4o-mini)
+async function callOpenAI(apiKey, prompt) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey.trim()}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'You are a quiz engine. Return ONLY a valid JSON array of 20 trivia question objects.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || `OpenAI status ${res.status}`);
+
+  let text = data.choices?.[0]?.message?.content || '';
+  text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const s = text.indexOf('[');
+  const e = text.lastIndexOf(']');
+  if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
+
+  const parsed = JSON.parse(text);
+  if (Array.isArray(parsed) && parsed.length >= 10) {
+    return parsed.map(shuffleOptions);
+  }
+  throw new Error('OpenAI invalid response format');
+}
+
+// 3. xAI (Grok)
+async function callXAI(apiKey, prompt) {
+  const models = ['grok-2', 'grok-2-latest', 'grok-beta'];
+  let lastErr = null;
+
+  for (const m of models) {
+    try {
+      const res = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: m,
+          messages: [
+            { role: 'system', content: 'You are a quiz engine. Output ONLY a valid JSON array.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        lastErr = new Error(data?.error?.message || `xAI status ${res.status}`);
+        continue;
+      }
+
+      let text = data.choices?.[0]?.message?.content || '';
+      text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const s = text.indexOf('[');
+      const e = text.lastIndexOf(']');
+      if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
+
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed) && parsed.length >= 10) {
+        return parsed.map(shuffleOptions);
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('xAI returned bad format');
+}
+
+// ----------------- INTELLIGENT BACKUP ENGINE -----------------
+const knowledgeBase = {
+  cinema: [
+    { question: "Which movie won the first-ever Academy Award for Best Picture?", options: ["Wings", "Sunrise", "Metropolis", "The Jazz Singer"], answer: 0 },
+    { question: "Who directed the 2010 mind-bending sci-fi film 'Inception'?", options: ["Christopher Nolan", "Steven Spielberg", "Ridley Scott", "Denis Villeneuve"], answer: 0 },
+    { question: "Which film featured the iconic quote 'May the Force be with you' first?", options: ["Star Wars: A New Hope", "The Empire Strikes Back", "Return of the Jedi", "Star Trek"], answer: 0 },
+    { question: "Who won the Best Actor Oscar for playing the Joker in 2019?", options: ["Joaquin Phoenix", "Heath Ledger", "Jack Nicholson", "Jared Leto"], answer: 0 },
+    { question: "What is the highest-grossing film of all time globally (unadjusted for inflation)?", options: ["Avatar", "Avengers: Endgame", "Titanic", "Star Wars: The Force Awakens"], answer: 0 },
+    { question: "Which animated film was the first to be nominated for Best Picture at the Oscars?", options: ["Beauty and the Beast", "The Lion King", "Toy Story", "Shrek"], answer: 0 },
+    { question: "Who directed 'Pulp Fiction', 'Kill Bill', and 'Django Unchained'?", options: ["Quentin Tarantino", "Martin Scorsese", "David Fincher", "Stanley Kubrick"], answer: 0 },
+    { question: "Which actor played Tony Stark across the Marvel Cinematic Universe?", options: ["Robert Downey Jr.", "Chris Evans", "Mark Ruffalo", "Tom Hiddleston"], answer: 0 }
+  ],
+  geography: [
+    { question: "What is the capital city of Australia?", options: ["Canberra", "Sydney", "Melbourne", "Brisbane"], answer: 0 },
+    { question: "Which is the largest hot desert on Earth by surface area?", options: ["Sahara Desert", "Gobi Desert", "Kalahari Desert", "Arabian Desert"], answer: 0 },
+    { question: "Through which European capital city does the River Seine flow?", options: ["Paris", "London", "Rome", "Madrid"], answer: 0 },
+    { question: "Which country has the longest coastline in the world?", options: ["Canada", "Indonesia", "Norway", "Russia"], answer: 0 },
+    { question: "Mount Kilimanjaro is the highest peak in which continent?", options: ["Africa", "Asia", "South America", "Europe"], answer: 0 },
+    { question: "Which deep water trench is the lowest natural point on Earth?", options: ["Mariana Trench", "Puerto Rico Trench", "Java Trench", "Tonga Trench"], answer: 0 },
+    { question: "What is the largest country in South America by land area?", options: ["Brazil", "Argentina", "Colombia", "Peru"], answer: 0 },
+    { question: "Which country has the highest number of natural lakes in the world?", options: ["Canada", "Finland", "Sweden", "United States"], answer: 0 }
+  ],
+  history: [
+    { question: "In which year did World War II officially conclude?", options: ["1945", "1939", "1918", "1950"], answer: 0 },
+    { question: "Who was the first President of the United States?", options: ["George Washington", "Thomas Jefferson", "John Adams", "Benjamin Franklin"], answer: 0 },
+    { question: "Which ancient civilization built the magnificent Pyramids of Giza?", options: ["Ancient Egyptians", "Mesopotamians", "Mayans", "Romans"], answer: 0 },
+    { question: "In what year did the Berlin Wall officially fall?", options: ["1989", "1991", "1985", "1975"], answer: 0 },
+    { question: "Who was the first emperor of a unified China, known for the Terracotta Army?", options: ["Qin Shi Huang", "Kublai Khan", "Sun Tzu", "Wu Zetian"], answer: 0 },
+    { question: "Which peace treaty concluded World War I in 1919?", options: ["Treaty of Versailles", "Treaty of Paris", "Treaty of Ghent", "Treaty of Utrecht"], answer: 0 },
+    { question: "What year did India gain independence from British rule?", options: ["1947", "1950", "1942", "1935"], answer: 0 },
+    { question: "Who wrote the 95 Theses in 1517, igniting the Protestant Reformation?", options: ["Martin Luther", "John Calvin", "Erasmus", "Henry VIII"], answer: 0 }
+  ],
+  science: [
+    { question: "What chemical element is represented by the symbol 'Au' on the periodic table?", options: ["Gold", "Silver", "Argon", "Aluminum"], answer: 0 },
+    { question: "Which planet in our solar system is closest in distance to the Sun?", options: ["Mercury", "Venus", "Mars", "Earth"], answer: 0 },
+    { question: "What is the powerhouse organelle of eukaryotic cells that produces ATP?", options: ["Mitochondria", "Nucleus", "Ribosome", "Endoplasmic Reticulum"], answer: 0 },
+    { question: "What is the speed of light in a vacuum approximately?", options: ["300,000 km/s", "150,000 km/s", "500,000 km/s", "1,000,000 km/s"], answer: 0 },
+    { question: "Which subatomic particle carries a negative electrical charge?", options: ["Electron", "Proton", "Neutron", "Positron"], answer: 0 },
+    { question: "What is the most abundant gas found in Earth's atmosphere?", options: ["Nitrogen", "Oxygen", "Carbon Dioxide", "Argon"], answer: 0 },
+    { question: "What is the SI unit of electrical resistance?", options: ["Ohm", "Volt", "Ampere", "Joule"], answer: 0 },
+    { question: "Which scientist first formulated the laws of planetary motion?", options: ["Johannes Kepler", "Isaac Newton", "Galileo Galilei", "Nicolaus Copernicus"], answer: 0 }
+  ],
+  sports: [
+    { question: "Which nation won the inaugural FIFA Men's World Cup in 1930?", options: ["Uruguay", "Argentina", "Brazil", "Italy"], answer: 0 },
+    { question: "How many players are on the pitch for one team in a standard cricket match?", options: ["11", "10", "12", "9"], answer: 0 },
+    { question: "Which male tennis player has won 14 French Open (Roland Garros) titles?", options: ["Rafael Nadal", "Roger Federer", "Novak Djokovic", "Pete Sampras"], answer: 0 },
+    { question: "In basketball, how many points is a shot taken beyond the 3-point arc worth?", options: ["3", "2", "4", "1"], answer: 0 },
+    { question: "What is the standard length of an Olympic-sized swimming pool?", options: ["50 meters", "25 meters", "100 meters", "75 meters"], answer: 0 },
+    { question: "Who holds the men's 100m world record at 9.58 seconds?", options: ["Usain Bolt", "Tyson Gay", "Yohan Blake", "Carl Lewis"], answer: 0 },
+    { question: "How many holes are played in a regulation round of golf?", options: ["18", "9", "12", "20"], answer: 0 },
+    { question: "Which country has won the most Cricket World Cup (ODI) tournaments?", options: ["Australia", "India", "West Indies", "England"], answer: 0 }
+  ],
+  tech: [
+    { question: "Who co-founded Microsoft alongside Paul Allen in 1975?", options: ["Bill Gates", "Steve Jobs", "Larry Page", "Michael Dell"], answer: 0 },
+    { question: "What does the 'S' stand for in HTTPS?", options: ["Secure", "Standard", "Server", "System"], answer: 0 },
+    { question: "Which programming language was created by Brendan Eich in 10 days in 1995?", options: ["JavaScript", "Python", "Java", "C++"], answer: 0 },
+    { question: "Who is known as the inventor of the World Wide Web at CERN in 1989?", options: ["Tim Berners-Lee", "Alan Turing", "Vint Cerf", "Marc Andreessen"], answer: 0 },
+    { question: "What open-source operating system kernel was authored by Linus Torvalds?", options: ["Linux", "Unix", "Darwin", "Minix"], answer: 0 },
+    { question: "What is the primary function of RAM in a computer?", options: ["Temporary high-speed working memory", "Permanent file storage", "Graphics rendering", "Power management"], answer: 0 },
+    { question: "Which company originally developed the Android operating system before acquisition?", options: ["Android Inc.", "Google", "Motorola", "Samsung"], answer: 0 },
+    { question: "What year was the original Apple iPhone first introduced to the public?", options: ["2007", "2005", "2009", "2008"], answer: 0 }
+  ]
+};
+
+function selectSmartFallback(topic, count, level) {
+  const clean = (topic || '').toLowerCase();
+  let pool = knowledgeBase.science;
+
+  if (clean.includes('movie') || clean.includes('cinema') || clean.includes('film') || clean.includes('actor') || clean.includes('hollywood') || clean.includes('marvel')) {
+    pool = knowledgeBase.cinema;
+  } else if (clean.includes('sport') || clean.includes('cricket') || clean.includes('football') || clean.includes('tennis') || clean.includes('olympic')) {
+    pool = knowledgeBase.sports;
+  } else if (clean.includes('tech') || clean.includes('code') || clean.includes('software') || clean.includes('computer') || clean.includes('ai') || clean.includes('python')) {
+    pool = knowledgeBase.tech;
+  } else if (clean.includes('geo') || clean.includes('world') || clean.includes('country') || clean.includes('capital') || clean.includes('earth') || clean.includes('ocean')) {
+    pool = knowledgeBase.geography;
+  } else if (clean.includes('hist') || clean.includes('war') || clean.includes('empire') || clean.includes('king') || clean.includes('ancient')) {
+    pool = knowledgeBase.history;
+  }
+
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    const item = pool[i % pool.length];
+    result.push({
+      question: `[${topic}] ${item.question}`,
+      options: [...item.options],
+      answer: item.answer,
+      level: level
+    });
+  }
+  return result;
+}
+
+// Complete Generation Pipeline
 async function generateQuizQuestions(t1, t2, t3) {
-  const xaiKey = (process.env.XAI_API_KEY || process.env.XAI_PRIMARY_KEY || process.env.API_KEY || process.env.GROK_API_KEY || '').trim();
-  const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
   const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
+  const xaiKey = (process.env.XAI_API_KEY || process.env.GROK_API_KEY || '').trim();
 
   const topic1 = (t1 && t1.trim()) || 'Cinema';
-  const topic2 = (t2 && t2.trim()) || 'History';
-  const topic3 = (t3 && t3.trim()) || 'Geography';
+  const topic2 = (t2 && t2.trim()) || 'Geography';
+  const topic3 = (t3 && t3.trim()) || 'Science & Tech';
 
-  console.log(`[Config Check] Active Keys Found -> Gemini: ${Boolean(geminiKey)}, OpenAI: ${Boolean(openaiKey)}, xAI: ${Boolean(xaiKey)}`);
+  console.log(`[Diagnostic] API Keys Detected: Gemini=${Boolean(geminiKey)}, OpenAI=${Boolean(openaiKey)}, xAI=${Boolean(xaiKey)}`);
 
-  const prompt = `Generate exactly 20 trivia questions strictly about the following three topics. Do NOT generate generic or unrelated questions.
+  const prompt = `You are a professional trivia generator. Generate exactly 20 authentic, factually accurate multiple-choice trivia questions based on these 3 topics:
 
-Topic Distribution:
-- 8 EASY questions strictly about: "${topic1}" (mark level as "EASY")
-- 6 MODERATE questions strictly about: "${topic2}" (mark level as "MODERATE")
-- 6 HARD questions strictly about: "${topic3}" (mark level as "HARD")
+- 8 EASY questions strictly on: "${topic1}" (level: "EASY")
+- 6 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
+- 6 HARD questions strictly on: "${topic3}" (level: "HARD")
 
-Return ONLY a raw JSON array of 20 objects. Every object must follow this structure:
-[
-  {
-    "question": "question text strictly about the topic",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "answer": 0,
-    "level": "EASY"
-  }
-]
-Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) corresponding to the correct option. Output ONLY the JSON array without any markdown formatting.`;
+Rules:
+1. Every question must be genuine trivia with 4 realistic options.
+2. The "answer" field must be the 0-based integer index (0, 1, 2, or 3) of the correct option.
+3. Return ONLY a raw JSON array containing exactly 20 objects. No markdown backticks.
 
-  // 1. Try xAI (Primary)
-  if (xaiKey) {
-    try {
-      console.log(`[xAI Primary] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
-      const questions = await callXAI(xaiKey, prompt);
-      console.log(`✅ [xAI SUCCESS] Generated ${questions.length} questions.`);
-      return questions;
-    } catch (err) {
-      console.warn(`⚠️ [xAI Failed]: ${err.message}. Passing to OpenAI...`);
-    }
-  }
+Example item structure:
+{
+  "question": "Which actor portrayed Iron Man in the Marvel Cinematic Universe?",
+  "options": ["Robert Downey Jr.", "Chris Evans", "Mark Ruffalo", "Chris Hemsworth"],
+  "answer": 0,
+  "level": "EASY"
+}`;
 
-  // 2. Try OpenAI (Second)
-  if (openaiKey) {
-    try {
-      console.log(`[OpenAI Backup] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
-      const questions = await callOpenAI(openaiKey, prompt);
-      console.log(`✅ [OpenAI SUCCESS] Generated ${questions.length} questions.`);
-      return questions;
-    } catch (err) {
-      console.warn(`⚠️ [OpenAI Failed]: ${err.message}. Passing to Gemini...`);
-    }
-  }
-
-  // 3. Try Gemini (Third)
+  // 1. Try Gemini
   if (geminiKey) {
     try {
-      console.log(`[Gemini Backup] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
-      const questions = await callGemini(geminiKey, prompt);
-      console.log(`✅ [Gemini SUCCESS] Generated ${questions.length} questions.`);
-      return questions;
-    } catch (err) {
-      console.warn(`⚠️ [Gemini Failed]: ${err.message}. Falling back to topic engine...`);
+      console.log(`[Engine] Calling Google Gemini for topics: "${topic1}", "${topic2}", "${topic3}"...`);
+      const q = await callGemini(geminiKey, prompt);
+      console.log(`✅ [Gemini SUCCESS] Generated ${q.length} questions.`);
+      return q;
+    } catch (e) {
+      console.warn(`⚠️ [Gemini Failed]: ${e.message}`);
     }
   }
 
-  // 4. Topic-Aware Dynamic Fallback
-  console.log(`[Dynamic Engine] Generating 20 fallback questions specifically for: [${topic1}], [${topic2}], [${topic3}]`);
-  return generateDynamicTopicFallback(topic1, topic2, topic3);
+  // 2. Try OpenAI
+  if (openaiKey) {
+    try {
+      console.log(`[Engine] Calling OpenAI...`);
+      const q = await callOpenAI(openaiKey, prompt);
+      console.log(`✅ [OpenAI SUCCESS] Generated ${q.length} questions.`);
+      return q;
+    } catch (e) {
+      console.warn(`⚠️ [OpenAI Failed]: ${e.message}`);
+    }
+  }
+
+  // 3. Try xAI
+  if (xaiKey) {
+    try {
+      console.log(`[Engine] Calling xAI...`);
+      const q = await callXAI(xaiKey, prompt);
+      console.log(`✅ [xAI SUCCESS] Generated ${q.length} questions.`);
+      return q;
+    } catch (e) {
+      console.warn(`⚠️ [xAI Failed]: ${e.message}`);
+    }
+  }
+
+  // 4. Fallback Knowledge Base
+  console.log(`[Engine] Assembling 20 authentic trivia questions from curated knowledge base...`);
+  const q1 = selectSmartFallback(topic1, 8, 'EASY');
+  const q2 = selectSmartFallback(topic2, 6, 'MODERATE');
+  const q3 = selectSmartFallback(topic3, 6, 'HARD');
+  return [...q1, ...q2, ...q3].map(shuffleOptions);
 }
 
-// ----------------- REST API ROUTES -----------------
+// ----------------- API ENDPOINTS -----------------
 
-// 1. Create Room (Supports both Manual & Topic modes)
+// Create Room
 app.post(['/api/create-room', '/create-room'], async (req, res) => {
   try {
     const { customPin, mode, manualQuestions, topic1, topic2, topic3 } = req.body || {};
     const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
-    console.log(`[Session Setup] Resetting PIN: ${pin} | Mode: ${mode || 'topic'}`);
-
-    if (rooms.has(pin)) {
-      rooms.delete(pin);
-    }
 
     let questions = [];
-
     if (mode === 'manual' && Array.isArray(manualQuestions) && manualQuestions.length > 0) {
-      console.log(`[Manual Mode] Initialized with ${manualQuestions.length} host-defined questions.`);
       questions = manualQuestions.map((q, idx) => ({
         index: idx + 1,
         question: q.question,
@@ -365,15 +387,15 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       createdAt: Date.now()
     });
 
-    console.log(`✅ Room ${pin} initialized with ${questions.length} total questions.`);
+    console.log(`Room [${pin}] established with ${questions.length} questions.`);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
-    console.error('[Create Room Error]:', err.message);
+    console.error('Create Room Error:', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// 2. Poll Room State (Host & Player)
+// Room Status (Host & Player polling)
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const room = rooms.get(pin);
@@ -404,7 +426,7 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
   });
 });
 
-// 3. Host Actions: Next, Reveal, End
+// Host Actions: NEXT, REVEAL, END
 app.post(['/api/host-action', '/host-action'], (req, res) => {
   const { pin, action } = req.body || {};
   const room = rooms.get(String(pin || '').trim());
@@ -431,7 +453,7 @@ app.post(['/api/host-action', '/host-action'], (req, res) => {
   return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
 });
 
-// 4. Player Join
+// Player Join
 app.post(['/api/join-room', '/join-room'], (req, res) => {
   const { pin, name } = req.body || {};
   const room = rooms.get(String(pin || '').trim());
@@ -447,7 +469,7 @@ app.post(['/api/join-room', '/join-room'], (req, res) => {
   return res.status(200).json({ success: true, name: cleanName, score: room.players[playerKey].score });
 });
 
-// 5. Player Answer Submit
+// Player Submit Answer
 app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   const { pin, name, answerIndex } = req.body || {};
   const room = rooms.get(String(pin || '').trim());
@@ -470,7 +492,7 @@ app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   return res.status(200).json({ success: true });
 });
 
-// Catch-all 404 for unhandled API calls to always return JSON (never HTML doctype)
+// Catch-all 404
 app.use((req, res) => {
   if (req.path.startsWith('/api/') || req.method === 'POST') {
     return res.status(404).json({ success: false, error: `Endpoint not found: ${req.method} ${req.path}` });
@@ -478,11 +500,11 @@ app.use((req, res) => {
   return res.status(404).send('Page not found');
 });
 
-// Server listener
+// Local dev listener
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Quiz server running on port ${PORT}`);
+    console.log(`Quiz server active on port ${PORT}`);
   });
 }
 
