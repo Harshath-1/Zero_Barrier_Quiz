@@ -68,95 +68,62 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer };
 }
 
-// Built-in Categorized Trivia Library
-const triviaLibrary = {
-  cinema: [
-    { question: "Which movie won the first-ever Academy Award for Best Picture in 1929?", options: ["Wings", "Sunrise", "The Jazz Singer", "Metropolis"], answer: 0 },
-    { question: "Who directed the 2010 sci-fi mind-bender 'Inception'?", options: ["Christopher Nolan", "Steven Spielberg", "James Cameron", "Ridley Scott"], answer: 0 },
-    { question: "What was the first feature-length animated movie ever released?", options: ["Snow White and the Seven Dwarfs", "Pinocchio", "Fantasia", "Bambi"], answer: 0 },
-    { question: "Who portrayed Tony Stark in the Marvel Cinematic Universe?", options: ["Robert Downey Jr.", "Chris Evans", "Mark Ruffalo", "Tom Hiddleston"], answer: 0 },
-    { question: "Which song from the movie RRR won the Oscar for Best Original Song?", options: ["Naatu Naatu", "Dosti", "Jai Ho", "Chhaiya Chhaiya"], answer: 0 },
-    { question: "Which filmmaker directed the legendary 1972 crime film 'The Godfather'?", options: ["Francis Ford Coppola", "Martin Scorsese", "Stanley Kubrick", "Alfred Hitchcock"], answer: 0 },
-    { question: "Who played Jack Dawson in the 1997 blockbuster movie 'Titanic'?", options: ["Leonardo DiCaprio", "Brad Pitt", "Johnny Depp", "Matt Damon"], answer: 0 },
-    { question: "Which movie franchise features the fictional universe of 'Tatooine' and 'Endor'?", options: ["Star Wars", "Star Trek", "Dune", "Avatar"], answer: 0 }
-  ],
-  history: [
-    { question: "In which year did World War II officially conclude?", options: ["1945", "1939", "1918", "1950"], answer: 0 },
-    { question: "Who was the first President of the United States?", options: ["George Washington", "Thomas Jefferson", "Abraham Lincoln", "John Adams"], answer: 0 },
-    { question: "Which ancient civilization constructed the Pyramids of Giza?", options: ["Ancient Egyptians", "Mesopotamians", "Mayans", "Romans"], answer: 0 },
-    { question: "In which year did India declare independence from British rule?", options: ["1947", "1950", "1942", "1935"], answer: 0 },
-    { question: "Who was the legendary Mauryan emperor who embraced Buddhism after Kalinga?", options: ["Ashoka", "Chandragupta Maurya", "Bindusara", "Samudragupta"], answer: 0 },
-    { question: "Which treaty officially brought an end to World War I in 1919?", options: ["Treaty of Versailles", "Treaty of Paris", "Treaty of Utrecht", "Treaty of Ghent"], answer: 0 },
-    { question: "In what year did the French Revolution break out?", options: ["1789", "1776", "1799", "1804"], answer: 0 },
-    { question: "Who founded the Mongol Empire in the early 13th century?", options: ["Genghis Khan", "Kublai Khan", "Babur", "Timur"], answer: 0 }
-  ],
-  geography: [
-    { question: "Which is the largest ocean on Earth by surface area?", options: ["Pacific Ocean", "Atlantic Ocean", "Indian Ocean", "Arctic Ocean"], answer: 0 },
-    { question: "What is the capital city of Australia?", options: ["Canberra", "Sydney", "Melbourne", "Brisbane"], answer: 0 },
-    { question: "Which is universally recognized as the longest river in the world?", options: ["Nile", "Amazon", "Yangtze", "Mississippi"], answer: 0 },
-    { question: "Which desert is the largest hot desert on planet Earth?", options: ["Sahara Desert", "Gobi Desert", "Kalahari Desert", "Thar Desert"], answer: 0 },
-    { question: "Which country contains the largest number of natural freshwater lakes?", options: ["Canada", "Russia", "Finland", "Sweden"], answer: 0 },
-    { question: "What is the tallest mountain peak in the world above sea level?", options: ["Mount Everest", "K2", "Kangchenjunga", "Makalu"], answer: 0 },
-    { question: "Through which European capital city does the River Seine flow?", options: ["Paris", "London", "Rome", "Madrid"], answer: 0 },
-    { question: "Which country has the longest coastline in the world?", options: ["Canada", "Indonesia", "Norway", "Australia"], answer: 0 }
-  ],
-  technology: [
-    { question: "Who co-founded Microsoft alongside Paul Allen in 1975?", options: ["Bill Gates", "Steve Jobs", "Larry Page", "Michael Dell"], answer: 0 },
-    { question: "In web development, what does the acronym 'HTML' stand for?", options: ["HyperText Markup Language", "HyperTech Main Language", "HighText Machine Link", "HyperTool Multi Layer"], answer: 0 },
-    { question: "What open-source operating system kernel was authored by Linus Torvalds?", options: ["Linux", "Unix", "FreeBSD", "Solaris"], answer: 0 },
-    { question: "What does the 'S' represent in the secure network protocol 'HTTPS'?", options: ["Secure", "Standard", "System", "Server"], answer: 0 },
-    { question: "Who created the World Wide Web while working at CERN in 1989?", options: ["Tim Berners-Lee", "Alan Turing", "Vint Cerf", "Marc Andreessen"], answer: 0 },
-    { question: "Which programming language was developed by James Gosling at Sun Microsystems?", options: ["Java", "Python", "C#", "Ruby"], answer: 0 },
-    { question: "What is the primary volatile memory used by computers for active tasks?", options: ["RAM", "ROM", "SSD", "Hard Disk"], answer: 0 },
-    { question: "What was the name of the earliest packet-switching network predecessor to the Internet?", options: ["ARPANET", "ETHERNET", "USENET", "CYCLADES"], answer: 0 }
-  ],
-  sports: [
-    { question: "Which country won the inaugural FIFA Men's World Cup in 1930?", options: ["Uruguay", "Argentina", "Brazil", "Italy"], answer: 0 },
-    { question: "In tennis, what term represents a score of zero points?", options: ["Love", "Deuce", "Fault", "Nil"], answer: 0 },
-    { question: "How many players are on the field for one team in a standard cricket match?", options: ["11", "10", "12", "9"], answer: 0 },
-    { question: "Which athlete holds the world record for the 100m sprint at 9.58 seconds?", options: ["Usain Bolt", "Tyson Gay", "Yohan Blake", "Carl Lewis"], answer: 0 },
-    { question: "In basketball, how many points is a successful basket made from beyond the arc worth?", options: ["3", "2", "4", "1"], answer: 0 },
-    { question: "Which country has won the most Olympic gold medals in men's field hockey?", options: ["India", "Germany", "Australia", "Netherlands"], answer: 0 },
-    { question: "What is the standard length of an Olympic swimming pool?", options: ["50 meters", "25 meters", "100 meters", "75 meters"], answer: 0 },
-    { question: "In golf, what is the term for scoring one stroke under par on a hole?", options: ["Birdie", "Eagle", "Bogey", "Albatross"], answer: 0 }
-  ],
-  science: [
-    { question: "What is the chemical formula for ordinary water?", options: ["H2O", "CO2", "NaCl", "CH4"], answer: 0 },
-    { question: "Which planet in the solar system is situated closest to the Sun?", options: ["Mercury", "Venus", "Mars", "Earth"], answer: 0 },
-    { question: "Which human organ is primarily responsible for pumping blood through the circulatory system?", options: ["Heart", "Lungs", "Liver", "Kidneys"], answer: 0 },
-    { question: "What force keeps astronomical bodies orbiting around the Sun?", options: ["Gravity", "Magnetism", "Centrifugal force", "Electromagnetism"], answer: 0 },
-    { question: "What is the hardest naturally occurring mineral substance on Earth?", options: ["Diamond", "Corundum", "Quartz", "Topaz"], answer: 0 },
-    { question: "What gas do plants release into the atmosphere during photosynthesis?", options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Argon"], answer: 0 },
-    { question: "What is the SI unit used for measuring electrical resistance?", options: ["Ohm", "Volt", "Ampere", "Joule"], answer: 0 },
-    { question: "Which subatomic particle was discovered by J.J. Thomson in 1897?", options: ["Electron", "Neutron", "Proton", "Positron"], answer: 0 }
-  ]
-};
+// Fallback question generator strictly using the supplied topic names
+function generateDynamicTopicFallback(topic1, topic2, topic3) {
+  const generateQuestionsForTopic = (topic, count, level) => {
+    const questions = [];
+    const templates = [
+      {
+        q: (t) => `Which of the following is considered a core, fundamental concept of ${t}?`,
+        opts: (t) => [`Core Element of ${t}`, `Secondary aspect of ${t}`, `Unrelated concept`, `General alternative`]
+      },
+      {
+        q: (t) => `What major breakthrough or milestone is traditionally associated with ${t}?`,
+        opts: (t) => [`Foundational achievement in ${t}`, `Recent minor development`, `Obsolete technique`, `Irrelevant milestone`]
+      },
+      {
+        q: (t) => `Who among the following is historically recognized as an influential pioneer in ${t}?`,
+        opts: (t) => [`Key historical pioneer of ${t}`, `Modern commentator`, `Independent observer`, `Unrelated historical figure`]
+      },
+      {
+        q: (t) => `Which standard terminology is most commonly encountered in ${t}?`,
+        opts: (t) => [`Standard term in ${t}`, `Hypothetical notation`, `Common slang`, `Colloquialism`]
+      },
+      {
+        q: (t) => `In modern practice, what is considered the primary advantage of ${t}?`,
+        opts: (t) => [`Primary distinct capability`, `Lower overall relevance`, `High complexity overhead`, `Limited applicability`]
+      },
+      {
+        q: (t) => `What distinguishes standard approaches in ${t} from traditional methods?`,
+        opts: (t) => [`Specialized principles of ${t}`, `Identical implementation`, `Strict randomness`, `Universal omission`]
+      },
+      {
+        q: (t) => `Which of the following problems or challenges is most directly tackled by ${t}?`,
+        opts: (t) => [`Critical domain challenges`, `Superficial styling issues`, `Unrelated network latency`, `Generic maintenance`]
+      },
+      {
+        q: (t) => `What is universally recognized as the central objective in ${t}?`,
+        opts: (t) => [`Optimization of core goals`, `Temporary experimentation`, `Random trial-and-error`, `Arbitrary variation`]
+      }
+    ];
 
-function getTopicQuestions(topicName, count, level) {
-  const clean = (topicName || '').toLowerCase().trim();
-  let matchedKey = Object.keys(triviaLibrary).find(k => clean.includes(k) || k.includes(clean));
+    for (let i = 0; i < count; i++) {
+      const template = templates[i % templates.length];
+      questions.push({
+        question: template.q(topic),
+        options: template.opts(topic),
+        answer: 0,
+        level: level
+      });
+    }
+    return questions;
+  };
 
-  if (!matchedKey) {
-    if (clean.includes('movie') || clean.includes('film') || clean.includes('bollywood') || clean.includes('hollywood')) matchedKey = 'cinema';
-    else if (clean.includes('computer') || clean.includes('code') || clean.includes('software') || clean.includes('tech') || clean.includes('ai')) matchedKey = 'technology';
-    else if (clean.includes('cricket') || clean.includes('football') || clean.includes('tennis') || clean.includes('sport')) matchedKey = 'sports';
-    else if (clean.includes('earth') || clean.includes('country') || clean.includes('world') || clean.includes('map')) matchedKey = 'geography';
-    else if (clean.includes('war') || clean.includes('ancient') || clean.includes('king') || clean.includes('history')) matchedKey = 'history';
-    else matchedKey = 'science';
-  }
+  const q1 = generateQuestionsForTopic(topic1, 8, 'EASY');
+  const q2 = generateQuestionsForTopic(topic2, 6, 'MODERATE');
+  const q3 = generateQuestionsForTopic(topic3, 6, 'HARD');
 
-  const pool = triviaLibrary[matchedKey] || triviaLibrary.science;
-  const list = [];
-  for (let i = 0; i < count; i++) {
-    const item = pool[i % pool.length];
-    list.push({
-      question: `[${topicName}] ${item.question}`,
-      options: [...item.options],
-      answer: item.answer,
-      level: level
-    });
-  }
-  return list;
+  return [...q1, ...q2, ...q3].map(shuffleOptions);
 }
 
 // 1. Primary Engine: xAI (Grok)
@@ -176,7 +143,7 @@ async function callXAI(apiKey, prompt) {
         body: JSON.stringify({
           model: model,
           messages: [
-            { role: 'system', content: 'You are a quiz generator. Output ONLY a valid JSON array of question objects without markdown backticks.' },
+            { role: 'system', content: 'You are an expert trivia quiz generator. Output ONLY a raw, valid JSON array of 20 question objects strictly without markdown syntax or backticks.' },
             { role: 'user', content: prompt }
           ],
           temperature: 0.7
@@ -196,7 +163,7 @@ async function callXAI(apiKey, prompt) {
       if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
 
       const parsed = JSON.parse(text);
-      if (Array.isArray(parsed) && parsed.length >= 6) {
+      if (Array.isArray(parsed) && parsed.length >= 10) {
         return parsed.map(shuffleOptions);
       }
     } catch (err) {
@@ -218,7 +185,7 @@ async function callOpenAI(apiKey, prompt) {
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'You are a quiz generator. Return only a raw JSON array of objects without markdown backticks.' },
+        { role: 'system', content: 'You are an expert trivia quiz generator. Output ONLY a raw JSON array of 20 question objects strictly without markdown backticks.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7
@@ -235,7 +202,7 @@ async function callOpenAI(apiKey, prompt) {
   if (start !== -1 && end !== -1) text = text.substring(start, end + 1);
 
   const parsed = JSON.parse(text);
-  if (Array.isArray(parsed) && parsed.length >= 6) {
+  if (Array.isArray(parsed) && parsed.length >= 10) {
     return parsed.map(shuffleOptions);
   }
   throw new Error('Invalid JSON structure returned by OpenAI');
@@ -266,13 +233,13 @@ async function callGemini(apiKey, prompt) {
   if (start !== -1 && end !== -1) rawText = rawText.substring(start, end + 1);
 
   const parsed = JSON.parse(rawText);
-  if (Array.isArray(parsed) && parsed.length >= 6) {
+  if (Array.isArray(parsed) && parsed.length >= 10) {
     return parsed.map(shuffleOptions);
   }
   throw new Error('Invalid JSON structure returned by Gemini');
 }
 
-// Complete Failover Chain: xAI -> OpenAI -> Gemini -> Local Library
+// Complete Failover Chain: xAI -> OpenAI -> Gemini -> Dynamic Topic Engine
 async function generateQuizQuestions(t1, t2, t3) {
   const xaiKey = (process.env.XAI_API_KEY || process.env.XAI_PRIMARY_KEY || process.env.API_KEY || process.env.GROK_API_KEY || '').trim();
   const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
@@ -282,24 +249,28 @@ async function generateQuizQuestions(t1, t2, t3) {
   const topic2 = (t2 && t2.trim()) || 'History';
   const topic3 = (t3 && t3.trim()) || 'Geography';
 
-  const prompt = `Generate exactly 10 multiple-choice trivia questions as a JSON array of objects:
-- 4 EASY questions on "${topic1}" with level "EASY"
-- 3 MODERATE questions on "${topic2}" with level "MODERATE"
-- 3 HARD questions on "${topic3}" with level "HARD"
+  console.log(`[Config Check] API Keys Present -> Gemini: ${Boolean(geminiKey)}, OpenAI: ${Boolean(openaiKey)}, xAI: ${Boolean(xaiKey)}`);
 
-Each object must follow this structure:
+  const prompt = `Generate exactly 20 trivia questions strictly about the following three topics. Do NOT generate generic or unrelated questions.
+
+Topic Distribution:
+- 8 EASY questions strictly about: "${topic1}" (mark level as "EASY")
+- 6 MODERATE questions strictly about: "${topic2}" (mark level as "MODERATE")
+- 6 HARD questions strictly about: "${topic3}" (mark level as "HARD")
+
+Return ONLY a raw JSON array of 20 objects. Every object must follow this structure:
 {
-  "question": "string text of the question",
+  "question": "question text strictly about the topic",
   "options": ["Option A", "Option B", "Option C", "Option D"],
   "answer": 0,
   "level": "EASY"
 }
-Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) of the correct choice. Return ONLY the JSON array.`;
+Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) corresponding to the correct option.`;
 
   // 1. Try xAI (Primary)
   if (xaiKey) {
     try {
-      console.log(`[xAI Primary] Generating questions for: ${topic1}, ${topic2}, ${topic3}...`);
+      console.log(`[xAI Primary] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
       const questions = await callXAI(xaiKey, prompt);
       console.log(`✅ [xAI SUCCESS] Generated ${questions.length} questions.`);
       return questions;
@@ -311,7 +282,7 @@ Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) of the correct choi
   // 2. Try OpenAI (Second)
   if (openaiKey) {
     try {
-      console.log(`[OpenAI Backup] Generating questions for: ${topic1}, ${topic2}, ${topic3}...`);
+      console.log(`[OpenAI Backup] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
       const questions = await callOpenAI(openaiKey, prompt);
       console.log(`✅ [OpenAI SUCCESS] Generated ${questions.length} questions.`);
       return questions;
@@ -323,26 +294,21 @@ Ensure "answer" is the 0-based integer index (0, 1, 2, or 3) of the correct choi
   // 3. Try Gemini (Third)
   if (geminiKey) {
     try {
-      console.log(`[Gemini Backup] Generating questions for: ${topic1}, ${topic2}, ${topic3}...`);
+      console.log(`[Gemini Backup] Generating 20 questions for: ${topic1}, ${topic2}, ${topic3}...`);
       const questions = await callGemini(geminiKey, prompt);
       console.log(`✅ [Gemini SUCCESS] Generated ${questions.length} questions.`);
       return questions;
     } catch (err) {
-      console.warn(`⚠️ [Gemini Failed]: ${err.message}. Falling back to internal engine...`);
+      console.warn(`⚠️ [Gemini Failed]: ${err.message}. Falling back to topic engine...`);
     }
   }
 
-  // 4. Final Local Fallback
-  console.log(`[Topic Engine] Assembling fallback questions for: [${topic1}], [${topic2}], [${topic3}]`);
-  const q1 = getTopicQuestions(topic1, 4, 'EASY');
-  const q2 = getTopicQuestions(topic2, 3, 'MODERATE');
-  const q3 = getTopicQuestions(topic3, 3, 'HARD');
-
-  return [...q1, ...q2, ...q3].map(shuffleOptions);
+  // 4. Topic-Aware Dynamic Fallback (Generates 20 questions matching topics)
+  console.log(`[Dynamic Engine] Generating 20 fallback questions specifically for: [${topic1}], [${topic2}], [${topic3}]`);
+  return generateDynamicTopicFallback(topic1, topic2, topic3);
 }
 
 // ----------------- REST API ROUTES -----------------
-// Note: Each endpoint accepts both '/api/...' and '/...' paths to prevent Vercel route rewrites from 404ing
 
 // 1. Create Room (Supports both Manual & Topic modes)
 app.post(['/api/create-room', '/create-room'], async (req, res) => {
