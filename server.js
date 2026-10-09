@@ -62,51 +62,53 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
 }
 
-// ----------------- GEMINI API INTEGRATION -----------------
+// ----------------- GROQ AI GENERATION -----------------
 
-const GEMINI_API_KEY = 'AQ.Ab8RN6JU5tI6FERNp_IrVVJw2ou_4dsf2pmWZIqyDgtQKs_4mA';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
 async function generateAIQuestions(topic1, topic2, topic3) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
-
-  const prompt = `You are a trivia generator. Generate exactly 12 realistic, high-quality multiple choice questions testing these specific topics:
+  const prompt = `You are an expert trivia quiz generator.
+Generate a valid JSON object containing an array of exactly 12 realistic, high-quality multiple choice questions testing these specific topics:
 - 4 EASY questions strictly on: "${topic1}" (level: "EASY")
 - 4 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
 - 4 HARD questions strictly on: "${topic3}" (level: "HARD")
 
 Rules:
-1. Every question must be a factual, informative trivia question testing "${topic1}", "${topic2}", or "${topic3}".
+1. Every question must be factual and test "${topic1}", "${topic2}", or "${topic3}".
 2. Provide 4 plausible choices per question.
-3. "answer" must be the 0-indexed integer (0, 1, 2, or 3) of the correct choice.
-4. Output ONLY a raw valid JSON array. Do not wrap in markdown or backticks.
+3. "answer" must be the integer index (0, 1, 2, or 3) of the correct choice.
+4. Return strictly JSON with the key "questions".
 
 Format:
-[
-  {
-    "question": "What is...",
-    "options": ["A", "B", "C", "D"],
-    "answer": 0,
-    "level": "EASY"
-  }
-]`;
+{
+  "questions": [
+    {
+      "question": "What is...",
+      "options": ["A", "B", "C", "D"],
+      "answer": 0,
+      "level": "EASY"
+    }
+  ]
+}`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 7000);
+  const timeout = setTimeout(() => controller.abort(), 8000);
 
-  const res = await fetch(url, {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-goog-api-key': GEMINI_API_KEY
+      'Authorization': `Bearer ${GROQ_API_KEY}`
     },
     signal: controller.signal,
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2500,
-        responseMimeType: 'application/json'
-      }
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: 'You only reply with valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.6,
+      response_format: { type: 'json_object' }
     })
   });
 
@@ -114,29 +116,19 @@ Format:
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(data?.error?.message || `Gemini status ${res.status}`);
+    throw new Error(data?.error?.message || `Groq status ${res.status}`);
   }
 
-  let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  text = text.trim();
+  const rawText = data.choices?.[0]?.message?.content || '{}';
+  const parsed = JSON.parse(rawText);
+  const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
 
-  if (text.startsWith('```json')) text = text.slice(7);
-  if (text.startsWith('```')) text = text.slice(3);
-  if (text.endsWith('```')) text = text.slice(0, -3);
-  text = text.trim();
-
-  const start = text.indexOf('[');
-  const end = text.lastIndexOf(']');
-  if (start !== -1 && end !== -1) {
-    text = text.substring(start, end + 1);
+  if (!Array.isArray(list) || list.length === 0) {
+    throw new Error('Groq returned invalid question structure');
   }
 
-  const parsed = JSON.parse(text);
-  if (!Array.isArray(parsed) || parsed.length === 0) {
-    throw new Error('Invalid JSON array from Gemini');
-  }
-
-  return parsed.map(shuffleOptions);
+  console.log(`Generated ${list.length} dynamic questions via Groq!`);
+  return list.map(shuffleOptions);
 }
 
 // ----------------- API ENDPOINTS -----------------
