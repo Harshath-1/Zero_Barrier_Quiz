@@ -64,23 +64,23 @@ function shuffleOptions(item) {
 
 // ----------------- HARDCODED API KEYS & RESOLVERS -----------------
 
-// 1. PRIMARY: xAI (Grok)
-const HARDCODED_XAI_KEY = 'xai-qAAAn7YE4usKnBtRTGHLeR3TgTuaVHcwJMuUIFaevwQeMUh7ykuZchFVHARhmwcVvZ9l6O9beJrn9nzW';
+// 1. PRIMARY: OpenAI
+const HARDCODED_OPENAI_KEY = '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';
 
-// 2. FALLBACK 1: Google Gemini
+// 2. BACKUP: Google Gemini
 const HARDCODED_GEMINI_KEY = 'AQ.Ab8RN6LVQQdawFKFisAxNJK0qdK7LieandMIjlT3WVFTI2jyBQ';
 
-// 3. FALLBACK 2: OpenAI
-const HARDCODED_OPENAI_KEY = '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';
+// 3. OPTIONAL FALLBACK: xAI
+const HARDCODED_XAI_KEY = 'xai-qAAAn7YE4usKnBtRTGHLeR3TgTuaVHcwJMuUIFaevwQeMUh7ykuZchFVHARhmwcVvZ9l6O9beJrn9nzW';
 
-function getXAIApiKeys() {
+function getOpenAIApiKeys() {
   const keys = [];
-  const envVal = (process.env.XAI_API_KEY || process.env.GROK_API_KEY || '').trim();
+  const envVal = process.env.OPENAI_API_KEY || '';
   if (envVal) {
     keys.push(...envVal.split(',').map(k => k.trim()).filter(Boolean));
   }
-  if (HARDCODED_XAI_KEY && !keys.includes(HARDCODED_XAI_KEY)) {
-    keys.push(HARDCODED_XAI_KEY);
+  if (HARDCODED_OPENAI_KEY && !keys.includes(HARDCODED_OPENAI_KEY)) {
+    keys.push(HARDCODED_OPENAI_KEY);
   }
   return keys;
 }
@@ -94,120 +94,97 @@ function getGeminiApiKeys() {
   if (HARDCODED_GEMINI_KEY && !keys.includes(HARDCODED_GEMINI_KEY)) {
     keys.push(HARDCODED_GEMINI_KEY);
   }
-  ['GEMINI_API_KEY_2', 'GEMINI_API_KEY_3', 'GEMINI_BACKUP_KEY'].forEach(envName => {
-    const val = (process.env[envName] || '').trim();
-    if (val && !keys.includes(val)) keys.push(val);
-  });
   return keys;
 }
 
-function getOpenAIApiKeys() {
+function getXAIApiKeys() {
   const keys = [];
-  const envVal = process.env.OPENAI_API_KEY || '';
+  const envVal = (process.env.XAI_API_KEY || process.env.GROK_API_KEY || '').trim();
   if (envVal) {
     keys.push(...envVal.split(',').map(k => k.trim()).filter(Boolean));
   }
-  if (HARDCODED_OPENAI_KEY && !keys.includes(HARDCODED_OPENAI_KEY)) {
-    keys.push(HARDCODED_OPENAI_KEY);
+  if (HARDCODED_XAI_KEY && !keys.includes(HARDCODED_XAI_KEY)) {
+    keys.push(HARDCODED_XAI_KEY);
   }
-  ['OPENAI_API_KEY_2', 'OPENAI_BACKUP_KEY'].forEach(envName => {
-    const val = (process.env[envName] || '').trim();
-    if (val && !keys.includes(val)) keys.push(val);
-  });
   return keys;
 }
 
 // ----------------- AI CALLERS -----------------
 
-// 1. xAI (Grok) - PRIMARY ENGINE
-async function callXAIWithKeys(apiKeys, prompt) {
-  const models = ['grok-beta', 'grok-2', 'grok-2-latest'];
+// 1. OpenAI (PRIMARY)
+async function callOpenAIWithKeys(apiKeys, prompt) {
   let lastErr = null;
 
   for (let kIdx = 0; kIdx < apiKeys.length; kIdx++) {
     const apiKey = apiKeys[kIdx];
-    console.log(`[xAI Engine] Attempting with xAI Key #${kIdx + 1}...`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
 
-    for (const m of models) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 14000);
+    try {
+      console.log(`[OpenAI Engine] Querying Key #${kIdx + 1}...`);
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey.trim()}`
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an authentic trivia quiz engine. Return a JSON object with a "questions" key containing exactly 20 real trivia questions matching the requested topics and levels.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.7
+        })
+      });
 
-      try {
-        const res = await fetch('https://api.x.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey.trim()}`
-          },
-          signal: controller.signal,
-          body: JSON.stringify({
-            model: m,
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a professional trivia generator. Generate authentic, real trivia questions matching the topics exactly. Output ONLY a valid JSON array of question objects without markdown backticks or commentary.'
-              },
-              { role: 'user', content: prompt }
-            ],
-            temperature: 0.65
-          })
-        });
+      clearTimeout(timeout);
+      const data = await res.json();
 
-        clearTimeout(timeout);
-        const data = await res.json();
-
-        if (!res.ok) {
-          lastErr = new Error(data?.error?.message || `xAI status ${res.status}`);
-          console.warn(`[xAI Engine] Key #${kIdx + 1} with model ${m} failed: ${lastErr.message}`);
-          if (res.status === 429 || res.status === 403 || res.status === 401) {
-            break;
-          }
-          continue;
-        }
-
-        let text = data.choices?.[0]?.message?.content || '';
-        text = text.trim();
-
-        if (text.startsWith('```json')) text = text.slice(7);
-        if (text.startsWith('```')) text = text.slice(3);
-        if (text.endsWith('```')) text = text.slice(0, -3);
-        text = text.trim();
-
-        const s = text.indexOf('[');
-        const e = text.lastIndexOf(']');
-        if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
-
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          console.log(`✅ [xAI SUCCESS] Generated ${parsed.length} questions using ${m}!`);
-          return parsed.map(shuffleOptions);
-        }
-      } catch (e) {
-        clearTimeout(timeout);
-        lastErr = e;
-        console.warn(`[xAI Engine] Model ${m} attempt error: ${e.message}`);
+      if (!res.ok) {
+        lastErr = new Error(data?.error?.message || `OpenAI status ${res.status}`);
+        console.warn(`[OpenAI Engine] Key #${kIdx + 1} failed: ${lastErr.message}`);
+        continue;
       }
+
+      let content = data.choices?.[0]?.message?.content || '{}';
+      let parsed = JSON.parse(content);
+      let questionList = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || Object.values(parsed)[0]);
+
+      if (Array.isArray(questionList) && questionList.length >= 10) {
+        console.log(`✅ [OpenAI SUCCESS] Generated ${questionList.length} questions!`);
+        return questionList.map(shuffleOptions);
+      }
+    } catch (err) {
+      clearTimeout(timeout);
+      lastErr = err;
+      console.warn(`[OpenAI Engine] Key #${kIdx + 1} error: ${err.message}`);
     }
   }
 
-  throw lastErr || new Error('All xAI models and keys exhausted');
+  throw lastErr || new Error('All OpenAI keys exhausted');
 }
 
-// 2. Google Gemini - FALLBACK 1
+// 2. Google Gemini (BACKUP)
 async function callGeminiWithKeys(apiKeys, prompt) {
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   let lastErr = null;
 
   for (let kIdx = 0; kIdx < apiKeys.length; kIdx++) {
-    const apiKey = apiKeys[kIdx];
-    console.log(`[Gemini Engine] Trying Gemini API Key #${kIdx + 1}...`);
+    const apiKey = apiKeys[kIdx].trim();
+    console.log(`[Gemini Engine] Trying Key #${kIdx + 1}...`);
 
     for (const model of models) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 14000);
+      const timeout = setTimeout(() => controller.abort(), 12000);
 
       try {
-        const url = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
         const res = await fetch(url, {
           method: 'POST',
           headers: {
@@ -217,13 +194,8 @@ async function callGeminiWithKeys(apiKeys, prompt) {
           signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            systemInstruction: {
-              parts: [{
-                text: "You are a professional trivia generator. You write authentic, factual trivia strictly tied to specific real-world topics. Never generate placeholder or boilerplate templates."
-              }]
-            },
             generationConfig: {
-              temperature: 0.6,
+              temperature: 0.65,
               maxOutputTokens: 8192,
               responseMimeType: 'application/json'
             }
@@ -235,8 +207,8 @@ async function callGeminiWithKeys(apiKeys, prompt) {
 
         if (!res.ok) {
           lastErr = new Error(data?.error?.message || `Gemini status ${res.status}`);
-          console.warn(`[Gemini Engine] Key #${kIdx + 1} with model ${model} failed: ${lastErr.message}`);
-          if (res.status === 429 || res.status === 403 || res.status === 400) {
+          console.warn(`[Gemini Engine] Model ${model} failed: ${lastErr.message}`);
+          if (res.status === 429 || res.status === 403 || res.status === 401) {
             break;
           }
           continue;
@@ -256,87 +228,25 @@ async function callGeminiWithKeys(apiKeys, prompt) {
 
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          console.log(`✅ [Gemini SUCCESS] Generated ${parsed.length} questions using Key #${kIdx + 1} & model ${model}`);
+          console.log(`✅ [Gemini SUCCESS] Generated ${parsed.length} questions using ${model}!`);
           return parsed.map(shuffleOptions);
         }
       } catch (e) {
         clearTimeout(timeout);
         lastErr = e;
-        console.warn(`[Gemini Engine] Key #${kIdx + 1} with model ${model} error: ${e.message}`);
+        console.warn(`[Gemini Engine] Model ${model} exception: ${e.message}`);
       }
     }
   }
 
-  throw lastErr || new Error('All Gemini API keys and models exhausted');
-}
-
-// 3. OpenAI - FALLBACK 2
-async function callOpenAIWithKeys(apiKeys, prompt) {
-  let lastErr = null;
-
-  for (let kIdx = 0; kIdx < apiKeys.length; kIdx++) {
-    const apiKey = apiKeys[kIdx];
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 13000);
-
-    try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: 'You are an authentic trivia engine. Return ONLY a valid JSON array of 20 trivia question objects directly testing knowledge of the assigned topics.' },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.6
-        })
-      });
-
-      clearTimeout(timeout);
-      const data = await res.json();
-      if (!res.ok) {
-        lastErr = new Error(data?.error?.message || `OpenAI status ${res.status}`);
-        console.warn(`[OpenAI Engine] Key #${kIdx + 1} failed: ${lastErr.message}`);
-        continue;
-      }
-
-      let text = data.choices?.[0]?.message?.content || '';
-      text = text.trim();
-      if (text.startsWith('```json')) text = text.slice(7);
-      if (text.startsWith('```')) text = text.slice(3);
-      if (text.endsWith('```')) text = text.slice(0, -3);
-      text = text.trim();
-
-      const s = text.indexOf('[');
-      const e = text.lastIndexOf(']');
-      if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
-
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        console.log(`✅ [OpenAI SUCCESS] Generated ${parsed.length} questions using Key #${kIdx + 1}`);
-        return parsed.map(shuffleOptions);
-      }
-    } catch (err) {
-      clearTimeout(timeout);
-      lastErr = err;
-      console.warn(`[OpenAI Engine] Key #${kIdx + 1} error: ${err.message}`);
-    }
-  }
-
-  throw lastErr || new Error('All OpenAI keys exhausted');
+  throw lastErr || new Error('All Gemini models and keys exhausted');
 }
 
 // ----------------- COMPLETE GENERATION PIPELINE -----------------
 
 async function generateQuizQuestions(t1, t2, t3) {
-  const xaiKeys = getXAIApiKeys();
-  const geminiKeys = getGeminiApiKeys();
   const openaiKeys = getOpenAIApiKeys();
+  const geminiKeys = getGeminiApiKeys();
 
   const topic1 = (t1 && t1.trim()) || 'World Cinema';
   const topic2 = (t2 && t2.trim()) || 'World Geography';
@@ -346,72 +256,52 @@ async function generateQuizQuestions(t1, t2, t3) {
   console.log(`  Tier 1 (EASY): "${topic1}" (8 Qs)`);
   console.log(`  Tier 2 (MODERATE): "${topic2}" (6 Qs)`);
   console.log(`  Tier 3 (HARD): "${topic3}" (6 Qs)`);
-  console.log(`  Available Keys -> xAI (Primary): ${xaiKeys.length}, Gemini: ${geminiKeys.length}, OpenAI: ${openaiKeys.length}`);
+  console.log(`  Keys Configured -> OpenAI: ${openaiKeys.length}, Gemini: ${geminiKeys.length}`);
 
-  const prompt = `You are a trivia quiz master. Write exactly 20 authentic, factual, well-researched multiple choice questions based specifically on the following user-provided topics:
+  const prompt = `Write exactly 20 authentic, factual multiple-choice questions matching these topics:
+- 8 EASY questions strictly on: "${topic1}" (level: "EASY")
+- 6 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
+- 6 HARD questions strictly on: "${topic3}" (level: "HARD")
 
-TOPIC BREAKDOWN:
-- 8 EASY questions strictly on the topic: "${topic1}"
-  * Level: "EASY"
-  * Criteria: Widely known facts, famous names, memorable milestones, or iconic elements of "${topic1}".
-- 6 MODERATE questions strictly on the topic: "${topic2}"
-  * Level: "MODERATE"
-  * Criteria: Intermediate trivia, specific records, technical details, or notable moments requiring solid knowledge of "${topic2}".
-- 6 HARD questions strictly on the topic: "${topic3}"
-  * Level: "HARD"
-  * Criteria: Deep trivia, obscure details, niche achievements, or advanced facts about "${topic3}".
+Rules:
+1. Every question must test real facts specifically about the assigned topic. Never produce boilerplate or template questions.
+2. Provide exactly 4 plausible choices per question.
+3. "answer" must be the integer index (0, 1, 2, or 3) of the correct answer.
+4. Distribute the correct answer across indices 0, 1, 2, and 3.
 
-CRITICAL INSTRUCTIONS:
-1. Every question MUST explicitly test real trivia about the exact named topic. Never write generic, placeholder, or template questions.
-2. Provide exactly 4 realistic, plausible multiple-choice options per question.
-3. The "answer" field must be the integer index (0, 1, 2, or 3) representing the correct choice in the "options" array.
-4. Distribute the correct answer across indices 0, 1, 2, and 3 (do not make 0 the answer every time).
-5. Output ONLY a valid JSON array of 20 objects. No markdown backticks, no comments, no explanation.
-
-JSON format:
+Return a JSON array of 20 objects like this:
 [
   {
-    "question": "Clear, factual question text specifically about the topic?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "question": "Question text?",
+    "options": ["Option 0", "Option 1", "Option 2", "Option 3"],
     "answer": 1,
     "level": "EASY"
   }
 ]`;
 
-  // 1. PRIMARY: Try xAI (Grok) First
-  if (xaiKeys.length > 0) {
-    try {
-      console.log(`[Engine] Calling xAI (Grok) as primary...`);
-      const q = await callXAIWithKeys(xaiKeys, prompt);
-      if (q && q.length >= 10) return q;
-    } catch (e) {
-      console.warn(`⚠️ [xAI Primary Failed]: ${e.message}`);
-    }
-  }
-
-  // 2. FALLBACK 1: Try Google Gemini
-  if (geminiKeys.length > 0) {
-    try {
-      console.log(`[Engine] Falling back to Google Gemini...`);
-      const q = await callGeminiWithKeys(geminiKeys, prompt);
-      if (q && q.length >= 10) return q;
-    } catch (e) {
-      console.warn(`⚠️ [Gemini Fallback Failed]: ${e.message}`);
-    }
-  }
-
-  // 3. FALLBACK 2: Try OpenAI
+  // 1. PRIMARY: OpenAI
   if (openaiKeys.length > 0) {
     try {
-      console.log(`[Engine] Falling back to OpenAI...`);
+      console.log(`[Engine] Calling OpenAI (Primary)...`);
       const q = await callOpenAIWithKeys(openaiKeys, prompt);
       if (q && q.length >= 10) return q;
     } catch (e) {
-      console.warn(`⚠️ [OpenAI Fallback Failed]: ${e.message}`);
+      console.warn(`⚠️ [OpenAI Primary Failed]: ${e.message}`);
     }
   }
 
-  throw new Error("All AI providers (xAI, Gemini, OpenAI) failed to generate questions. Check API key status or network limits.");
+  // 2. BACKUP: Google Gemini
+  if (geminiKeys.length > 0) {
+    try {
+      console.log(`[Engine] Calling Google Gemini (Backup)...`);
+      const q = await callGeminiWithKeys(geminiKeys, prompt);
+      if (q && q.length >= 10) return q;
+    } catch (e) {
+      console.warn(`⚠️ [Gemini Backup Failed]: ${e.message}`);
+    }
+  }
+
+  throw new Error("Both OpenAI and Gemini failed to generate questions. Verify your account quota or key status.");
 }
 
 // ----------------- API ENDPOINTS -----------------
