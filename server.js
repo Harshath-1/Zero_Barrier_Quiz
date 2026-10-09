@@ -91,10 +91,11 @@ Format:
   ]
 }`;
 
-  const supportedModels = ['llama-3.1-8b-instant', 'llama3-8b-8192', 'mixtral-8x7b-32768'];
+  // Active production Groq models only
+  const activeModels = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
   let lastErr = null;
 
-  for (const model of supportedModels) {
+  for (const model of activeModels) {
     try {
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -105,7 +106,7 @@ Format:
         body: JSON.stringify({
           model: model,
           messages: [
-            { role: 'system', content: 'You are a quiz assistant that only responds in JSON.' },
+            { role: 'system', content: 'You are a quiz assistant that only responds in valid JSON.' },
             { role: 'user', content: prompt }
           ],
           temperature: 0.6,
@@ -124,6 +125,7 @@ Format:
       const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
 
       if (Array.isArray(list) && list.length > 0) {
+        console.log(`Generated ${list.length} questions using Groq (${model})`);
         return list.map(shuffleOptions);
       }
     } catch (err) {
