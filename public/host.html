@@ -2,134 +2,194 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Host Quiz Setup</title>
   <style>
     :root {
       --bg-black: #080808;
-      --card-bg: rgba(18, 18, 18, 0.92);
+      --card-bg: rgba(18, 18, 18, 0.94);
       --card-border: rgba(250, 204, 21, 0.35);
       --yellow-bright: #facc15;
       --text-white: #ffffff;
       --text-muted: #a3a3a3;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg-black); color: var(--text-white); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 20px; }
-    .glass-card { background: var(--card-bg); backdrop-filter: blur(18px); border-radius: 20px; border: 1px solid var(--card-border); box-shadow: 0 0 35px rgba(0,0,0,0.95), 0 0 25px rgba(250,204,21,0.15); width: 100%; max-width: 600px; padding: 28px; }
-    .club-banner-wrapper { width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 18px; border: 1.5px solid var(--yellow-bright); }
-    .club-banner { width: 100%; display: block; max-height: 145px; object-fit: cover; }
-    .title-banner { font-size: 24px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--yellow-bright); text-align: center; margin-bottom: 6px; }
-    .info-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 18px; }
+    
+    body {
+      background-color: var(--bg-black);
+      color: var(--text-white);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    /* Base Card Container */
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 0 35px rgba(0,0,0,0.95), 0 0 25px rgba(250,204,21,0.15);
+      width: 100%;
+      transition: all 0.3s ease;
+    }
+
+    /* DESKTOP (16:9 / 16:10 Presentation View) */
+    @media (min-width: 900px) {
+      .glass-card {
+        max-width: 1080px;
+        padding: 36px 48px;
+        min-height: 600px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .title-banner { font-size: 30px; letter-spacing: 3px; }
+      .grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+      .host-tile { font-size: 18px; padding: 22px 20px; min-height: 80px; }
+      #question-text { font-size: 26px; line-height: 1.4; margin: 24px 0; }
+      .pin-number { font-size: 72px; letter-spacing: 12px; }
+    }
+
+    /* MOBILE (9:16 Vertical View) */
+    @media (max-width: 899px) {
+      body { padding: 12px 10px; align-items: flex-start; }
+      .glass-card {
+        max-width: 480px;
+        padding: 20px 16px;
+        min-height: calc(100dvh - 24px);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .title-banner { font-size: 20px; }
+      .grid { grid-template-columns: 1fr; gap: 10px; }
+      .host-tile { font-size: 15px; padding: 14px 12px; }
+      #question-text { font-size: 18px; margin: 14px 0; }
+      .pin-number { font-size: 46px; letter-spacing: 6px; }
+    }
+
+    .club-banner-wrapper { width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 16px; border: 1.5px solid var(--yellow-bright); }
+    .club-banner { width: 100%; display: block; max-height: 125px; object-fit: cover; }
+    .title-banner { font-weight: 900; text-transform: uppercase; color: var(--yellow-bright); text-align: center; margin-bottom: 6px; }
+    .info-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 16px; }
 
     /* Mode Selector Tabs */
-    .mode-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-    .tab-btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: #121212; color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
-    .tab-btn.active { border-color: var(--yellow-bright); background: rgba(250, 204, 21, 0.15); color: var(--yellow-bright); box-shadow: 0 0 15px rgba(250,204,21,0.25); }
+    .mode-tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+    .tab-btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: #121212; color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+    .tab-btn.active { border-color: var(--yellow-bright); background: rgba(250, 204, 21, 0.15); color: var(--yellow-bright); }
 
-    .inset-data-input, .category-input { width: 100%; background: #0f0f0f; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 12px 16px; color: var(--text-white); font-size: 15px; margin-bottom: 14px; outline: none; }
+    .inset-data-input, .category-input { width: 100%; background: #0f0f0f; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 12px 14px; color: var(--text-white); font-size: 15px; margin-bottom: 12px; outline: none; }
     .inset-data-input { font-size: 16px; font-weight: 700; border-color: var(--yellow-bright); }
     .field-label { display: block; font-size: 12px; text-transform: uppercase; font-weight: 800; color: var(--yellow-bright); margin-bottom: 6px; }
-    .yellow-btn { width: 100%; padding: 15px; background: var(--yellow-bright); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 20px rgba(250, 204, 21, 0.45); margin-top: 10px; transition: all 0.2s ease; }
+
+    .yellow-btn { width: 100%; padding: 15px; background: var(--yellow-bright); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 20px rgba(250, 204, 21, 0.45); margin-top: 8px; }
     .yellow-btn:hover { background: #fde047; }
     .yellow-btn:disabled { background: #262626; color: #666; cursor: not-allowed; box-shadow: none; }
 
-    /* Manual Question Box Styles */
-    .manual-box { background: #0c0d12; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; margin-bottom: 16px; position: relative; }
-    .manual-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    /* Manual Questions */
+    .manual-box { background: #0c0d12; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+    .manual-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .btn-remove { background: #ff4757; color: #fff; border: none; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
-    .opt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .opt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .opt-radio { accent-color: var(--yellow-bright); width: 18px; height: 18px; cursor: pointer; }
     .opt-text { flex: 1; background: #161820; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px 12px; color: #fff; font-size: 13px; outline: none; }
     .btn-secondary { width: 100%; padding: 12px; background: #181920; border: 1px dashed var(--yellow-bright); color: var(--yellow-bright); border-radius: 10px; font-weight: 800; cursor: pointer; margin-bottom: 12px; }
 
-    /* Game State Screens */
-    .pin-display-box { background: #0f0f0f; border: 1.5px dashed var(--yellow-bright); border-radius: 16px; padding: 20px; margin: 18px 0; text-align: center; }
-    .pin-number { font-size: 52px; font-weight: 900; letter-spacing: 8px; color: var(--yellow-bright); }
-    .pill-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 140px; overflow-y: auto; padding: 12px; margin: 16px 0; background: #0f0f0f; border-radius: 12px; }
-    .player-pill { background: rgba(250, 204, 21, 0.15); border: 1px solid var(--yellow-bright); border-radius: 20px; padding: 5px 14px; font-size: 13px; font-weight: 700; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0; }
-    .host-tile { background: #121212; border: 1.5px solid rgba(255, 255, 255, 0.15); border-radius: 12px; padding: 16px 14px; font-size: 16px; font-weight: 700; transition: all 0.2s ease; }
+    /* Clean PIN & Lobby */
+    .pin-display-box { background: #0f0f0f; border: 1.5px dashed var(--yellow-bright); border-radius: 16px; padding: 22px; margin: 16px 0; text-align: center; }
+    .pin-number { font-weight: 900; color: var(--yellow-bright); }
+    .pill-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 160px; overflow-y: auto; padding: 12px; margin: 14px 0; background: #0f0f0f; border-radius: 12px; flex: 1; }
+    .player-pill { background: rgba(250, 204, 21, 0.15); border: 1px solid var(--yellow-bright); border-radius: 20px; padding: 6px 16px; font-size: 13px; font-weight: 700; height: fit-content; }
+
+    .grid { display: grid; margin: 16px 0; }
+    .host-tile { background: #121212; border: 1.5px solid rgba(255, 255, 255, 0.15); border-radius: 12px; font-weight: 700; text-align: left; display: flex; align-items: center; }
     .correct-highlight { border: 2px solid #ffffff !important; background: rgba(255, 255, 255, 0.25) !important; color: #fff !important; }
     .dimmed-tile { opacity: 0.25; }
-    .control-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 16px; }
+    .control-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 16px; margin-top: auto; }
     .btn-action { padding: 10px 18px; border-radius: 10px; border: none; font-weight: 800; font-size: 14px; cursor: pointer; }
     .btn-reveal { background: var(--yellow-bright); color: #000; }
     .btn-next { background: #ffffff; color: #000; }
     .btn-end { background: #262626; color: #fff; }
     .badge-hud { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 900; background: rgba(250, 204, 21, 0.12); border: 1px solid var(--yellow-bright); color: var(--yellow-bright); }
-    .copy-btn { margin-top: 10px; background: #181920; border: 1px solid var(--yellow-bright); color: var(--yellow-bright); padding: 7px 16px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; transition: all 0.2s; }
-    .copy-btn:hover { background: rgba(250, 204, 21, 0.18); }
   </style>
 </head>
 <body>
 
   <!-- 1. SETUP CARD -->
   <div id="setup-card" class="glass-card">
-    <div class="club-banner-wrapper">
-      <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" onerror="this.parentElement.style.display='none'">
-    </div>
-    <div class="title-banner">HOST QUIZ SETUP</div>
-    <div class="info-line">Select question mode & setup session PIN</div>
+    <div>
+      <div class="club-banner-wrapper">
+        <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" onerror="this.parentElement.style.display='none'">
+      </div>
+      <div class="title-banner">HOST QUIZ SETUP</div>
+      <div class="info-line">Select question mode & setup session PIN</div>
 
-    <!-- Mode Selector Tabs -->
-    <div class="mode-tabs">
-      <button class="tab-btn active" id="tab-topic" onclick="switchMode('topic')">⚡ Generate by Topics</button>
-      <button class="tab-btn" id="tab-manual" onclick="switchMode('manual')">✍️ Enter Manually</button>
-    </div>
+      <div class="mode-tabs">
+        <button class="tab-btn active" id="tab-topic" onclick="switchMode('topic')">⚡ By Topics</button>
+        <button class="tab-btn" id="tab-manual" onclick="switchMode('manual')">✍️ Manual</button>
+      </div>
 
-    <label class="field-label">Session PIN (Optional / Custom)</label>
-    <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" />
+      <label class="field-label">Session PIN (Optional / Custom)</label>
+      <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" />
 
-    <!-- SECTION A: TOPIC WISE GENERATION -->
-    <div id="section-topic">
-      <label class="field-label">Tier 1: Easy (8 Questions)</label>
-      <input id="t1-input" class="category-input" type="text" placeholder="Enter Tier 1 topic (e.g. Cinema)" />
+      <div id="section-topic">
+        <label class="field-label">Tier 1: Easy (8 Questions)</label>
+        <input id="t1-input" class="category-input" type="text" placeholder="Enter Tier 1 topic (e.g. Cinema)" />
 
-      <label class="field-label">Tier 2: Moderate (6 Questions)</label>
-      <input id="t2-input" class="category-input" type="text" placeholder="Enter Tier 2 topic (e.g. Geography)" />
+        <label class="field-label">Tier 2: Moderate (6 Questions)</label>
+        <input id="t2-input" class="category-input" type="text" placeholder="Enter Tier 2 topic (e.g. Geography)" />
 
-      <label class="field-label">Tier 3: Hard (6 Questions)</label>
-      <input id="t3-input" class="category-input" type="text" placeholder="Enter Tier 3 topic (e.g. Science)" />
-    </div>
+        <label class="field-label">Tier 3: Hard (6 Questions)</label>
+        <input id="t3-input" class="category-input" type="text" placeholder="Enter Tier 3 topic (e.g. Science)" />
+      </div>
 
-    <!-- SECTION B: MANUAL QUESTION BUILDER -->
-    <div id="section-manual" style="display: none; max-height: 380px; overflow-y: auto; padding-right: 4px; margin-bottom: 14px;">
-      <div id="questions-list"></div>
-      <button type="button" class="btn-secondary" onclick="addManualQuestion()">+ Add Another Question</button>
+      <div id="section-manual" style="display: none; max-height: 280px; overflow-y: auto; margin-bottom: 12px;">
+        <div id="questions-list"></div>
+        <button type="button" class="btn-secondary" onclick="addManualQuestion()">+ Add Another Question</button>
+      </div>
     </div>
 
     <button id="gen-btn" class="yellow-btn" onclick="createRoom()">Generate Session & PIN</button>
   </div>
 
-  <!-- 2. LOBBY CARD -->
+  <!-- 2. LOBBY CARD (Clean: PIN + Online Players + Launch) -->
   <div id="lobby-card" class="glass-card" style="display:none; text-align: center;">
-    <div class="badge-hud">SESSION PIN READY</div>
-    <div class="pin-display-box">
-      <div style="font-size: 13px; color: var(--text-muted);">Join PIN</div>
-      <div id="display-pin" class="pin-number">------</div>
-    </div>
-    <div style="display:flex; justify-content:space-between; font-size:14px; margin: 10px 4px;">
-      <span style="color:var(--text-muted);">Joined Players</span>
-      <span style="color:var(--yellow-bright); font-weight:800;"><span id="player-count">0</span> Online</span>
-    </div>
-    <div id="lobby-players" class="pill-grid">
-      <span style="color: var(--text-muted); font-size: 13px; margin: auto;">Waiting for players...</span>
+    <div>
+      <div class="badge-hud">SESSION PIN READY</div>
+      <div class="pin-display-box">
+        <div style="font-size: 13px; color: var(--text-muted);">Join PIN</div>
+        <div id="display-pin" class="pin-number">------</div>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:14px; margin: 10px 4px;">
+        <span style="color:var(--text-muted);">Joined Players</span>
+        <span style="color:var(--yellow-bright); font-weight:800;"><span id="player-count">0</span> Online</span>
+      </div>
+      <div id="lobby-players" class="pill-grid">
+        <span style="color: var(--text-muted); font-size: 13px; margin: auto;">Waiting for players...</span>
+      </div>
     </div>
     <button class="yellow-btn" onclick="triggerAction('NEXT')">Launch Quiz ➜</button>
   </div>
-  
+
   <!-- 3. QUESTION VIEW CARD -->
   <div id="question-card" class="glass-card" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-      <span id="level-badge" class="badge-hud">EASY</span>
-      <span id="question-counter" style="color:var(--text-muted); font-size:14px; font-weight:700;">Question 1 / 20</span>
-    </div>
-    <div id="question-text" style="font-size: 20px; font-weight: 800; text-align: center; margin: 16px 0;">Loading...</div>
-    <div class="grid">
-      <div class="host-tile" id="tile-0">A. <span id="opt-0"></span></div>
-      <div class="host-tile" id="tile-1">B. <span id="opt-1"></span></div>
-      <div class="host-tile" id="tile-2">C. <span id="opt-2"></span></div>
-      <div class="host-tile" id="tile-3">D. <span id="opt-3"></span></div>
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span id="level-badge" class="badge-hud">EASY</span>
+        <span id="question-counter" style="color:var(--text-muted); font-size:14px; font-weight:700;">Question 1 / 20</span>
+      </div>
+      <div id="question-text" style="font-weight: 800; text-align: center;">Loading...</div>
+      <div class="grid">
+        <div class="host-tile" id="tile-0">A. <span id="opt-0" style="margin-left: 8px;"></span></div>
+        <div class="host-tile" id="tile-1">B. <span id="opt-1" style="margin-left: 8px;"></span></div>
+        <div class="host-tile" id="tile-2">C. <span id="opt-2" style="margin-left: 8px;"></span></div>
+        <div class="host-tile" id="tile-3">D. <span id="opt-3" style="margin-left: 8px;"></span></div>
+      </div>
     </div>
     <div class="control-row">
       <div style="font-size: 14px; color: var(--text-muted);">
@@ -145,10 +205,12 @@
 
   <!-- 4. FINAL PODIUM CARD -->
   <div id="end-card" class="glass-card" style="display:none; text-align: center;">
-    <div class="badge-hud">QUIZ COMPLETED</div>
-    <div class="title-banner" style="font-size:20px; margin-top: 10px;">FINAL STANDINGS</div>
-    <div id="leaderboard-container" style="margin-top: 16px;"></div>
-    <button class="yellow-btn" style="margin-top: 22px;" onclick="resetToNewSession()">+ Start New Session</button>
+    <div>
+      <div class="badge-hud">QUIZ COMPLETED</div>
+      <div class="title-banner" style="font-size:22px; margin-top: 10px;">FINAL STANDINGS</div>
+      <div id="leaderboard-container" style="margin-top: 16px; max-height: 380px; overflow-y: auto;"></div>
+    </div>
+    <button class="yellow-btn" style="margin-top: 20px;" onclick="resetToNewSession()">+ Start New Session</button>
   </div>
 
   <script>
@@ -188,8 +250,7 @@
           <span style="font-size: 12px; font-weight: 800; color: var(--yellow-bright);">QUESTION #${id}</span>
           <button type="button" class="btn-remove" onclick="removeManualQuestion(${id})">✕ Remove</button>
         </div>
-        <input type="text" class="category-input mq-text" placeholder="Enter Question text here" style="margin-bottom: 8px;" />
-        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Select the radio button beside the correct answer:</div>
+        <input type="text" class="category-input mq-text" placeholder="Enter Question text" style="margin-bottom: 8px;" />
         <div class="opt-row"><input type="radio" name="correct-${id}" value="0" class="opt-radio" checked /><input type="text" class="opt-text mq-opt-0" placeholder="Option A" /></div>
         <div class="opt-row"><input type="radio" name="correct-${id}" value="1" class="opt-radio" /><input type="text" class="opt-text mq-opt-1" placeholder="Option B" /></div>
         <div class="opt-row"><input type="radio" name="correct-${id}" value="2" class="opt-radio" /><input type="text" class="opt-text mq-opt-2" placeholder="Option C" /></div>
@@ -227,17 +288,6 @@
       return list;
     }
 
-    function copyPlayerLink() {
-      const playerUrl = `${window.location.origin}/player`;
-      navigator.clipboard.writeText(playerUrl).then(() => {
-        const btn = document.getElementById('copy-btn');
-        btn.textContent = '✅ Copied!';
-        setTimeout(() => { btn.textContent = '📋 Copy Player Link'; }, 2000);
-      }).catch(() => {
-        prompt('Copy this link:', `${window.location.origin}/player`);
-      });
-    }
-
     async function createRoom() {
       const pin = document.getElementById('pin-input').value.trim();
       const btn = document.getElementById('gen-btn');
@@ -272,17 +322,8 @@
         if (res.ok && data.pin) {
           currentPin = data.pin;
           document.getElementById('setup-card').style.display = 'none';
-          document.getElementById('lobby-card').style.display = 'block';
+          document.getElementById('lobby-card').style.display = 'flex';
           document.getElementById('display-pin').textContent = data.pin;
-
-          // Wire clean player domain link
-          const playerUrl = `${window.location.origin}/player`;
-          const playerLink = document.getElementById('player-link');
-          if (playerLink) {
-            playerLink.href = playerUrl;
-            playerLink.textContent = playerUrl;
-          }
-
           startPolling();
         } else {
           alert('Failed to create session: ' + (data.error || 'Server error'));
@@ -318,7 +359,6 @@
         if (!res.ok) return;
         const data = await res.json();
 
-        // Update Lobby
         document.getElementById('player-count').textContent = data.playerCount || 0;
         if (data.players && data.players.length > 0) {
           document.getElementById('lobby-players').innerHTML = data.players
@@ -326,10 +366,9 @@
             .join('');
         }
 
-        // View Transitions
         if (data.state === 'QUESTION' || data.state === 'REVEAL') {
           document.getElementById('lobby-card').style.display = 'none';
-          document.getElementById('question-card').style.display = 'block';
+          document.getElementById('question-card').style.display = 'flex';
 
           if (data.question) {
             document.getElementById('level-badge').textContent = data.question.level || 'QUESTION';
@@ -351,10 +390,10 @@
           clearInterval(pollTimer);
           document.getElementById('question-card').style.display = 'none';
           document.getElementById('lobby-card').style.display = 'none';
-          document.getElementById('end-card').style.display = 'block';
+          document.getElementById('end-card').style.display = 'flex';
 
           const rows = (data.leaderboard || []).map((p, idx) => `
-            <div style="display:flex; justify-content:space-between; padding: 10px 16px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
+            <div style="display:flex; justify-content:space-between; padding: 12px 18px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
               <span>#${idx + 1} ${escapeHtml(p.name)}</span>
               <span style="color:var(--yellow-bright);"><strong>${p.score} pts</strong> (${p.correctCount} correct)</span>
             </div>
@@ -380,7 +419,7 @@
       document.getElementById('end-card').style.display = 'none';
       document.getElementById('question-card').style.display = 'none';
       document.getElementById('lobby-card').style.display = 'none';
-      document.getElementById('setup-card').style.display = 'block';
+      document.getElementById('setup-card').style.display = 'flex';
     }
   </script>
 </body>
