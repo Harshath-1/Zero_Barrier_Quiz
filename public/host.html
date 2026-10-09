@@ -107,15 +107,6 @@
     <div class="pin-display-box">
       <div style="font-size: 13px; color: var(--text-muted);">Join PIN</div>
       <div id="display-pin" class="pin-number">------</div>
-      <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">
-        Player URL: 
-        <a id="player-link" href="/player" target="_blank" style="color: var(--yellow-bright); font-weight: 800; text-decoration: underline; word-break: break-all;">
-          Loading...
-        </a>
-      </div>
-      <div>
-        <button type="button" class="copy-btn" id="copy-btn" onclick="copyPlayerLink()">📋 Copy Player Link</button>
-      </div>
     </div>
     <div style="display:flex; justify-content:space-between; font-size:14px; margin: 10px 4px;">
       <span style="color:var(--text-muted);">Joined Players</span>
@@ -126,7 +117,7 @@
     </div>
     <button class="yellow-btn" onclick="triggerAction('NEXT')">Launch Quiz ➜</button>
   </div>
-
+  
   <!-- 3. QUESTION VIEW CARD -->
   <div id="question-card" class="glass-card" style="display:none;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
