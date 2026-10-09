@@ -1,366 +1,511 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Host Quiz Setup</title>
-  <style>
-    :root {
-      --bg-black: #080808;
-      --card-bg: rgba(18, 18, 18, 0.92);
-      --card-border: rgba(250, 204, 21, 0.35);
-      --yellow-bright: #facc15;
-      --text-white: #ffffff;
-      --text-muted: #a3a3a3;
+require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+
+const app = express();
+app.use(express.json({ limit: '2mb' }));
+
+// CORS & Cache Busting Headers
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.path.includes('/api/') || req.path.includes('-room') || req.path.includes('-answer')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
+// HTML File Resolver
+function serveHtml(filename, res) {
+  const candidates = [
+    path.resolve(__dirname, 'public', filename),
+    path.join(process.cwd(), 'public', filename),
+    path.resolve(__dirname, filename),
+    path.join(process.cwd(), filename)
+  ];
+
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg-black); color: var(--text-white); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 20px; }
-    .glass-card { background: var(--card-bg); backdrop-filter: blur(18px); border-radius: 20px; border: 1px solid var(--card-border); box-shadow: 0 0 35px rgba(0,0,0,0.95), 0 0 25px rgba(250,204,21,0.15); width: 100%; max-width: 600px; padding: 28px; }
-    .club-banner-wrapper { width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 18px; border: 1.5px solid var(--yellow-bright); }
-    .club-banner { width: 100%; display: block; max-height: 145px; object-fit: cover; }
-    .title-banner { font-size: 24px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: var(--yellow-bright); text-align: center; margin-bottom: 6px; }
-    .info-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 18px; }
+  }
+  return res.status(404).send(`Cannot find ${filename} in public or root directory.`);
+}
 
-    /* Mode Selector Tabs */
-    .mode-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-    .tab-btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: #121212; color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
-    .tab-btn.active { border-color: var(--yellow-bright); background: rgba(250, 204, 21, 0.15); color: var(--yellow-bright); box-shadow: 0 0 15px rgba(250,204,21,0.25); }
+app.get(['/', '/host', '/host.html'], (req, res) => serveHtml('host.html', res));
+app.get(['/player', '/player.html'], (req, res) => serveHtml('player.html', res));
 
-    .inset-data-input, .category-input { width: 100%; background: #0f0f0f; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 12px 16px; color: var(--text-white); font-size: 15px; margin-bottom: 14px; outline: none; }
-    .inset-data-input { font-size: 16px; font-weight: 700; border-color: var(--yellow-bright); }
-    .field-label { display: block; font-size: 12px; text-transform: uppercase; font-weight: 800; color: var(--yellow-bright); margin-bottom: 6px; }
-    .yellow-btn { width: 100%; padding: 15px; background: var(--yellow-bright); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 20px rgba(250, 204, 21, 0.45); margin-top: 10px; transition: all 0.2s ease; }
-    .yellow-btn:hover { background: #fde047; }
-    .yellow-btn:disabled { background: #262626; color: #666; cursor: not-allowed; box-shadow: none; }
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
+app.use(express.static(__dirname, { maxAge: '0' }));
 
-    /* Manual Question Box Styles */
-    .manual-box { background: #0c0d12; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; margin-bottom: 16px; position: relative; }
-    .manual-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .btn-remove { background: #ff4757; color: #fff; border: none; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
-    .opt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .opt-radio { accent-color: var(--yellow-bright); width: 18px; height: 18px; cursor: pointer; }
-    .opt-text { flex: 1; background: #161820; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px 12px; color: #fff; font-size: 13px; outline: none; }
-    .btn-secondary { width: 100%; padding: 12px; background: #181920; border: 1px dashed var(--yellow-bright); color: var(--yellow-bright); border-radius: 10px; font-weight: 800; cursor: pointer; margin-bottom: 12px; }
+// In-Memory Storage
+const rooms = new Map();
 
-    /* Game State Screens */
-    .pin-display-box { background: #0f0f0f; border: 1.5px dashed var(--yellow-bright); border-radius: 16px; padding: 22px; margin: 18px 0; text-align: center; }
-    .pin-number { font-size: 52px; font-weight: 900; letter-spacing: 8px; color: var(--yellow-bright); }
-    .pill-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 140px; overflow-y: auto; padding: 12px; margin: 16px 0; background: #0f0f0f; border-radius: 12px; }
-    .player-pill { background: rgba(250, 204, 21, 0.15); border: 1px solid var(--yellow-bright); border-radius: 20px; padding: 5px 14px; font-size: 13px; font-weight: 700; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0; }
-    .host-tile { background: #121212; border: 1.5px solid rgba(255, 255, 255, 0.15); border-radius: 12px; padding: 16px 14px; font-size: 16px; font-weight: 700; transition: all 0.2s ease; }
-    .correct-highlight { border: 2px solid #ffffff !important; background: rgba(255, 255, 255, 0.25) !important; color: #fff !important; }
-    .dimmed-tile { opacity: 0.25; }
-    .control-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 16px; }
-    .btn-action { padding: 10px 18px; border-radius: 10px; border: none; font-weight: 800; font-size: 14px; cursor: pointer; }
-    .btn-reveal { background: var(--yellow-bright); color: #000; }
-    .btn-next { background: #ffffff; color: #000; }
-    .btn-end { background: #262626; color: #fff; }
-    .badge-hud { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 900; background: rgba(250, 204, 21, 0.12); border: 1px solid var(--yellow-bright); color: var(--yellow-bright); }
-  </style>
-</head>
-<body>
+function shuffleOptions(item) {
+  const indices = [0, 1, 2, 3];
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  const newOptions = indices.map(idx => item.options[idx]);
+  const newAnswer = indices.indexOf(item.answer);
+  return { ...item, options: newOptions, answer: newAnswer };
+}
 
-  <!-- 1. SETUP CARD -->
-  <div id="setup-card" class="glass-card">
-    <div class="club-banner-wrapper">
-      <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" onerror="this.parentElement.style.display='none'">
-    </div>
-    <div class="title-banner">HOST QUIZ SETUP</div>
-    <div class="info-line">Select question mode & setup session PIN</div>
+// ----------------- AI CALLERS -----------------
 
-    <!-- Mode Selector Tabs -->
-    <div class="mode-tabs">
-      <button class="tab-btn active" id="tab-topic" onclick="switchMode('topic')">⚡ Generate by Topics</button>
-      <button class="tab-btn" id="tab-manual" onclick="switchMode('manual')">✍️ Enter Manually</button>
-    </div>
+// 1. Google Gemini (gemini-1.5-flash / gemini-2.0-flash)
+async function callGemini(apiKey, prompt) {
+  const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+  let lastErr = null;
 
-    <label class="field-label">Session PIN (Optional / Custom)</label>
-    <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" />
-
-    <!-- SECTION A: TOPIC WISE GENERATION -->
-    <div id="section-topic">
-      <label class="field-label">Tier 1: Easy (8 Questions)</label>
-      <input id="t1-input" class="category-input" type="text" placeholder="Enter Tier 1 topic (e.g. Cinema)" />
-
-      <label class="field-label">Tier 2: Moderate (6 Questions)</label>
-      <input id="t2-input" class="category-input" type="text" placeholder="Enter Tier 2 topic (e.g. Geography)" />
-
-      <label class="field-label">Tier 3: Hard (6 Questions)</label>
-      <input id="t3-input" class="category-input" type="text" placeholder="Enter Tier 3 topic (e.g. Science)" />
-    </div>
-
-    <!-- SECTION B: MANUAL QUESTION BUILDER -->
-    <div id="section-manual" style="display: none; max-height: 380px; overflow-y: auto; padding-right: 4px; margin-bottom: 14px;">
-      <div id="questions-list"></div>
-      <button type="button" class="btn-secondary" onclick="addManualQuestion()">+ Add Another Question</button>
-    </div>
-
-    <button id="gen-btn" class="yellow-btn" onclick="createRoom()">Generate Session & PIN</button>
-  </div>
-
-  <!-- 2. LOBBY CARD -->
-  <div id="lobby-card" class="glass-card" style="display:none; text-align: center;">
-    <div class="badge-hud">SESSION PIN READY</div>
-    <div class="pin-display-box">
-      <div style="font-size: 13px; color: var(--text-muted);">Join PIN</div>
-      <div id="display-pin" class="pin-number">------</div>
-      <div style="font-size: 14px; color: var(--text-muted); margin-top: 4px;">Enter PIN at <strong>/player.html</strong></div>
-    </div>
-    <div style="display:flex; justify-content:space-between; font-size:14px; margin: 10px 4px;">
-      <span style="color:var(--text-muted);">Joined Players</span>
-      <span style="color:var(--yellow-bright); font-weight:800;"><span id="player-count">0</span> Online</span>
-    </div>
-    <div id="lobby-players" class="pill-grid">
-      <span style="color: var(--text-muted); font-size: 13px; margin: auto;">Waiting for players...</span>
-    </div>
-    <button class="yellow-btn" onclick="triggerAction('NEXT')">Launch Quiz ➜</button>
-  </div>
-
-  <!-- 3. QUESTION VIEW CARD -->
-  <div id="question-card" class="glass-card" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-      <span id="level-badge" class="badge-hud">EASY</span>
-      <span id="question-counter" style="color:var(--text-muted); font-size:14px; font-weight:700;">Question 1 / 20</span>
-    </div>
-    <div id="question-text" style="font-size: 20px; font-weight: 800; text-align: center; margin: 16px 0;">Loading...</div>
-    <div class="grid">
-      <div class="host-tile" id="tile-0">A. <span id="opt-0"></span></div>
-      <div class="host-tile" id="tile-1">B. <span id="opt-1"></span></div>
-      <div class="host-tile" id="tile-2">C. <span id="opt-2"></span></div>
-      <div class="host-tile" id="tile-3">D. <span id="opt-3"></span></div>
-    </div>
-    <div class="control-row">
-      <div style="font-size: 14px; color: var(--text-muted);">
-        Responses: <strong id="response-count" style="color:#ffffff;">0 / 0</strong>
-      </div>
-      <div style="display:flex; gap: 8px;">
-        <button class="btn-action btn-reveal" onclick="triggerAction('REVEAL')">Reveal</button>
-        <button class="btn-action btn-next" onclick="triggerAction('NEXT')">Next ➜</button>
-        <button class="btn-action btn-end" onclick="triggerAction('END')">End</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 4. FINAL PODIUM CARD -->
-  <div id="end-card" class="glass-card" style="display:none; text-align: center;">
-    <div class="badge-hud">QUIZ COMPLETED</div>
-    <div class="title-banner" style="font-size:20px; margin-top: 10px;">FINAL STANDINGS</div>
-    <div id="leaderboard-container" style="margin-top: 16px;"></div>
-    <button class="yellow-btn" style="margin-top: 22px;" onclick="resetToNewSession()">+ Start New Session</button>
-  </div>
-
-  <script>
-    let currentPin = '';
-    let pollTimer = null;
-    let currentMode = 'topic';
-    let manualCount = 0;
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str).replace(/[&<>"']/g, function(m) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
-      });
-    }
-
-    function switchMode(mode) {
-      currentMode = mode;
-      document.getElementById('tab-topic').classList.toggle('active', mode === 'topic');
-      document.getElementById('tab-manual').classList.toggle('active', mode === 'manual');
-      document.getElementById('section-topic').style.display = (mode === 'topic') ? 'block' : 'none';
-      document.getElementById('section-manual').style.display = (mode === 'manual') ? 'block' : 'none';
-
-      if (mode === 'manual' && manualCount === 0) {
-        addManualQuestion();
-      }
-    }
-
-    function addManualQuestion() {
-      manualCount++;
-      const id = manualCount;
-      const container = document.getElementById('questions-list');
-      const div = document.createElement('div');
-      div.className = 'manual-box';
-      div.id = `manual-q-${id}`;
-      div.innerHTML = `
-        <div class="manual-header">
-          <span style="font-size: 12px; font-weight: 800; color: var(--yellow-bright);">QUESTION #${id}</span>
-          <button type="button" class="btn-remove" onclick="removeManualQuestion(${id})">✕ Remove</button>
-        </div>
-        <input type="text" class="category-input mq-text" placeholder="Enter Question text here" style="margin-bottom: 8px;" />
-        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Select the radio button beside the correct answer:</div>
-        <div class="opt-row"><input type="radio" name="correct-${id}" value="0" class="opt-radio" checked /><input type="text" class="opt-text mq-opt-0" placeholder="Option A" /></div>
-        <div class="opt-row"><input type="radio" name="correct-${id}" value="1" class="opt-radio" /><input type="text" class="opt-text mq-opt-1" placeholder="Option B" /></div>
-        <div class="opt-row"><input type="radio" name="correct-${id}" value="2" class="opt-radio" /><input type="text" class="opt-text mq-opt-2" placeholder="Option C" /></div>
-        <div class="opt-row"><input type="radio" name="correct-${id}" value="3" class="opt-radio" /><input type="text" class="opt-text mq-opt-3" placeholder="Option D" /></div>
-      `;
-      container.appendChild(div);
-    }
-
-    function removeManualQuestion(id) {
-      const el = document.getElementById(`manual-q-${id}`);
-      if (el) el.remove();
-    }
-
-    function gatherManualQuestions() {
-      const boxes = document.querySelectorAll('.manual-box');
-      const list = [];
-      boxes.forEach((box, idx) => {
-        const qText = box.querySelector('.mq-text').value.trim();
-        const o0 = box.querySelector('.mq-opt-0').value.trim();
-        const o1 = box.querySelector('.mq-opt-1').value.trim();
-        const o2 = box.querySelector('.mq-opt-2').value.trim();
-        const o3 = box.querySelector('.mq-opt-3').value.trim();
-        const selectedRadio = box.querySelector('input[type="radio"]:checked');
-        const ans = selectedRadio ? parseInt(selectedRadio.value) : 0;
-
-        if (qText && o0 && o1 && o2 && o3) {
-          list.push({
-            question: qText,
-            options: [o0, o1, o2, o3],
-            answer: ans,
-            level: idx < 6 ? 'EASY' : (idx < 12 ? 'MODERATE' : 'HARD')
-          });
-        }
-      });
-      return list;
-    }
-
-    async function createRoom() {
-      const pin = document.getElementById('pin-input').value.trim();
-      const btn = document.getElementById('gen-btn');
-      btn.textContent = 'Generating 20 Questions via AI...';
-      btn.disabled = true;
-
-      const payload = { customPin: pin, mode: currentMode };
-
-      if (currentMode === 'manual') {
-        const manualQuestions = gatherManualQuestions();
-        if (manualQuestions.length === 0) {
-          alert('Please fill out at least 1 complete question with 4 options.');
-          btn.textContent = 'Generate Session & PIN';
-          btn.disabled = false;
-          return;
-        }
-        payload.manualQuestions = manualQuestions;
-      } else {
-        payload.topic1 = document.getElementById('t1-input').value.trim();
-        payload.topic2 = document.getElementById('t2-input').value.trim();
-        payload.topic3 = document.getElementById('t3-input').value.trim();
-      }
-
-      try {
-        const res = await fetch('/api/create-room', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-
-        if (res.ok && data.pin) {
-          currentPin = data.pin;
-          document.getElementById('setup-card').style.display = 'none';
-          document.getElementById('lobby-card').style.display = 'block';
-          document.getElementById('display-pin').textContent = data.pin;
-          startPolling();
-        } else {
-          alert('Failed to create session: ' + (data.error || 'Server error'));
-        }
-      } catch (err) {
-        alert('Network connection error: ' + err.message);
-      } finally {
-        btn.textContent = 'Generate Session & PIN';
-        btn.disabled = false;
-      }
-    }
-
-    async function triggerAction(action) {
-      if (!currentPin) return;
-      await fetch('/api/host-action', {
+  for (const model of models) {
+    try {
+      const url = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey.trim()}`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: currentPin, action })
-      });
-      fetchRoomStatus();
-    }
-
-    function startPolling() {
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(fetchRoomStatus, 1500);
-      fetchRoomStatus();
-    }
-
-    async function fetchRoomStatus() {
-      if (!currentPin) return;
-      try {
-        const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}`);
-        if (!res.ok) return;
-        const data = await res.json();
-
-        // Update Lobby
-        document.getElementById('player-count').textContent = data.playerCount || 0;
-        if (data.players && data.players.length > 0) {
-          document.getElementById('lobby-players').innerHTML = data.players
-            .map(p => `<span class="player-pill">${escapeHtml(p)}</span>`)
-            .join('');
-        }
-
-        // View Transitions
-        if (data.state === 'QUESTION' || data.state === 'REVEAL') {
-          document.getElementById('lobby-card').style.display = 'none';
-          document.getElementById('question-card').style.display = 'block';
-
-          if (data.question) {
-            document.getElementById('level-badge').textContent = data.question.level || 'QUESTION';
-            document.getElementById('question-counter').textContent = `Question ${data.question.index} / ${data.question.total || 20}`;
-            document.getElementById('question-text').textContent = data.question.question;
-
-            for (let i = 0; i < 4; i++) {
-              const tile = document.getElementById(`tile-${i}`);
-              document.getElementById(`opt-${i}`).textContent = data.question.options ? data.question.options[i] : '';
-              tile.className = 'host-tile';
-              if (data.state === 'REVEAL') {
-                if (i === data.revealedAnswer) tile.classList.add('correct-highlight');
-                else tile.classList.add('dimmed-tile');
-              }
-            }
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.6,
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json'
           }
-          document.getElementById('response-count').textContent = `${data.responsesCount || 0} / ${data.playerCount || 0}`;
-        } else if (data.state === 'FINISHED') {
-          clearInterval(pollTimer);
-          document.getElementById('question-card').style.display = 'none';
-          document.getElementById('lobby-card').style.display = 'none';
-          document.getElementById('end-card').style.display = 'block';
+        })
+      });
 
-          const rows = (data.leaderboard || []).map((p, idx) => `
-            <div style="display:flex; justify-content:space-between; padding: 10px 16px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
-              <span>#${idx + 1} ${escapeHtml(p.name)}</span>
-              <span style="color:var(--yellow-bright);"><strong>${p.score} pts</strong> (${p.correctCount} correct)</span>
-            </div>
-          `).join('');
-
-          document.getElementById('leaderboard-container').innerHTML = `
-            <div style="background: #0f0f0f; border-radius: 12px; border: 1px solid rgba(250,204,21,0.3);">${rows}</div>
-          `;
-        }
-      } catch (e) {
-        console.error('Polling error', e);
+      const data = await res.json();
+      if (!res.ok) {
+        lastErr = new Error(data?.error?.message || `Gemini status ${res.status}`);
+        continue;
       }
+
+      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const s = text.indexOf('[');
+      const e = text.lastIndexOf(']');
+      if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
+
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed) && parsed.length >= 10) {
+        return parsed.map(shuffleOptions);
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Gemini failed to output question array');
+}
+
+// 2. OpenAI (gpt-4o-mini)
+async function callOpenAI(apiKey, prompt) {
+  const res = await fetch('[https://api.openai.com/v1/chat/completions](https://api.openai.com/v1/chat/completions)', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey.trim()}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'You are a quiz engine. Return ONLY a valid JSON array of 20 trivia question objects.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || `OpenAI status ${res.status}`);
+
+  let text = data.choices?.[0]?.message?.content || '';
+  text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const s = text.indexOf('[');
+  const e = text.lastIndexOf(']');
+  if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
+
+  const parsed = JSON.parse(text);
+  if (Array.isArray(parsed) && parsed.length >= 10) {
+    return parsed.map(shuffleOptions);
+  }
+  throw new Error('OpenAI invalid response format');
+}
+
+// 3. xAI (Grok)
+async function callXAI(apiKey, prompt) {
+  const models = ['grok-2', 'grok-2-latest', 'grok-beta'];
+  let lastErr = null;
+
+  for (const m of models) {
+    try {
+      const res = await fetch('[https://api.x.ai/v1/chat/completions](https://api.x.ai/v1/chat/completions)', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: m,
+          messages: [
+            { role: 'system', content: 'You are a quiz engine. Output ONLY a valid JSON array.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        lastErr = new Error(data?.error?.message || `xAI status ${res.status}`);
+        continue;
+      }
+
+      let text = data.choices?.[0]?.message?.content || '';
+      text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const s = text.indexOf('[');
+      const e = text.lastIndexOf(']');
+      if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
+
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed) && parsed.length >= 10) {
+        return parsed.map(shuffleOptions);
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('xAI returned bad format');
+}
+
+// ----------------- INTELLIGENT BACKUP ENGINE -----------------
+const knowledgeBase = {
+  cinema: [
+    { question: "Which movie won the first-ever Academy Award for Best Picture?", options: ["Wings", "Sunrise", "Metropolis", "The Jazz Singer"], answer: 0 },
+    { question: "Who directed the 2010 mind-bending sci-fi film 'Inception'?", options: ["Christopher Nolan", "Steven Spielberg", "Ridley Scott", "Denis Villeneuve"], answer: 0 },
+    { question: "Which film featured the iconic quote 'May the Force be with you' first?", options: ["Star Wars: A New Hope", "The Empire Strikes Back", "Return of the Jedi", "Star Trek"], answer: 0 },
+    { question: "Who won the Best Actor Oscar for playing the Joker in 2019?", options: ["Joaquin Phoenix", "Heath Ledger", "Jack Nicholson", "Jared Leto"], answer: 0 },
+    { question: "What is the highest-grossing film of all time globally (unadjusted for inflation)?", options: ["Avatar", "Avengers: Endgame", "Titanic", "Star Wars: The Force Awakens"], answer: 0 },
+    { question: "Which animated film was the first to be nominated for Best Picture at the Oscars?", options: ["Beauty and the Beast", "The Lion King", "Toy Story", "Shrek"], answer: 0 },
+    { question: "Who directed 'Pulp Fiction', 'Kill Bill', and 'Django Unchained'?", options: ["Quentin Tarantino", "Martin Scorsese", "David Fincher", "Stanley Kubrick"], answer: 0 },
+    { question: "Which actor played Tony Stark across the Marvel Cinematic Universe?", options: ["Robert Downey Jr.", "Chris Evans", "Mark Ruffalo", "Tom Hiddleston"], answer: 0 }
+  ],
+  geography: [
+    { question: "What is the capital city of Australia?", options: ["Canberra", "Sydney", "Melbourne", "Brisbane"], answer: 0 },
+    { question: "Which is the largest hot desert on Earth by surface area?", options: ["Sahara Desert", "Gobi Desert", "Kalahari Desert", "Arabian Desert"], answer: 0 },
+    { question: "Through which European capital city does the River Seine flow?", options: ["Paris", "London", "Rome", "Madrid"], answer: 0 },
+    { question: "Which country has the longest coastline in the world?", options: ["Canada", "Indonesia", "Norway", "Russia"], answer: 0 },
+    { question: "Mount Kilimanjaro is the highest peak in which continent?", options: ["Africa", "Asia", "South America", "Europe"], answer: 0 },
+    { question: "Which deep water trench is the lowest natural point on Earth?", options: ["Mariana Trench", "Puerto Rico Trench", "Java Trench", "Tonga Trench"], answer: 0 },
+    { question: "What is the largest country in South America by land area?", options: ["Brazil", "Argentina", "Colombia", "Peru"], answer: 0 },
+    { question: "Which country has the highest number of natural lakes in the world?", options: ["Canada", "Finland", "Sweden", "United States"], answer: 0 }
+  ],
+  history: [
+    { question: "In which year did World War II officially conclude?", options: ["1945", "1939", "1918", "1950"], answer: 0 },
+    { question: "Who was the first President of the United States?", options: ["George Washington", "Thomas Jefferson", "John Adams", "Benjamin Franklin"], answer: 0 },
+    { question: "Which ancient civilization built the magnificent Pyramids of Giza?", options: ["Ancient Egyptians", "Mesopotamians", "Mayans", "Romans"], answer: 0 },
+    { question: "In what year did the Berlin Wall officially fall?", options: ["1989", "1991", "1985", "1975"], answer: 0 },
+    { question: "Who was the first emperor of a unified China, known for the Terracotta Army?", options: ["Qin Shi Huang", "Kublai Khan", "Sun Tzu", "Wu Zetian"], answer: 0 },
+    { question: "Which peace treaty concluded World War I in 1919?", options: ["Treaty of Versailles", "Treaty of Paris", "Treaty of Ghent", "Treaty of Utrecht"], answer: 0 },
+    { question: "What year did India gain independence from British rule?", options: ["1947", "1950", "1942", "1935"], answer: 0 },
+    { question: "Who wrote the 95 Theses in 1517, igniting the Protestant Reformation?", options: ["Martin Luther", "John Calvin", "Erasmus", "Henry VIII"], answer: 0 }
+  ],
+  science: [
+    { question: "What chemical element is represented by the symbol 'Au' on the periodic table?", options: ["Gold", "Silver", "Argon", "Aluminum"], answer: 0 },
+    { question: "Which planet in our solar system is closest in distance to the Sun?", options: ["Mercury", "Venus", "Mars", "Earth"], answer: 0 },
+    { question: "What is the powerhouse organelle of eukaryotic cells that produces ATP?", options: ["Mitochondria", "Nucleus", "Ribosome", "Endoplasmic Reticulum"], answer: 0 },
+    { question: "What is the speed of light in a vacuum approximately?", options: ["300,000 km/s", "150,000 km/s", "500,000 km/s", "1,000,000 km/s"], answer: 0 },
+    { question: "Which subatomic particle carries a negative electrical charge?", options: ["Electron", "Proton", "Neutron", "Positron"], answer: 0 },
+    { question: "What is the most abundant gas found in Earth's atmosphere?", options: ["Nitrogen", "Oxygen", "Carbon Dioxide", "Argon"], answer: 0 },
+    { question: "What is the SI unit of electrical resistance?", options: ["Ohm", "Volt", "Ampere", "Joule"], answer: 0 },
+    { question: "Which scientist first formulated the laws of planetary motion?", options: ["Johannes Kepler", "Isaac Newton", "Galileo Galilei", "Nicolaus Copernicus"], answer: 0 }
+  ],
+  sports: [
+    { question: "Which nation won the inaugural FIFA Men's World Cup in 1930?", options: ["Uruguay", "Argentina", "Brazil", "Italy"], answer: 0 },
+    { question: "How many players are on the pitch for one team in a standard cricket match?", options: ["11", "10", "12", "9"], answer: 0 },
+    { question: "Which male tennis player has won 14 French Open (Roland Garros) titles?", options: ["Rafael Nadal", "Roger Federer", "Novak Djokovic", "Pete Sampras"], answer: 0 },
+    { question: "In basketball, how many points is a shot taken beyond the 3-point arc worth?", options: ["3", "2", "4", "1"], answer: 0 },
+    { question: "What is the standard length of an Olympic-sized swimming pool?", options: ["50 meters", "25 meters", "100 meters", "75 meters"], answer: 0 },
+    { question: "Who holds the men's 100m world record at 9.58 seconds?", options: ["Usain Bolt", "Tyson Gay", "Yohan Blake", "Carl Lewis"], answer: 0 },
+    { question: "How many holes are played in a regulation round of golf?", options: ["18", "9", "12", "20"], answer: 0 },
+    { question: "Which country has won the most Cricket World Cup (ODI) tournaments?", options: ["Australia", "India", "West Indies", "England"], answer: 0 }
+  ],
+  tech: [
+    { question: "Who co-founded Microsoft alongside Paul Allen in 1975?", options: ["Bill Gates", "Steve Jobs", "Larry Page", "Michael Dell"], answer: 0 },
+    { question: "What does the 'S' stand for in HTTPS?", options: ["Secure", "Standard", "Server", "System"], answer: 0 },
+    { question: "Which programming language was created by Brendan Eich in 10 days in 1995?", options: ["JavaScript", "Python", "Java", "C++"], answer: 0 },
+    { question: "Who is known as the inventor of the World Wide Web at CERN in 1989?", options: ["Tim Berners-Lee", "Alan Turing", "Vint Cerf", "Marc Andreessen"], answer: 0 },
+    { question: "What open-source operating system kernel was authored by Linus Torvalds?", options: ["Linux", "Unix", "Darwin", "Minix"], answer: 0 },
+    { question: "What is the primary function of RAM in a computer?", options: ["Temporary high-speed working memory", "Permanent file storage", "Graphics rendering", "Power management"], answer: 0 },
+    { question: "Which company originally developed the Android operating system before acquisition?", options: ["Android Inc.", "Google", "Motorola", "Samsung"], answer: 0 },
+    { question: "What year was the original Apple iPhone first introduced to the public?", options: ["2007", "2005", "2009", "2008"], answer: 0 }
+  ]
+};
+
+function selectSmartFallback(topic, count, level) {
+  const clean = (topic || '').toLowerCase();
+  let pool = knowledgeBase.science;
+
+  if (clean.includes('movie') || clean.includes('cinema') || clean.includes('film') || clean.includes('actor') || clean.includes('hollywood') || clean.includes('marvel')) {
+    pool = knowledgeBase.cinema;
+  } else if (clean.includes('sport') || clean.includes('cricket') || clean.includes('football') || clean.includes('tennis') || clean.includes('olympic')) {
+    pool = knowledgeBase.sports;
+  } else if (clean.includes('tech') || clean.includes('code') || clean.includes('software') || clean.includes('computer') || clean.includes('ai') || clean.includes('python')) {
+    pool = knowledgeBase.tech;
+  } else if (clean.includes('geo') || clean.includes('world') || clean.includes('country') || clean.includes('capital') || clean.includes('earth') || clean.includes('ocean')) {
+    pool = knowledgeBase.geography;
+  } else if (clean.includes('hist') || clean.includes('war') || clean.includes('empire') || clean.includes('king') || clean.includes('ancient')) {
+    pool = knowledgeBase.history;
+  }
+
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    const item = pool[i % pool.length];
+    result.push({
+      question: `[${topic}] ${item.question}`,
+      options: [...item.options],
+      answer: item.answer,
+      level: level
+    });
+  }
+  return result;
+}
+
+// Complete Generation Pipeline
+async function generateQuizQuestions(t1, t2, t3) {
+  const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
+  const xaiKey = (process.env.XAI_API_KEY || process.env.GROK_API_KEY || '').trim();
+
+  const topic1 = (t1 && t1.trim()) || 'Cinema';
+  const topic2 = (t2 && t2.trim()) || 'Geography';
+  const topic3 = (t3 && t3.trim()) || 'Science & Tech';
+
+  console.log(`[Diagnostic] API Keys Detected: Gemini=${Boolean(geminiKey)}, OpenAI=${Boolean(openaiKey)}, xAI=${Boolean(xaiKey)}`);
+
+  const prompt = `You are a professional trivia generator. Generate exactly 20 authentic, factually accurate multiple-choice trivia questions based on these 3 topics:
+
+- 8 EASY questions strictly on: "${topic1}" (level: "EASY")
+- 6 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
+- 6 HARD questions strictly on: "${topic3}" (level: "HARD")
+
+Rules:
+1. Every question must be genuine trivia with 4 realistic options.
+2. The "answer" field must be the 0-based integer index (0, 1, 2, or 3) of the correct option.
+3. Return ONLY a raw JSON array containing exactly 20 objects. No markdown backticks.
+
+Example item structure:
+{
+  "question": "Which actor portrayed Iron Man in the Marvel Cinematic Universe?",
+  "options": ["Robert Downey Jr.", "Chris Evans", "Mark Ruffalo", "Chris Hemsworth"],
+  "answer": 0,
+  "level": "EASY"
+}`;
+
+  // 1. Try Gemini
+  if (geminiKey) {
+    try {
+      console.log(`[Engine] Calling Google Gemini for topics: "${topic1}", "${topic2}", "${topic3}"...`);
+      const q = await callGemini(geminiKey, prompt);
+      console.log(`✅ [Gemini SUCCESS] Generated ${q.length} questions.`);
+      return q;
+    } catch (e) {
+      console.warn(`⚠️ [Gemini Failed]: ${e.message}`);
+    }
+  }
+
+  // 2. Try OpenAI
+  if (openaiKey) {
+    try {
+      console.log(`[Engine] Calling OpenAI...`);
+      const q = await callOpenAI(openaiKey, prompt);
+      console.log(`✅ [OpenAI SUCCESS] Generated ${q.length} questions.`);
+      return q;
+    } catch (e) {
+      console.warn(`⚠️ [OpenAI Failed]: ${e.message}`);
+    }
+  }
+
+  // 3. Try xAI
+  if (xaiKey) {
+    try {
+      console.log(`[Engine] Calling xAI...`);
+      const q = await callXAI(xaiKey, prompt);
+      console.log(`✅ [xAI SUCCESS] Generated ${q.length} questions.`);
+      return q;
+    } catch (e) {
+      console.warn(`⚠️ [xAI Failed]: ${e.message}`);
+    }
+  }
+
+  // 4. Fallback Knowledge Base
+  console.log(`[Engine] Assembling 20 authentic trivia questions from curated knowledge base...`);
+  const q1 = selectSmartFallback(topic1, 8, 'EASY');
+  const q2 = selectSmartFallback(topic2, 6, 'MODERATE');
+  const q3 = selectSmartFallback(topic3, 6, 'HARD');
+  return [...q1, ...q2, ...q3].map(shuffleOptions);
+}
+
+// ----------------- API ENDPOINTS -----------------
+
+// Create Room
+app.post(['/api/create-room', '/create-room'], async (req, res) => {
+  try {
+    const { customPin, mode, manualQuestions, topic1, topic2, topic3 } = req.body || {};
+    const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
+
+    let questions = [];
+    if (mode === 'manual' && Array.isArray(manualQuestions) && manualQuestions.length > 0) {
+      questions = manualQuestions.map((q, idx) => ({
+        index: idx + 1,
+        question: q.question,
+        options: q.options,
+        answer: Number(q.answer),
+        level: q.level || 'CUSTOM'
+      }));
+    } else {
+      questions = await generateQuizQuestions(topic1, topic2, topic3);
     }
 
-    function resetToNewSession() {
-      if (pollTimer) clearInterval(pollTimer);
-      currentPin = '';
-      document.getElementById('pin-input').value = '';
-      document.getElementById('display-pin').textContent = '------';
-      document.getElementById('player-count').textContent = '0';
-      document.getElementById('lobby-players').innerHTML = '<span style="color: var(--text-muted); font-size: 13px; margin: auto;">Waiting for players...</span>';
+    rooms.set(pin, {
+      pin,
+      questions,
+      currentIndex: 0,
+      state: 'LOBBY',
+      revealedAnswer: null,
+      players: {},
+      answersThisRound: {},
+      createdAt: Date.now()
+    });
 
-      document.getElementById('end-card').style.display = 'none';
-      document.getElementById('question-card').style.display = 'none';
-      document.getElementById('lobby-card').style.display = 'none';
-      document.getElementById('setup-card').style.display = 'block';
+    console.log(`Room [${pin}] established with ${questions.length} questions.`);
+    return res.status(200).json({ success: true, pin, count: questions.length });
+  } catch (err) {
+    console.error('Create Room Error:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Room Status (Host & Player polling)
+app.get(['/api/room-status', '/room-status'], (req, res) => {
+  const pin = String(req.query.pin || '').trim();
+  const room = rooms.get(pin);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  const playerList = Object.values(room.players);
+  const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
+    ? room.questions[room.currentIndex - 1]
+    : null;
+
+  return res.status(200).json({
+    pin: room.pin,
+    state: room.state,
+    currentIndex: room.currentIndex,
+    totalQuestions: room.questions.length,
+    playerCount: playerList.length,
+    players: playerList.map(p => p.name),
+    responsesCount: Object.keys(room.answersThisRound).length,
+    question: currentQ ? {
+      index: room.currentIndex,
+      total: room.questions.length,
+      level: currentQ.level,
+      question: currentQ.question,
+      options: currentQ.options
+    } : null,
+    revealedAnswer: room.revealedAnswer,
+    leaderboard: [...playerList].sort((a, b) => b.score - a.score)
+  });
+});
+
+// Host Actions: NEXT, REVEAL, END
+app.post(['/api/host-action', '/host-action'], (req, res) => {
+  const { pin, action } = req.body || {};
+  const room = rooms.get(String(pin || '').trim());
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  if (action === 'NEXT') {
+    if (room.currentIndex >= room.questions.length) {
+      room.state = 'FINISHED';
+    } else {
+      room.currentIndex++;
+      room.state = 'QUESTION';
+      room.revealedAnswer = null;
+      room.answersThisRound = {};
     }
-  </script>
-</body>
-</html>
+  } else if (action === 'REVEAL') {
+    if (room.currentIndex > 0 && room.currentIndex <= room.questions.length) {
+      room.state = 'REVEAL';
+      room.revealedAnswer = room.questions[room.currentIndex - 1].answer;
+    }
+  } else if (action === 'END') {
+    room.state = 'FINISHED';
+  }
+
+  return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
+});
+
+// Player Join
+app.post(['/api/join-room', '/join-room'], (req, res) => {
+  const { pin, name } = req.body || {};
+  const room = rooms.get(String(pin || '').trim());
+  if (!room) return res.status(404).json({ error: 'Invalid PIN. Room not found.' });
+
+  const cleanName = String(name || '').trim() || 'Player';
+  const playerKey = cleanName.toLowerCase();
+
+  if (!room.players[playerKey]) {
+    room.players[playerKey] = { name: cleanName, score: 0, correctCount: 0 };
+  }
+
+  return res.status(200).json({ success: true, name: cleanName, score: room.players[playerKey].score });
+});
+
+// Player Submit Answer
+app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
+  const { pin, name, answerIndex } = req.body || {};
+  const room = rooms.get(String(pin || '').trim());
+  if (!room || room.state !== 'QUESTION') return res.status(400).json({ error: 'Not accepting answers' });
+
+  const playerKey = String(name || '').trim().toLowerCase();
+  if (room.answersThisRound[playerKey] !== undefined) {
+    return res.status(200).json({ message: 'Answer already submitted' });
+  }
+
+  room.answersThisRound[playerKey] = answerIndex;
+  const currentQ = room.questions[room.currentIndex - 1];
+  if (currentQ && answerIndex === currentQ.answer) {
+    if (room.players[playerKey]) {
+      room.players[playerKey].score += 100;
+      room.players[playerKey].correctCount++;
+    }
+  }
+
+  return res.status(200).json({ success: true });
+});
+
+// Catch-all 404
+app.use((req, res) => {
+  if (req.path.startsWith('/api/') || req.method === 'POST') {
+    return res.status(404).json({ success: false, error: `Endpoint not found: ${req.method} ${req.path}` });
+  }
+  return res.status(404).send('Page not found');
+});
+
+// Local dev listener
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Quiz server active on port ${PORT}`);
+  });
+}
+
+module.exports = app;
