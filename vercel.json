@@ -1,25 +1,15 @@
 {
   "version": 2,
   "builds": [
-    { "src": "server.js", "use": "@vercel/node" },
-    { "src": "public/**", "use": "@vercel/static" }
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/server.js" },
-    { "src": "/(create-room|room-status|host-action|join-room|submit-answer)", "dest": "/server.js" },
     {
-      "has": [
-        {
-          "type": "host",
-          "value": "player-zero-barrier-quiz.vercel.app"
-        }
-      ],
       "src": "/(.*)",
-      "dest": "/public/player.html"
-    },
-    { "src": "/player(.html)?", "dest": "/public/player.html" },
-    { "src": "/host(.html)?", "dest": "/public/host.html" },
-    { "src": "^/$", "dest": "/public/host.html" },
-    { "src": "/(.*)", "dest": "/public/$1" }
+      "dest": "server.js"
+    }
   ]
 }
