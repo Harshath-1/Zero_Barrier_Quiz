@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Player Quiz Portal</title>
+  <!-- Browser Tab Icon -->
+  <link rel="icon" type="image/png" href="/logo.png" />
   <style>
     :root {
       --bg-black: #080808;
@@ -29,6 +31,22 @@
       justify-content: center;
       padding: 16px;
       overflow-x: hidden;
+      position: relative;
+    }
+
+    /* FULL-SCREEN SUBTLE WATERMARK */
+    .bg-watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 65vmin;
+      max-width: 440px;
+      height: auto;
+      opacity: 0.045; /* Soft watermark that won't distract from text */
+      pointer-events: none; /* Clicks and taps pass straight through */
+      z-index: 0;
+      user-select: none;
     }
 
     /* 2.5-Second Intro Splash Screen */
@@ -88,6 +106,8 @@
       box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.18);
       width: 100%;
       transition: all 0.3s ease;
+      position: relative;
+      z-index: 1; /* Elevates above the watermark */
     }
 
     /* DESKTOP (16:9 / 16:10 Presentation View) */
@@ -138,6 +158,19 @@
       display: block;
       max-height: 125px;
       object-fit: cover;
+    }
+
+    /* Top Logo Styling */
+    .top-logo-container {
+      text-align: center;
+      margin: 4px 0 12px 0;
+    }
+    .top-logo {
+      max-height: 70px;
+      max-width: 80%;
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
     }
 
     .title-banner {
@@ -275,6 +308,9 @@
 </head>
 <body>
 
+  <!-- Fullscreen Centered Background Watermark -->
+  <img src="/watermark.png" alt="Watermark" class="bg-watermark" onerror="this.style.display='none'" />
+
   <!-- 2.5-Second Intro Splash -->
   <div id="welcome-splash">
     <img src="/logo_vertical.jpeg" alt="Logo" class="splash-logo" onerror="this.style.display='none'">
@@ -290,6 +326,11 @@
 
     <!-- 1. JOIN VIEW -->
     <div id="join-card" style="display: flex; flex-direction: column; flex: 1; justify-content: center;">
+      <!-- Club Logo Placement -->
+      <div class="top-logo-container">
+        <img src="/logo.png" alt="ALIET Techpreneur Club" class="top-logo" onerror="this.style.display='none'" />
+      </div>
+
       <div class="title-banner">PLAYER QUIZ PORTAL</div>
       <div class="info-line">Enter active session PIN & your name</div>
 
