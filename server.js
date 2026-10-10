@@ -41,8 +41,22 @@ function serveHtml(filename, res) {
   return res.status(404).send(`Cannot find ${filename} in public or root directory.`);
 }
 
-app.get(['/', '/host', '/host.html'], (req, res) => serveHtml('host.html', res));
+// ----------------- DOMAIN-AWARE ROUTING -----------------
+app.get('/', (req, res) => {
+  const host = (req.headers.host || req.hostname || '').toLowerCase();
+
+  // If visited via player-zero-barrier-quiz.vercel.app (or any domain containing 'player')
+  if (host.includes('player')) {
+    return serveHtml('player.html', res);
+  }
+
+  // Default root to host interface
+  return serveHtml('host.html', res);
+});
+
+// Explicit Path Routes
 app.get(['/player', '/player.html'], (req, res) => serveHtml('player.html', res));
+app.get(['/host', '/host.html'], (req, res) => serveHtml('host.html', res));
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
@@ -419,7 +433,7 @@ app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   if (!room.players) room.players = {};
 
   const playerKey = String(name || '').trim().toLowerCase();
-  
+
   // Ensure player is registered
   if (!room.players[playerKey]) {
     room.players[playerKey] = { name: String(name || '').trim(), score: 0, correctCount: 0 };
