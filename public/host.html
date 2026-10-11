@@ -277,6 +277,7 @@
     let currentMode = 'topic';
     let manualCount = 0;
     let highestSeenHostIndex = 0;
+    let currentHostVersion = 0;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -387,6 +388,7 @@
         if (res.ok && data.pin) {
           currentPin = data.pin;
           highestSeenHostIndex = 0;
+          currentHostVersion = 0;
           document.getElementById('setup-card').style.display = 'none';
           document.getElementById('lobby-card').style.display = 'flex';
           document.getElementById('display-pin').textContent = data.pin;
@@ -435,11 +437,22 @@
       isFetching = true;
 
       try {
-        const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}`);
+        const url = `/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentHostVersion}`;
+        const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
 
+        // Always update fast counter badges without touching heavier question cards
         document.getElementById('player-count').textContent = data.playerCount || 0;
+        document.getElementById('response-count').textContent = `${data.responsesCount || 0} / ${data.playerCount || 0}`;
+
+        // Zero-lag skip: If state hasn't changed, return immediately
+        if (data.unchanged) {
+          return;
+        }
+
+        currentHostVersion = data.version || 0;
+
         if (data.players && data.players.length > 0) {
           document.getElementById('lobby-players').innerHTML = data.players
             .map(p => `<span class="player-pill">${escapeHtml(p)}</span>`)
@@ -447,7 +460,7 @@
         }
 
         if (data.state === 'QUESTION' || data.state === 'REVEAL') {
-          // MONOTONIC CHECK: Reject older stale serverless responses
+          // Monotonic check: Ignore any stale responses from slower instances
           if (data.currentIndex < highestSeenHostIndex) {
             return;
           }
@@ -471,7 +484,6 @@
               }
             }
           }
-          document.getElementById('response-count').textContent = `${data.responsesCount || 0} / ${data.playerCount || 0}`;
         } else if (data.state === 'FINISHED') {
           clearInterval(pollTimer);
           document.getElementById('question-card').style.display = 'none';
@@ -500,6 +512,7 @@
       if (pollTimer) clearInterval(pollTimer);
       currentPin = '';
       highestSeenHostIndex = 0;
+      currentHostVersion = 0;
       document.getElementById('pin-input').value = '';
       document.getElementById('display-pin').textContent = '------';
       document.getElementById('player-count').textContent = '0';
