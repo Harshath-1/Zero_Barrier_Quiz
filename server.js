@@ -45,7 +45,7 @@ function serveHtml(filename, res) {
 app.get('/', (req, res) => {
   const host = (req.headers.host || req.hostname || '').toLowerCase();
 
-  // If visited via player-zero-barrier-quiz.vercel.app (or any domain containing 'player')
+  // If visited via player subdomain or path
   if (host.includes('player')) {
     return serveHtml('player.html', res);
   }
@@ -61,7 +61,7 @@ app.get(['/host', '/host.html'], (req, res) => serveHtml('host.html', res));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
 
-// ----------------- STATELESS / PERSISTENT ROOM STORAGE -----------------
+// ----------------- NON-BLOCKING IN-MEMORY & ASYNC STORAGE -----------------
 
 const memoryRooms = new Map();
 const STORAGE_DIR = process.env.VERCEL ? '/tmp/quiz_rooms' : path.join(__dirname, '.quiz_rooms');
@@ -88,13 +88,15 @@ function getRoom(pin) {
   return null;
 }
 
+// Non-blocking asynchronous write prevents event-loop lockups
 function saveRoom(pin, roomData) {
   const cleanPin = String(pin || '').trim();
   memoryRooms.set(cleanPin, roomData);
+
   const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(roomData), 'utf8');
-  } catch (e) {}
+  fs.writeFile(filePath, JSON.stringify(roomData), 'utf8', (err) => {
+    if (err) console.error(`Async save warning [${cleanPin}]:`, err.message);
+  });
 }
 
 function shuffleOptions(item) {
@@ -183,12 +185,12 @@ function generateExactTopicQuestions(t1, t2, t3) {
   return qList.map(shuffleOptions);
 }
 
-// ----------------- GROQ AI GENERATION (5-6-4 SPLIT) -----------------
+// ----------------- GROQ AI GENERATION (FAST TIMEOUT) -----------------
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
 async function generateAIQuestions(topic1, topic2, topic3) {
-  const activeModels = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
+  const activeModels = ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
 
   const prompt = `You are an expert trivia quiz generator.
 Create exactly 15 authentic multiple-choice trivia questions based strictly on these topics:
@@ -217,7 +219,7 @@ Format:
   for (const model of activeModels) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6500);
+      const timeout = setTimeout(() => controller.abort(), 3500);
 
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -293,7 +295,6 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
     };
 
     saveRoom(pin, roomData);
-    console.log(`Room [${pin}] established with ${questions.length} questions.`);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
     console.error('Create Room Error:', err.message);
@@ -314,7 +315,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   }
 });
 
-// Room Status (Host & Player Polling + Sync)
+// Room Status (Fast in-memory reading)
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const room = getRoom(pin);
@@ -373,7 +374,7 @@ app.post(['/api/host-action', '/host-action'], (req, res) => {
   return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
 });
 
-// Player Join & Re-entry / Re-login Support
+// Player Join
 app.post(['/api/join-room', '/join-room'], (req, res) => {
   const { pin, name } = req.body || {};
   const room = getRoom(pin);
@@ -385,7 +386,6 @@ app.post(['/api/join-room', '/join-room'], (req, res) => {
   if (!room.players) room.players = {};
   if (!room.answersThisRound) room.answersThisRound = {};
 
-  // If player already exists, restore their record; if not, create new
   if (!room.players[playerKey]) {
     room.players[playerKey] = {
       name: cleanName,
@@ -397,7 +397,6 @@ app.post(['/api/join-room', '/join-room'], (req, res) => {
 
   saveRoom(pin, room);
 
-  // Determine current active question
   const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
     ? room.questions[room.currentIndex - 1]
     : null;
@@ -434,12 +433,10 @@ app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
 
   const playerKey = String(name || '').trim().toLowerCase();
 
-  // Ensure player is registered
   if (!room.players[playerKey]) {
     room.players[playerKey] = { name: String(name || '').trim(), score: 0, correctCount: 0 };
   }
 
-  // Prevent multiple answers for the same question
   if (room.answersThisRound[playerKey] !== undefined) {
     return res.status(200).json({ success: true, message: 'Answer already recorded' });
   }
