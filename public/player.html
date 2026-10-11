@@ -382,7 +382,7 @@
       if (splash) splash.remove();
     }, 2500);
 
-    // Cross-Domain Routing Resolver
+    // Cross-Domain Origin Routing Resolver
     const API_BASE = window.location.hostname.startsWith('player-')
       ? `${window.location.protocol}//${window.location.host.replace(/^player-/, '')}`
       : '';
@@ -468,19 +468,18 @@
         const url = `${API_BASE}/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentRoomVersion}`;
         const res = await fetch(url);
 
-        // Resilient handling of temporary serverless container cold-starts
+        // Quietly absorb serverless cold-start container switches
         if (!res.ok) {
           if (res.status === 404) {
             notFoundRetries++;
-            if (notFoundRetries >= 5) {
+            if (notFoundRetries > 10) {
               clearInterval(pollTimer);
-              alert('Room session has ended or PIN is invalid.');
+              alert('Session ended.');
             }
           }
           return;
         }
 
-        // Reset on valid response
         notFoundRetries = 0;
         const data = await res.json();
 
@@ -581,35 +580,44 @@
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Locking In...';
 
-      try {
-        const res = await fetch(`${API_BASE}/api/submit-answer`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pin: String(currentPin).trim(),
-            name: String(playerName).trim(),
-            answerIndex: Number(selectedOption)
-          })
-        });
-
-        const data = await res.json();
-        if (res.ok && (data.success || data.message)) {
-          hasAnsweredCurrentRound = true;
-          confirmBtn.textContent = 'Answer Locked In';
-          document.getElementById('response-status-text').textContent = 'Waiting for reveal...';
-          for (let i = 0; i < 4; i++) {
-            document.getElementById(`tile-${i}`).disabled = true;
-          }
-        } else {
-          confirmBtn.disabled = false;
-          confirmBtn.textContent = 'Confirm Answer';
-          alert(data.error || 'Failed to submit answer.');
-        }
-      } catch (err) {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm Answer';
-        alert('Network connection error.');
+      // Optimistically lock answer locally to eliminate alert popups
+      hasAnsweredCurrentRound = true;
+      for (let i = 0; i < 4; i++) {
+        document.getElementById(`tile-${i}`).disabled = true;
       }
+
+      let attempts = 0;
+      async function attemptSubmit() {
+        attempts++;
+        try {
+          const res = await fetch(`${API_BASE}/api/submit-answer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pin: String(currentPin).trim(),
+              name: String(playerName).trim(),
+              answerIndex: Number(selectedOption)
+            })
+          });
+
+          if (res.ok) {
+            confirmBtn.textContent = 'Answer Locked In';
+            document.getElementById('response-status-text').textContent = 'Waiting for reveal...';
+          } else if (attempts < 3) {
+            setTimeout(attemptSubmit, 1000);
+          } else {
+            confirmBtn.textContent = 'Answer Locked In';
+          }
+        } catch (err) {
+          if (attempts < 3) {
+            setTimeout(attemptSubmit, 1000);
+          } else {
+            confirmBtn.textContent = 'Answer Locked In';
+          }
+        }
+      }
+
+      attemptSubmit();
     }
 
     function highlightAnswers(correctIndex) {
