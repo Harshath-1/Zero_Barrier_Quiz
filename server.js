@@ -1,468 +1,596 @@
-require('dotenv').config();
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
-
-const app = express();
-app.use(express.json({ limit: '2mb' }));
-
-// CORS & Cache Busting Headers
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.path.includes('/api/') || req.path.includes('-room') || req.path.includes('-answer') || req.path.includes('-action')) {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-  }
-  next();
-});
-
-// HTML File Resolver
-function serveHtml(filename, res) {
-  const candidates = [
-    path.resolve(__dirname, 'public', filename),
-    path.join(process.cwd(), 'public', filename),
-    path.resolve(__dirname, filename),
-    path.join(process.cwd(), filename)
-  ];
-
-  for (const filePath of candidates) {
-    if (fs.existsSync(filePath)) {
-      return res.sendFile(filePath);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Player Quiz Portal</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <style>
+    :root {
+      --bg-black: #080808;
+      --card-bg: rgba(18, 18, 18, 0.95);
+      --card-border: rgba(250, 204, 21, 0.4);
+      --yellow-bright: #facc15;
+      --text-white: #ffffff;
+      --text-muted: #a3a3a3;
     }
-  }
-  return res.status(404).send(`Cannot find ${filename} in public or root directory.`);
-}
-
-// ----------------- DOMAIN-AWARE ROUTING -----------------
-app.get('/', (req, res) => {
-  const host = (req.headers.host || req.hostname || '').toLowerCase();
-  if (host.includes('player')) {
-    return serveHtml('player.html', res);
-  }
-  return serveHtml('host.html', res);
-});
-
-app.get(['/player', '/player.html'], (req, res) => serveHtml('player.html', res));
-app.get(['/host', '/host.html'], (req, res) => serveHtml('host.html', res));
-
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
-app.use(express.static(__dirname, { maxAge: '0' }));
-
-// ----------------- NON-BLOCKING IN-MEMORY & ASYNC STORAGE -----------------
-
-const memoryRooms = new Map();
-const STORAGE_DIR = process.env.VERCEL ? '/tmp/quiz_rooms' : path.join(__dirname, '.quiz_rooms');
-
-if (!fs.existsSync(STORAGE_DIR)) {
-  try {
-    fs.mkdirSync(STORAGE_DIR, { recursive: true });
-  } catch (e) {}
-}
-
-function getRoom(pin) {
-  const cleanPin = String(pin || '').trim();
-  if (memoryRooms.has(cleanPin)) {
-    return memoryRooms.get(cleanPin);
-  }
-  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
-  if (fs.existsSync(filePath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      memoryRooms.set(cleanPin, data);
-      return data;
-    } catch (e) {}
-  }
-  return null;
-}
-
-function saveRoom(pin, roomData) {
-  const cleanPin = String(pin || '').trim();
-  memoryRooms.set(cleanPin, roomData);
-
-  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
-  fs.writeFile(filePath, JSON.stringify(roomData), 'utf8', (err) => {
-    if (err) console.error(`Async save warning [${cleanPin}]:`, err.message);
-  });
-}
-
-function normalizeAnswerIndex(ans) {
-  if (typeof ans === 'number') return ans;
-  if (!ans) return 0;
-  const str = String(ans).trim().toUpperCase();
-  if (str === 'A' || str === '0') return 0;
-  if (str === 'B' || str === '1') return 1;
-  if (str === 'C' || str === '2') return 2;
-  if (str === 'D' || str === '3') return 3;
-  const parsed = parseInt(str, 10);
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-function shuffleOptions(item) {
-  if (!item || !Array.isArray(item.options) || item.options.length < 2) return item;
-  const correctIdx = normalizeAnswerIndex(item.answer);
-  const correctOptionText = item.options[correctIdx] || item.options[0];
-
-  const indices = item.options.map((_, i) => i);
-  for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
-  }
-
-  const newOptions = indices.map(idx => item.options[idx]);
-  const newAnswer = newOptions.indexOf(correctOptionText);
-
-  return {
-    ...item,
-    options: newOptions,
-    answer: newAnswer >= 0 ? newAnswer : 0
-  };
-}
-
-// ----------------- MEANINGFUL FACTUAL FALLBACK QUESTIONS -----------------
-
-function generateExactTopicQuestions(t1, t2, t3) {
-  const topic1 = t1 || 'Mathematics';
-  const topic2 = t2 || 'Physics';
-  const topic3 = t3 || 'Chemistry';
-
-  const defaultQuestions = [
-    // 5 EASY
-    { question: `What is the square root of 144 in basic ${topic1}?`, options: ['12', '14', '16', '10'], answer: 0, level: 'EASY' },
-    { question: `Which basic operation in ${topic1} represents repeated addition?`, options: ['Multiplication', 'Division', 'Subtraction', 'Exponentiation'], answer: 0, level: 'EASY' },
-    { question: `In geometry, what is the sum of interior angles in a triangle?`, options: ['180 degrees', '360 degrees', '90 degrees', '270 degrees'], answer: 0, level: 'EASY' },
-    { question: `What is the value of Pi rounded to two decimal places?`, options: ['3.14', '3.12', '3.16', '3.18'], answer: 0, level: 'EASY' },
-    { question: `A polygon with five sides is called a:`, options: ['Pentagon', 'Hexagon', 'Octagon', 'Heptagon'], answer: 0, level: 'EASY' },
-
-    // 6 MODERATE
-    { question: `Which law of motion states that for every action, there is an equal and opposite reaction?`, options: ['Newton\'s Third Law', 'Newton\'s First Law', 'Newton\'s Second Law', 'Law of Gravitation'], answer: 0, level: 'MODERATE' },
-    { question: `What is the standard unit of electrical resistance in ${topic2}?`, options: ['Ohm', 'Volt', 'Ampere', 'Watt'], answer: 0, level: 'MODERATE' },
-    { question: `What is the rate of acceleration due to Earth\'s gravity near the surface?`, options: ['9.8 m/s²', '8.9 m/s²', '10.8 m/s²', '6.67 m/s²'], answer: 0, level: 'MODERATE' },
-    { question: `Light travels fastest through which of the following media?`, options: ['Vacuum', 'Water', 'Glass', 'Air'], answer: 0, level: 'MODERATE' },
-    { question: `The kinetic energy of an object depends on its mass and:`, options: ['Velocity squared', 'Height', 'Volume', 'Density'], answer: 0, level: 'MODERATE' },
-    { question: `Which physical quantity is measured in Joules?`, options: ['Work and Energy', 'Power', 'Force', 'Momentum'], answer: 0, level: 'MODERATE' },
-
-    // 4 HARD
-    { question: `What is the atomic number of Carbon on the periodic table?`, options: ['6', '12', '8', '14'], answer: 0, level: 'HARD' },
-    { question: `Which chemical bond involves the sharing of electron pairs between atoms?`, options: ['Covalent bond', 'Ionic bond', 'Hydrogen bond', 'Metallic bond'], answer: 0, level: 'HARD' },
-    { question: `What is the pH value of pure water at 25 degrees Celsius?`, options: ['7.0', '6.0', '8.0', '1.0'], answer: 0, level: 'HARD' },
-    { question: `Which gas is the most abundant by volume in Earth\'s atmosphere?`, options: ['Nitrogen', 'Oxygen', 'Carbon Dioxide', 'Argon'], answer: 0, level: 'HARD' }
-  ];
-
-  return defaultQuestions.map(shuffleOptions);
-}
-
-// ----------------- GROQ AI GENERATION -----------------
-
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-
-async function generateAIQuestions(topic1, topic2, topic3) {
-  if (!GROQ_API_KEY) {
-    console.log('No GROQ_API_KEY found, using standard curated bank.');
-    return generateExactTopicQuestions(topic1, topic2, topic3);
-  }
-
-  const activeModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
-
-  const prompt = `You are an expert trivia writer. Generate exactly 15 factual, high-quality, authentic trivia questions:
-- Exactly 5 EASY trivia questions on: "${topic1}"
-- Exactly 6 MODERATE trivia questions on: "${topic2}"
-- Exactly 4 HARD trivia questions on: "${topic3}"
-
-STRICT RULES:
-1. Every question must be a real trivia question testing clear facts. No placeholder or generic template text.
-2. Provide 4 distinct options per question.
-3. The "answer" field MUST be the 0-indexed number (0, 1, 2, or 3) pointing to the correct choice.
-4. Return ONLY valid JSON with a "questions" array containing 15 objects.
-
-Format:
-{
-  "questions": [
-    {
-      "question": "What is the capital of France?",
-      "options": ["Paris", "Rome", "Madrid", "Berlin"],
-      "answer": 0,
-      "level": "EASY"
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-  ]
-}`;
+    body {
+      background-color: var(--bg-black);
+      color: var(--text-white);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-x: hidden;
+      position: relative;
+    }
 
-  for (const model of activeModels) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6500);
+    .bg-watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 65vmin;
+      max-width: 440px;
+      height: auto;
+      opacity: 0.045;
+      pointer-events: none;
+      z-index: 0;
+      user-select: none;
+    }
 
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: 'system', content: 'You respond only in strictly valid JSON.' },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.6,
-          response_format: { type: 'json_object' }
-        })
-      });
+    #welcome-splash {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-black);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      animation: introSequence 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+      pointer-events: none;
+    }
 
-      clearTimeout(timeout);
-      if (!res.ok) continue;
+    .splash-logo {
+      max-width: 220px;
+      width: 70%;
+      max-height: 220px;
+      object-fit: contain;
+      border-radius: 14px;
+      border: 2px solid var(--yellow-bright);
+      box-shadow: 0 0 35px rgba(250, 204, 21, 0.4);
+      margin-bottom: 24px;
+      animation: popIn 0.6s ease-out forwards;
+    }
 
-      const data = await res.json();
-      const rawText = data.choices?.[0]?.message?.content || '{}';
-      const parsed = JSON.parse(rawText);
-      const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+    .splash-title {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: var(--yellow-bright);
+      text-transform: uppercase;
+      text-shadow: 0 0 20px rgba(250, 204, 21, 0.5);
+    }
 
-      if (Array.isArray(list) && list.length === 15) {
-        return list.map(q => ({
-          question: String(q.question),
-          options: q.options.map(String),
-          answer: normalizeAnswerIndex(q.answer),
-          level: q.level || 'EASY'
-        })).map(shuffleOptions);
+    @keyframes popIn {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes introSequence {
+      0% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.18);
+      width: 100%;
+      transition: all 0.3s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (min-width: 900px) {
+      .glass-card {
+        max-width: 980px;
+        padding: 36px 44px;
+        min-height: 560px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
-    } catch (err) {
-      continue;
-    }
-  }
-
-  return generateExactTopicQuestions(topic1, topic2, topic3);
-}
-
-// ----------------- API ENDPOINTS -----------------
-
-// Create Room
-app.post(['/api/create-room', '/create-room'], async (req, res) => {
-  try {
-    const { customPin, mode, manualQuestions, topic1, topic2, topic3 } = req.body || {};
-    const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
-
-    let questions = [];
-    if (mode === 'manual' && Array.isArray(manualQuestions) && manualQuestions.length > 0) {
-      questions = manualQuestions.map((q, idx) => ({
-        index: idx + 1,
-        question: q.question,
-        options: q.options,
-        answer: normalizeAnswerIndex(q.answer),
-        level: q.level || 'CUSTOM'
-      }));
-    } else {
-      const t1 = (topic1 && topic1.trim()) || 'Mathematics';
-      const t2 = (topic2 && topic2.trim()) || 'Physics';
-      const t3 = (topic3 && topic3.trim()) || 'Chemistry';
-
-      questions = await generateAIQuestions(t1, t2, t3);
+      .title-banner { font-size: 28px; }
+      .grid { grid-template-columns: 1fr 1fr; gap: 18px; }
+      .host-tile { font-size: 18px; padding: 22px 18px; min-height: 75px; }
+      #question-text { font-size: 24px; margin: 20px 0; }
+      .splash-title { font-size: 36px; }
+      .splash-logo { max-width: 280px; max-height: 280px; }
     }
 
-    const roomData = {
-      pin,
-      questions,
-      currentIndex: 0,
-      state: 'LOBBY',
-      revealedAnswer: null,
-      players: {},
-      answersThisRound: {},
-      createdAt: Date.now()
-    };
-
-    saveRoom(pin, roomData);
-    return res.status(200).json({ success: true, pin, count: questions.length });
-  } catch (err) {
-    const pin = Math.floor(100000 + Math.random() * 900000).toString();
-    const fallback = generateExactTopicQuestions('Mathematics', 'Physics', 'Chemistry');
-    const roomData = {
-      pin,
-      questions: fallback,
-      currentIndex: 0,
-      state: 'LOBBY',
-      revealedAnswer: null,
-      players: {},
-      answersThisRound: {},
-      createdAt: Date.now()
-    };
-    saveRoom(pin, roomData);
-    return res.status(200).json({ success: true, pin, count: 15 });
-  }
-});
-
-// Room Status
-app.get(['/api/room-status', '/room-status'], (req, res) => {
-  const pin = String(req.query.pin || '').trim();
-  const room = getRoom(pin);
-  if (!room) return res.status(404).json({ error: 'Room not found' });
-
-  const playerList = Object.values(room.players || {});
-  const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
-    ? room.questions[room.currentIndex - 1]
-    : null;
-
-  return res.status(200).json({
-    pin: room.pin,
-    state: room.state,
-    currentIndex: room.currentIndex,
-    totalQuestions: room.questions.length,
-    playerCount: playerList.length,
-    players: playerList.map(p => p.name),
-    responsesCount: Object.keys(room.answersThisRound || {}).length,
-    question: currentQ ? {
-      index: room.currentIndex,
-      total: room.questions.length,
-      level: currentQ.level,
-      question: currentQ.question,
-      options: currentQ.options
-    } : null,
-    revealedAnswer: room.revealedAnswer,
-    leaderboard: [...playerList].sort((a, b) => b.score - a.score)
-  });
-});
-
-// Host Action
-app.post(['/api/host-action', '/host-action'], (req, res) => {
-  const { pin, action } = req.body || {};
-  const room = getRoom(pin);
-  if (!room) return res.status(404).json({ error: 'Room not found' });
-
-  if (action === 'NEXT') {
-    if (room.currentIndex >= room.questions.length) {
-      room.state = 'FINISHED';
-    } else {
-      room.currentIndex = Number(room.currentIndex || 0) + 1;
-      room.state = 'QUESTION';
-      room.revealedAnswer = null;
-      room.answersThisRound = {};
+    @media (max-width: 899px) {
+      body { padding: 12px 10px; align-items: flex-start; }
+      .glass-card {
+        max-width: 480px;
+        padding: 18px 16px;
+        min-height: calc(100dvh - 24px);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .title-banner { font-size: 20px; }
+      .grid { grid-template-columns: 1fr; gap: 10px; }
+      .host-tile { font-size: 15px; padding: 14px 12px; }
+      #question-text { font-size: 17px; margin: 12px 0; }
+      .splash-title { font-size: 22px; }
     }
-  } else if (action === 'REVEAL') {
-    if (room.currentIndex > 0 && room.currentIndex <= room.questions.length) {
-      room.state = 'REVEAL';
-      room.revealedAnswer = normalizeAnswerIndex(room.questions[room.currentIndex - 1].answer);
+
+    .club-banner-wrapper {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      border: 1.5px solid var(--yellow-bright);
     }
-  } else if (action === 'END') {
-    room.state = 'FINISHED';
-  }
-
-  saveRoom(pin, room);
-  return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
-});
-
-// Player Join
-app.post(['/api/join-room', '/join-room'], (req, res) => {
-  const { pin, name } = req.body || {};
-  const room = getRoom(pin);
-  if (!room) return res.status(404).json({ error: 'Invalid PIN. Room not found.' });
-
-  const cleanName = String(name || '').trim() || 'Player';
-  const playerKey = cleanName.toLowerCase();
-
-  if (!room.players) room.players = {};
-  if (!room.answersThisRound) room.answersThisRound = {};
-
-  if (!room.players[playerKey]) {
-    room.players[playerKey] = {
-      name: cleanName,
-      score: 0,
-      correctCount: 0,
-      joinedAt: Date.now()
-    };
-  }
-
-  saveRoom(pin, room);
-
-  const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
-    ? room.questions[room.currentIndex - 1]
-    : null;
-
-  return res.status(200).json({
-    success: true,
-    reconnected: true,
-    name: room.players[playerKey].name,
-    score: room.players[playerKey].score,
-    state: room.state,
-    currentIndex: room.currentIndex,
-    totalQuestions: room.questions.length,
-    hasAnsweredCurrentRound: room.answersThisRound[playerKey] !== undefined,
-    currentQuestion: currentQ ? {
-      index: room.currentIndex,
-      total: room.questions.length,
-      level: currentQ.level,
-      question: currentQ.question,
-      options: currentQ.options
-    } : null
-  });
-});
-
-// Player Submit Answer
-app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
-  const { pin, name, answerIndex } = req.body || {};
-  const room = getRoom(pin);
-
-  if (!room) {
-    return res.status(404).json({ error: 'Room not found' });
-  }
-
-  // Accept answer only when active
-  if (room.state !== 'QUESTION') {
-    return res.status(400).json({ error: 'Quiz is not currently accepting answers.' });
-  }
-
-  if (!room.answersThisRound) room.answersThisRound = {};
-  if (!room.players) room.players = {};
-
-  const playerKey = String(name || '').trim().toLowerCase();
-  if (!playerKey) {
-    return res.status(400).json({ error: 'Missing player name' });
-  }
-
-  if (!room.players[playerKey]) {
-    room.players[playerKey] = { name: String(name || '').trim(), score: 0, correctCount: 0 };
-  }
-
-  // Idempotency: if already answered this round
-  if (room.answersThisRound[playerKey] !== undefined) {
-    return res.status(200).json({ success: true, message: 'Answer already received' });
-  }
-
-  const chosen = normalizeAnswerIndex(answerIndex);
-  room.answersThisRound[playerKey] = chosen;
-
-  const currentQ = room.questions[room.currentIndex - 1];
-  if (currentQ) {
-    const correct = normalizeAnswerIndex(currentQ.answer);
-    if (chosen === correct) {
-      room.players[playerKey].score = (room.players[playerKey].score || 0) + 100;
-      room.players[playerKey].correctCount = (room.players[playerKey].correctCount || 0) + 1;
+    .club-banner {
+      width: 100%;
+      display: block;
+      max-height: 125px;
+      object-fit: cover;
     }
-  }
 
-  saveRoom(pin, room);
-  return res.status(200).json({ success: true, score: room.players[playerKey].score });
-});
+    .top-logo-container {
+      text-align: center;
+      margin: 4px 0 12px 0;
+    }
+    .top-logo {
+      max-height: 70px;
+      max-width: 80%;
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+    }
 
-// Catch-all
-app.use((req, res) => {
-  if (req.path.startsWith('/api/') || req.method === 'POST') {
-    return res.status(404).json({ success: false, error: `Endpoint not found: ${req.method} ${req.path}` });
-  }
-  return res.status(404).send('Page not found');
-});
+    .title-banner {
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--yellow-bright);
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .info-line {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 18px;
+    }
 
-// Dev listener
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Quiz server active on port ${PORT}`);
-  });
-}
+    .field-label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--yellow-bright);
+      margin-bottom: 6px;
+    }
+    .inset-data-input, .category-input {
+      width: 100%;
+      background: #0f0f0f;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: var(--text-white);
+      font-size: 15px;
+      margin-bottom: 14px;
+      outline: none;
+    }
+    .inset-data-input {
+      font-size: 16px;
+      font-weight: 700;
+      border-color: var(--yellow-bright);
+    }
 
-module.exports = app;
+    .yellow-btn {
+      width: 100%;
+      padding: 15px;
+      background: var(--yellow-bright);
+      border: none;
+      border-radius: 12px;
+      color: #000;
+      font-size: 16px;
+      font-weight: 900;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(250, 204, 21, 0.45);
+      margin-top: auto;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .yellow-btn:hover { background: #fde047; }
+    .yellow-btn:disabled {
+      background: #232530 !important;
+      color: #717789 !important;
+      box-shadow: none !important;
+      cursor: not-allowed;
+    }
+
+    .badge-hud {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 900;
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid var(--yellow-bright);
+      color: var(--yellow-bright);
+      text-transform: uppercase;
+    }
+
+    .player-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f0f0f;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+    }
+    .player-header-bar .user-tag { font-size: 13px; font-weight: 800; color: #ffffff; }
+    .player-header-bar .score-tag { font-size: 13px; font-weight: 800; color: var(--yellow-bright); }
+
+    .grid { display: grid; margin: 14px 0; }
+    .host-tile {
+      background: #141414;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      font-weight: 700;
+      color: #ffffff;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 14px;
+      transition: background 0.15s;
+    }
+    .host-tile:hover:not(:disabled) {
+      background: #202020;
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .host-tile.selected {
+      border: 2px solid var(--yellow-bright) !important;
+      background: rgba(250, 204, 21, 0.2) !important;
+      color: var(--yellow-bright) !important;
+      box-shadow: 0 0 15px rgba(250, 204, 21, 0.35);
+    }
+    .host-tile.correct {
+      border: 2px solid #2ed573 !important;
+      background: rgba(46, 213, 115, 0.3) !important;
+      color: #ffffff !important;
+    }
+    .host-tile.wrong {
+      border: 2px solid #ff4757 !important;
+      background: rgba(255, 71, 87, 0.3) !important;
+      color: #ffffff !important;
+    }
+    .host-tile.dimmed { opacity: 0.35 !important; }
+
+    .pin-display-box {
+      background: #0f0f0f;
+      border: 1.5px dashed var(--yellow-bright);
+      border-radius: 16px;
+      padding: 22px;
+      margin: 18px 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <img src="/watermark.png" alt="Watermark" class="bg-watermark" onerror="this.style.display='none'" />
+
+  <div id="welcome-splash">
+    <img src="/logo_vertical.jpeg" alt="Logo" class="splash-logo" onerror="this.style.display='none'">
+    <div class="splash-title">Welcome to Zero Barrier Quiz</div>
+  </div>
+
+  <div class="glass-card">
+    <div class="club-banner-wrapper">
+      <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" onerror="this.parentElement.style.display='none'" />
+    </div>
+
+    <!-- 1. JOIN VIEW -->
+    <div id="join-card" style="display: flex; flex-direction: column; flex: 1; justify-content: center;">
+      <div class="top-logo-container">
+        <img src="/logo.png" alt="ALIET Techpreneur Club" class="top-logo" onerror="this.style.display='none'" />
+      </div>
+
+      <div class="title-banner">PLAYER QUIZ PORTAL</div>
+      <div class="info-line">Enter active session PIN & your name</div>
+
+      <label class="field-label">Session PIN</label>
+      <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" autocomplete="off" />
+
+      <label class="field-label">Player Name</label>
+      <input id="name-input" class="category-input" type="text" placeholder="Enter your full name" autocomplete="off" />
+
+      <button id="join-btn" class="yellow-btn" onclick="joinGame()">Enter Session</button>
+    </div>
+
+    <!-- 2. LOBBY WAITING VIEW -->
+    <div id="lobby-card" style="display: none; text-align: center; flex: 1;">
+      <div class="badge-hud">LOBBY CONNECTED</div>
+      <div class="pin-display-box">
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Connected As</div>
+        <div id="display-player" style="font-size: 32px; font-weight: 900; color: var(--yellow-bright);">Player</div>
+        <div style="font-size: 14px; color: var(--text-muted); margin-top: 10px;">Waiting for host to launch the quiz...</div>
+      </div>
+    </div>
+
+    <!-- 3. QUESTION VIEW -->
+    <div id="question-card" style="display: none; flex-direction: column; flex: 1;">
+      <div class="player-header-bar">
+        <span class="user-tag" id="player-hud-name">👤 Player</span>
+        <span class="badge-hud" id="level-badge">EASY</span>
+        <span class="score-tag" id="score-counter">Score: 0</span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 800;" id="q-counter">Question 1</span>
+        <span id="response-status-text" style="font-size: 12px; color: var(--yellow-bright); font-weight: 700;">Select an answer</span>
+      </div>
+
+      <div id="question-text" style="font-weight: 800; color: #ffffff; line-height: 1.4;">Loading question...</div>
+
+      <div class="grid">
+        <button class="host-tile" id="tile-0" onclick="selectOption(0)">A. <span id="opt-0" style="margin-left: 8px;"></span></button>
+        <button class="host-tile" id="tile-1" onclick="selectOption(1)">B. <span id="opt-1" style="margin-left: 8px;"></span></button>
+        <button class="host-tile" id="tile-2" onclick="selectOption(2)">C. <span id="opt-2" style="margin-left: 8px;"></span></button>
+        <button class="host-tile" id="tile-3" onclick="selectOption(3)">D. <span id="opt-3" style="margin-left: 8px;"></span></button>
+      </div>
+
+      <button id="confirm-btn" class="yellow-btn" onclick="submitAnswer()" disabled>Confirm Answer</button>
+    </div>
+
+    <!-- 4. FINAL STANDINGS VIEW -->
+    <div id="end-card" style="display: none; text-align: center; flex: 1;">
+      <div class="badge-hud">QUIZ COMPLETED</div>
+      <div class="title-banner" style="font-size: 20px; margin-top: 10px;">FINAL STANDINGS</div>
+      <div id="leaderboard-container" style="margin-top: 16px; max-height: 380px; overflow-y: auto;"></div>
+    </div>
+  </div>
+
+  <script>
+    setTimeout(() => {
+      const splash = document.getElementById('welcome-splash');
+      if (splash) splash.remove();
+    }, 2500);
+
+    let currentPin = '';
+    let playerName = '';
+    let selectedOption = null;
+    let hasAnsweredCurrentRound = false;
+    let lastSeenQuestionIndex = -1;
+    let pollTimer = null;
+    let isFetching = false;
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function showCard(cardId) {
+      ['join-card', 'lobby-card', 'question-card', 'end-card'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (id === cardId) ? 'flex' : 'none';
+      });
+    }
+
+    async function joinGame() {
+      const pin = String(document.getElementById('pin-input').value).trim();
+      const name = String(document.getElementById('name-input').value).trim();
+
+      if (!pin || !name) {
+        alert('Please enter both PIN and Name.');
+        return;
+      }
+
+      const btn = document.getElementById('join-btn');
+      btn.textContent = 'Connecting...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/join-room', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin, name })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          currentPin = pin;
+          playerName = name;
+          document.getElementById('display-player').textContent = name;
+          document.getElementById('player-hud-name').textContent = `👤 ${escapeHtml(name)}`;
+          showCard('lobby-card');
+          startPolling();
+        } else {
+          alert('Failed to join: ' + (data.error || 'Invalid PIN'));
+          btn.textContent = 'Enter Session';
+          btn.disabled = false;
+        }
+      } catch (err) {
+        alert('Network connection error: ' + err.message);
+        btn.textContent = 'Enter Session';
+        btn.disabled = false;
+      }
+    }
+
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(fetchRoomStatus, 2000);
+      fetchRoomStatus();
+    }
+
+    async function fetchRoomStatus() {
+      if (!currentPin || isFetching) return;
+      isFetching = true;
+
+      try {
+        const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.leaderboard) {
+          const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+          if (me) {
+            document.getElementById('score-counter').textContent = `Score: ${me.score}`;
+          }
+        }
+
+        if (data.state === 'LOBBY') {
+          showCard('lobby-card');
+        } else if (data.state === 'QUESTION') {
+          if (data.currentIndex !== lastSeenQuestionIndex) {
+            lastSeenQuestionIndex = data.currentIndex;
+            hasAnsweredCurrentRound = false;
+            selectedOption = null;
+            renderQuestion(data.question);
+          }
+          showCard('question-card');
+        } else if (data.state === 'REVEAL') {
+          if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
+            highlightAnswers(Number(data.revealedAnswer));
+            showCard('question-card');
+          }
+        } else if (data.state === 'FINISHED') {
+          clearInterval(pollTimer);
+          showCard('end-card');
+
+          const rows = (data.leaderboard || []).map((p, idx) => `
+            <div style="display:flex; justify-content:space-between; padding: 12px 18px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
+              <span>#${idx + 1} ${escapeHtml(p.name)}</span>
+              <span style="color:var(--yellow-bright);"><strong>${p.score} pts</strong> (${p.correctCount} correct)</span>
+            </div>
+          `).join('');
+
+          document.getElementById('leaderboard-container').innerHTML = `
+            <div style="background: #0f0f0f; border-radius: 12px; border: 1px solid rgba(250,204,21,0.3);">${rows}</div>
+          `;
+        }
+      } catch (e) {
+        console.error('Polling error', e);
+      } finally {
+        isFetching = false;
+      }
+    }
+
+    function renderQuestion(q) {
+      if (!q) return;
+
+      document.getElementById('q-counter').textContent = `Question ${q.index} of ${q.total}`;
+      document.getElementById('level-badge').textContent = q.level || 'QUESTION';
+      document.getElementById('question-text').textContent = q.question;
+      document.getElementById('response-status-text').textContent = 'Select an answer';
+
+      for (let i = 0; i < 4; i++) {
+        const tile = document.getElementById(`tile-${i}`);
+        const span = document.getElementById(`opt-${i}`);
+        span.textContent = (q.options && q.options[i]) ? q.options[i] : '';
+        tile.className = 'host-tile';
+        tile.disabled = false;
+      }
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Confirm Answer';
+    }
+
+    function selectOption(index) {
+      if (hasAnsweredCurrentRound) return;
+
+      selectedOption = index;
+      for (let i = 0; i < 4; i++) {
+        const tile = document.getElementById(`tile-${i}`);
+        if (i === index) tile.classList.add('selected');
+        else tile.classList.remove('selected');
+      }
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = false;
+    }
+
+    async function submitAnswer() {
+      if (selectedOption === null || hasAnsweredCurrentRound) return;
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Locking In...';
+
+      try {
+        const res = await fetch('/api/submit-answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pin: String(currentPin).trim(),
+            name: String(playerName).trim(),
+            answerIndex: Number(selectedOption)
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && (data.success || data.message)) {
+          hasAnsweredCurrentRound = true;
+          confirmBtn.textContent = 'Answer Locked In';
+          document.getElementById('response-status-text').textContent = 'Waiting for reveal...';
+          for (let i = 0; i < 4; i++) {
+            document.getElementById(`tile-${i}`).disabled = true;
+          }
+        } else {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Confirm Answer';
+          alert(data.error || 'Failed to submit answer.');
+        }
+      } catch (err) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm Answer';
+        alert('Network connection error.');
+      }
+    }
+
+    function highlightAnswers(correctIndex) {
+      for (let i = 0; i < 4; i++) {
+        const tile = document.getElementById(`tile-${i}`);
+        tile.disabled = true;
+        if (i === correctIndex) {
+          tile.className = 'host-tile correct';
+        } else if (i === selectedOption) {
+          tile.className = 'host-tile wrong';
+        } else {
+          tile.className = 'host-tile dimmed';
+        }
+      }
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Answer Revealed';
+      document.getElementById('response-status-text').textContent = 'Round ended';
+    }
+  </script>
+</body>
+</html>
