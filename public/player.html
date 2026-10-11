@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Player Quiz Portal</title>
-  <!-- Browser Tab Icon -->
   <link rel="icon" type="image/png" href="/logo.png" />
   <style>
     :root {
@@ -34,7 +33,6 @@
       position: relative;
     }
 
-    /* FULL-SCREEN SUBTLE WATERMARK */
     .bg-watermark {
       position: fixed;
       top: 50%;
@@ -43,13 +41,12 @@
       width: 65vmin;
       max-width: 440px;
       height: auto;
-      opacity: 0.045; /* Soft watermark that won't distract from text */
-      pointer-events: none; /* Clicks and taps pass straight through */
+      opacity: 0.045;
+      pointer-events: none;
       z-index: 0;
       user-select: none;
     }
 
-    /* 2.5-Second Intro Splash Screen */
     #welcome-splash {
       position: fixed;
       inset: 0;
@@ -107,10 +104,9 @@
       width: 100%;
       transition: all 0.3s ease;
       position: relative;
-      z-index: 1; /* Elevates above the watermark */
+      z-index: 1;
     }
 
-    /* DESKTOP (16:9 / 16:10 Presentation View) */
     @media (min-width: 900px) {
       .glass-card {
         max-width: 980px;
@@ -128,7 +124,6 @@
       .splash-logo { max-width: 280px; max-height: 280px; }
     }
 
-    /* MOBILE (9:16 Vertical View) */
     @media (max-width: 899px) {
       body { padding: 12px 10px; align-items: flex-start; }
       .glass-card {
@@ -160,7 +155,6 @@
       object-fit: cover;
     }
 
-    /* Top Logo Styling */
     .top-logo-container {
       text-align: center;
       margin: 4px 0 12px 0;
@@ -308,7 +302,6 @@
 </head>
 <body>
 
-  <!-- Fullscreen Centered Background Watermark -->
   <img src="/watermark.png" alt="Watermark" class="bg-watermark" onerror="this.style.display='none'" />
 
   <!-- 2.5-Second Intro Splash -->
@@ -319,14 +312,12 @@
 
   <div class="glass-card">
     
-    <!-- Permanent Club Banner Header -->
     <div class="club-banner-wrapper">
       <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" onerror="this.parentElement.style.display='none'" />
     </div>
 
     <!-- 1. JOIN VIEW -->
     <div id="join-card" style="display: flex; flex-direction: column; flex: 1; justify-content: center;">
-      <!-- Club Logo Placement -->
       <div class="top-logo-container">
         <img src="/logo.png" alt="ALIET Techpreneur Club" class="top-logo" onerror="this.style.display='none'" />
       </div>
@@ -388,7 +379,6 @@
   </div>
 
   <script>
-    // Remove splash overlay from DOM after 2.5 seconds
     setTimeout(() => {
       const splash = document.getElementById('welcome-splash');
       if (splash) splash.remove();
@@ -400,6 +390,7 @@
     let hasAnsweredCurrentRound = false;
     let lastSeenQuestionIndex = 0;
     let pollTimer = null;
+    let isFetching = false;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -457,12 +448,13 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(fetchRoomStatus, 1500);
+      pollTimer = setInterval(fetchRoomStatus, 2000);
       fetchRoomStatus();
     }
 
     async function fetchRoomStatus() {
-      if (!currentPin) return;
+      if (!currentPin || isFetching) return;
+      isFetching = true;
 
       try {
         const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}`);
@@ -508,6 +500,8 @@
         }
       } catch (e) {
         console.error('Polling error', e);
+      } finally {
+        isFetching = false;
       }
     }
 
