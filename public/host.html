@@ -424,7 +424,8 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(fetchRoomStatus, 2000);
+      // 2500ms heartbeat preserves mobile battery and removes network lag
+      pollTimer = setInterval(fetchRoomStatus, 2500);
       fetchRoomStatus();
     }
 
