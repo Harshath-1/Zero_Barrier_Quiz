@@ -382,10 +382,10 @@
       if (splash) splash.remove();
     }, 2500);
 
-    // Cross-Domain Backend Origin Router:
-    // Ensures calls from player-zero-barrier-quiz land on zero-barrier-quiz where room data is stored
-    const API_BASE = window.location.hostname.includes('player-')
-      ? 'https://zero-barrier-quiz.vercel.app'
+    // Dynamic Cross-Domain Origin Router:
+    // Automatically routes calls from 'player-*' subdomains to the base host deployment
+    const API_BASE = window.location.hostname.startsWith('player-')
+      ? `${window.location.protocol}//${window.location.host.replace(/^player-/, '')}`
       : '';
 
     let currentPin = '';
@@ -466,7 +466,6 @@
         const url = `${API_BASE}/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentRoomVersion}`;
         const res = await fetch(url);
         if (!res.ok) {
-          // If room not found error occurs, gracefully notify
           if (res.status === 404) {
             clearInterval(pollTimer);
             alert('Room not found on server.');
@@ -493,6 +492,7 @@
         if (data.state === 'LOBBY') {
           if (stateChanged) showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
+          // MONOTONIC CHECK: Only advance FORWARD. Reject any stale lower index.
           if (data.currentIndex > highestSeenPlayerIndex) {
             highestSeenPlayerIndex = data.currentIndex;
             hasAnsweredCurrentRound = false;
