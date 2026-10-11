@@ -444,7 +444,6 @@
         if (!res.ok) return;
         const data = await res.json();
 
-        // Always update fast counter badges and joined player list
         document.getElementById('player-count').textContent = data.playerCount || 0;
         document.getElementById('response-count').textContent = `${data.responsesCount || 0} / ${data.playerCount || 0}`;
 
@@ -454,7 +453,6 @@
             .join('');
         }
 
-        // Lightweight skip: only skip when state and version are genuinely identical
         if (data.unchanged && data.state === lastSeenState) {
           return;
         }
@@ -483,7 +481,6 @@
             }
           }
 
-          // Trigger reveal highlighting when the host clicks Reveal
           if (data.state === 'REVEAL' && data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
             const correct = Number(data.revealedAnswer);
             for (let i = 0; i < 4; i++) {
