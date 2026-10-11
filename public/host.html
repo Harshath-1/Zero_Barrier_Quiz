@@ -276,6 +276,7 @@
     let isActionPending = false;
     let currentMode = 'topic';
     let manualCount = 0;
+    let highestSeenHostIndex = 0;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -385,6 +386,7 @@
 
         if (res.ok && data.pin) {
           currentPin = data.pin;
+          highestSeenHostIndex = 0;
           document.getElementById('setup-card').style.display = 'none';
           document.getElementById('lobby-card').style.display = 'flex';
           document.getElementById('display-pin').textContent = data.pin;
@@ -424,7 +426,6 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      // 2500ms heartbeat preserves mobile battery and removes network lag
       pollTimer = setInterval(fetchRoomStatus, 2500);
       fetchRoomStatus();
     }
@@ -446,6 +447,12 @@
         }
 
         if (data.state === 'QUESTION' || data.state === 'REVEAL') {
+          // MONOTONIC CHECK: Reject older stale serverless responses
+          if (data.currentIndex < highestSeenHostIndex) {
+            return;
+          }
+          highestSeenHostIndex = data.currentIndex;
+
           document.getElementById('lobby-card').style.display = 'none';
           document.getElementById('question-card').style.display = 'flex';
 
@@ -492,6 +499,7 @@
     function resetToNewSession() {
       if (pollTimer) clearInterval(pollTimer);
       currentPin = '';
+      highestSeenHostIndex = 0;
       document.getElementById('pin-input').value = '';
       document.getElementById('display-pin').textContent = '------';
       document.getElementById('player-count').textContent = '0';
