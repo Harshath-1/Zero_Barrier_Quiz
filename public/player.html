@@ -47,7 +47,6 @@
       user-select: none;
     }
 
-    /* Auto-dismissing splash screen that NEVER gets stuck */
     #welcome-splash {
       position: fixed;
       inset: 0;
@@ -316,7 +315,7 @@
       <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" onerror="this.parentElement.style.display='none'" />
     </div>
 
-    <!-- 1. JOIN VIEW (Always visible initially) -->
+    <!-- 1. JOIN VIEW -->
     <div id="join-card" style="display: flex; flex-direction: column; flex: 1; justify-content: center;">
       <div class="top-logo-container">
         <img src="/logo.png" alt="ALIET Techpreneur Club" class="top-logo" onerror="this.style.display='none'" />
@@ -378,16 +377,15 @@
   </div>
 
   <script>
-    // Clean up splash overlay safely
     setTimeout(() => {
       const splash = document.getElementById('welcome-splash');
       if (splash) splash.remove();
     }, 2200);
 
-    // Cross-Domain Routing Resolver:
-    // If opened on player-* domain, route to main host domain
-    const API_BASE = window.location.hostname.startsWith('player-')
-      ? `${window.location.protocol}//${window.location.host.replace(/^player-/, '')}`
+    // Explicit Origin Router:
+    // Guarantees all API calls from player-* subdomains hit the host backend directly
+    const API_BASE = window.location.hostname.includes('player-')
+      ? 'https://zero-barrier-quiz.vercel.app'
       : '';
 
     let currentPin = '';
@@ -447,12 +445,12 @@
           showCard('lobby-card');
           startPolling();
         } else {
-          alert('Failed to join: ' + (data.error || 'Invalid PIN'));
+          alert('Failed to join: ' + (data.error || 'Invalid PIN. Room not found.'));
           btn.textContent = 'Enter Session';
           btn.disabled = false;
         }
       } catch (err) {
-        alert('Network connection error: ' + err.message);
+        alert('Connection error: Unable to reach host server.');
         btn.textContent = 'Enter Session';
         btn.disabled = false;
       }
@@ -472,7 +470,6 @@
         const url = `${API_BASE}/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentRoomVersion}`;
         const res = await fetch(url);
 
-        // If a serverless container switch is occurring, cleanly return and wait for next tick
         if (!res.ok) {
           return;
         }
