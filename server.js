@@ -44,17 +44,12 @@ function serveHtml(filename, res) {
 // ----------------- DOMAIN-AWARE ROUTING -----------------
 app.get('/', (req, res) => {
   const host = (req.headers.host || req.hostname || '').toLowerCase();
-
-  // If visited via player subdomain or path
   if (host.includes('player')) {
     return serveHtml('player.html', res);
   }
-
-  // Default root to host interface
   return serveHtml('host.html', res);
 });
 
-// Explicit Path Routes
 app.get(['/player', '/player.html'], (req, res) => serveHtml('player.html', res));
 app.get(['/host', '/host.html'], (req, res) => serveHtml('host.html', res));
 
@@ -88,7 +83,6 @@ function getRoom(pin) {
   return null;
 }
 
-// Non-blocking asynchronous write prevents event-loop lockups
 function saveRoom(pin, roomData) {
   const cleanPin = String(pin || '').trim();
   memoryRooms.set(cleanPin, roomData);
@@ -99,226 +93,101 @@ function saveRoom(pin, roomData) {
   });
 }
 
+function normalizeAnswerIndex(ans) {
+  if (typeof ans === 'number') return ans;
+  if (!ans) return 0;
+  const str = String(ans).trim().toUpperCase();
+  if (str === 'A' || str === '0') return 0;
+  if (str === 'B' || str === '1') return 1;
+  if (str === 'C' || str === '2') return 2;
+  if (str === 'D' || str === '3') return 3;
+  const parsed = parseInt(str, 10);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 function shuffleOptions(item) {
   if (!item || !Array.isArray(item.options) || item.options.length < 2) return item;
+  const correctIdx = normalizeAnswerIndex(item.answer);
+  const correctOptionText = item.options[correctIdx] || item.options[0];
+
   const indices = item.options.map((_, i) => i);
   for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
+
   const newOptions = indices.map(idx => item.options[idx]);
-  const newAnswer = indices.indexOf(Number(item.answer));
-  return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
+  const newAnswer = newOptions.indexOf(correctOptionText);
+
+  return {
+    ...item,
+    options: newOptions,
+    answer: newAnswer >= 0 ? newAnswer : 0
+  };
 }
 
-// ----------------- MEANINGFUL CURATED FALLBACK GENERATOR -----------------
+// ----------------- MEANINGFUL FACTUAL FALLBACK QUESTIONS -----------------
 
 function generateExactTopicQuestions(t1, t2, t3) {
-  const cleanT1 = (t1 && t1.trim()) || 'General Knowledge';
-  const cleanT2 = (t2 && t2.trim()) || 'Science';
-  const cleanT3 = (t3 && t3.trim()) || 'History';
+  const topic1 = t1 || 'Mathematics';
+  const topic2 = t2 || 'Physics';
+  const topic3 = t3 || 'Chemistry';
 
-  const questions = [
-    // 5 EASY Questions (Tier 1)
-    {
-      question: `Which of the following is most fundamentally associated with ${cleanT1}?`,
-      options: [
-        `The primary baseline concept of ${cleanT1}`,
-        `A secondary phenomenon found in ${cleanT2}`,
-        `An advanced theorem belonging to ${cleanT3}`,
-        `An unrelated arbitrary term`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
-    {
-      question: `When introducing beginners to ${cleanT1}, which element is taught first?`,
-      options: [
-        `Core foundational principles`,
-        `Advanced non-linear calculations`,
-        `Complex statistical analysis`,
-        `Obsolete historical anomalies`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
-    {
-      question: `Which term is most widely recognized as a standard component of ${cleanT1}?`,
-      options: [
-        `Standard identifying term of ${cleanT1}`,
-        `Specialized nomenclature of ${cleanT2}`,
-        `Experimental variable from ${cleanT3}`,
-        `Unverified theoretical notation`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
-    {
-      question: `What primary purpose does studying ${cleanT1} serve in foundational education?`,
-      options: [
-        `Building core comprehension of essential principles`,
-        `Replacing empirical physical observations`,
-        `Memorizing arbitrary unrelated dates`,
-        `Overriding universal constants`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
-    {
-      question: `In standard discussions of ${cleanT1}, which basic rule universally holds true?`,
-      options: [
-        `Consistent adherence to fundamental laws`,
-        `Randomly alternating outcomes`,
-        `Total absence of structured rules`,
-        `Unpredictable variance under identical conditions`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
+  const defaultQuestions = [
+    // 5 EASY
+    { question: `What is the square root of 144 in basic ${topic1}?`, options: ['12', '14', '16', '10'], answer: 0, level: 'EASY' },
+    { question: `Which basic operation in ${topic1} represents repeated addition?`, options: ['Multiplication', 'Division', 'Subtraction', 'Exponentiation'], answer: 0, level: 'EASY' },
+    { question: `In geometry, what is the sum of interior angles in a triangle?`, options: ['180 degrees', '360 degrees', '90 degrees', '270 degrees'], answer: 0, level: 'EASY' },
+    { question: `What is the value of Pi rounded to two decimal places?`, options: ['3.14', '3.12', '3.16', '3.18'], answer: 0, level: 'EASY' },
+    { question: `A polygon with five sides is called a:`, options: ['Pentagon', 'Hexagon', 'Octagon', 'Heptagon'], answer: 0, level: 'EASY' },
 
-    // 6 MODERATE Questions (Tier 2)
-    {
-      question: `In practical intermediate applications of ${cleanT2}, what is the main objective?`,
-      options: [
-        `Applying proven principles to solve systemic problems`,
-        `Completely disregarding baseline rules`,
-        `Guessing outcomes without measurement`,
-        `Limiting application to trivial scenarios`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `Which key mechanism is essential when examining transitions within ${cleanT2}?`,
-      options: [
-        `Structured feedback and proportional adjustment`,
-        `Spontaneous unmonitored fluctuations`,
-        `Complete isolation from environmental variables`,
-        `Arbitrary parameter inversion`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `How does increasing complexity generally affect outcomes in ${cleanT2}?`,
-      options: [
-        `Demands tighter control parameters and rigorous validation`,
-        `Guarantees automatic system optimization`,
-        `Eliminates the necessity of error checking`,
-        `Reduces all operational overhead to zero`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `When diagnosing unexpected errors during an analysis of ${cleanT2}, what is the standard first step?`,
-      options: [
-        `Verifying baseline inputs and boundary conditions`,
-        `Discarding all previously gathered metrics`,
-        `Assuming the fundamental theory is flawed`,
-        `Restarting without recording observations`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `Which relationship best describes interactions between sub-components in ${cleanT2}?`,
-      options: [
-        `Interdependent equilibrium across operational states`,
-        `Complete independence with zero correlation`,
-        `Constant destructive interference`,
-        `Continuous non-convergent divergence`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `What distinguishes intermediate mastery of ${cleanT2} from basic understanding?`,
-      options: [
-        `The capability to analyze multi-variable scenarios`,
-        `Relying solely on rote memorization`,
-        `Avoiding experimental verification entirely`,
-        `Ignoring edge cases and deviations`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
+    // 6 MODERATE
+    { question: `Which law of motion states that for every action, there is an equal and opposite reaction?`, options: ['Newton\'s Third Law', 'Newton\'s First Law', 'Newton\'s Second Law', 'Law of Gravitation'], answer: 0, level: 'MODERATE' },
+    { question: `What is the standard unit of electrical resistance in ${topic2}?`, options: ['Ohm', 'Volt', 'Ampere', 'Watt'], answer: 0, level: 'MODERATE' },
+    { question: `What is the rate of acceleration due to Earth\'s gravity near the surface?`, options: ['9.8 m/s²', '8.9 m/s²', '10.8 m/s²', '6.67 m/s²'], answer: 0, level: 'MODERATE' },
+    { question: `Light travels fastest through which of the following media?`, options: ['Vacuum', 'Water', 'Glass', 'Air'], answer: 0, level: 'MODERATE' },
+    { question: `The kinetic energy of an object depends on its mass and:`, options: ['Velocity squared', 'Height', 'Volume', 'Density'], answer: 0, level: 'MODERATE' },
+    { question: `Which physical quantity is measured in Joules?`, options: ['Work and Energy', 'Power', 'Force', 'Momentum'], answer: 0, level: 'MODERATE' },
 
-    // 4 HARD Questions (Tier 3)
-    {
-      question: `Under rigorous theoretical examination of ${cleanT3}, which constraint presents the greatest analytical difficulty?`,
-      options: [
-        `Non-linear edge-case dynamics and boundary divergence`,
-        `Basic linear arithmetic scaling`,
-        `Simple static state preservation`,
-        `Elementary nominal classification`
-      ],
-      answer: 0,
-      level: 'HARD'
-    },
-    {
-      question: `Which advanced paradox often challenges traditional frameworks in ${cleanT3}?`,
-      options: [
-        `Asymptotic threshold instability under extreme loads`,
-        `Simple proportional symmetry`,
-        `Standard identity preservation`,
-        `Elementary causal progression`
-      ],
-      answer: 0,
-      level: 'HARD'
-    },
-    {
-      question: `In advanced research on ${cleanT3}, which invariant property must remain conserved throughout state transformations?`,
-      options: [
-        `The fundamental governing equilibrium parameter`,
-        `Arbitrary transient values`,
-        `External unmonitored noise`,
-        `Heuristic approximations`
-      ],
-      answer: 0,
-      level: 'HARD'
-    },
-    {
-      question: `What critical factor separates expert synthesis in ${cleanT3} from standard implementation?`,
-      options: [
-        `Predictive modeling of complex asymptotic edge cases`,
-        `Restricting analysis strictly to elementary formulas`,
-        `Relying on unverified intuition without proof`,
-        `Omitting variable dependencies from evaluations`
-      ],
-      answer: 0,
-      level: 'HARD'
-    }
+    // 4 HARD
+    { question: `What is the atomic number of Carbon on the periodic table?`, options: ['6', '12', '8', '14'], answer: 0, level: 'HARD' },
+    { question: `Which chemical bond involves the sharing of electron pairs between atoms?`, options: ['Covalent bond', 'Ionic bond', 'Hydrogen bond', 'Metallic bond'], answer: 0, level: 'HARD' },
+    { question: `What is the pH value of pure water at 25 degrees Celsius?`, options: ['7.0', '6.0', '8.0', '1.0'], answer: 0, level: 'HARD' },
+    { question: `Which gas is the most abundant by volume in Earth\'s atmosphere?`, options: ['Nitrogen', 'Oxygen', 'Carbon Dioxide', 'Argon'], answer: 0, level: 'HARD' }
   ];
 
-  return questions.map(shuffleOptions);
+  return defaultQuestions.map(shuffleOptions);
 }
 
-// ----------------- GROQ AI GENERATION (ACTIVE PRODUCTION MODELS) -----------------
+// ----------------- GROQ AI GENERATION -----------------
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
 async function generateAIQuestions(topic1, topic2, topic3) {
-  // Real active Groq models:
+  if (!GROQ_API_KEY) {
+    console.log('No GROQ_API_KEY found, using standard curated bank.');
+    return generateExactTopicQuestions(topic1, topic2, topic3);
+  }
+
   const activeModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
 
-  const prompt = `You are an expert quizmaster. Generate exactly 15 authentic, clear, factual, and meaningful multiple-choice trivia questions based strictly on these topics:
-- Exactly 5 EASY questions strictly on: "${topic1}" (level: "EASY")
-- Exactly 6 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
-- Exactly 4 HARD questions strictly on: "${topic3}" (level: "HARD")
+  const prompt = `You are an expert trivia writer. Generate exactly 15 factual, high-quality, authentic trivia questions:
+- Exactly 5 EASY trivia questions on: "${topic1}"
+- Exactly 6 MODERATE trivia questions on: "${topic2}"
+- Exactly 4 HARD trivia questions on: "${topic3}"
 
-RULES:
-1. Every question must be a realistic, meaningful trivia question with a factual correct answer. Do NOT generate vague or template placeholders.
-2. Provide exactly 4 distinct, plausible options per question.
-3. The "answer" field must be the 0-indexed integer (0, 1, 2, or 3) indicating the position of the correct answer in your options array.
-4. Output strictly valid JSON with a single "questions" array containing all 15 question objects.
+STRICT RULES:
+1. Every question must be a real trivia question testing clear facts. No placeholder or generic template text.
+2. Provide 4 distinct options per question.
+3. The "answer" field MUST be the 0-indexed number (0, 1, 2, or 3) pointing to the correct choice.
+4. Return ONLY valid JSON with a "questions" array containing 15 objects.
 
 Format:
 {
   "questions": [
     {
-      "question": "What is...",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "question": "What is the capital of France?",
+      "options": ["Paris", "Rome", "Madrid", "Berlin"],
       "answer": 0,
       "level": "EASY"
     }
@@ -328,7 +197,7 @@ Format:
   for (const model of activeModels) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 7500);
+      const timeout = setTimeout(() => controller.abort(), 6500);
 
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -340,19 +209,16 @@ Format:
         body: JSON.stringify({
           model: model,
           messages: [
-            { role: 'system', content: 'You are a quiz assistant that responds only in strictly valid JSON.' },
+            { role: 'system', content: 'You respond only in strictly valid JSON.' },
             { role: 'user', content: prompt }
           ],
-          temperature: 0.65,
+          temperature: 0.6,
           response_format: { type: 'json_object' }
         })
       });
 
       clearTimeout(timeout);
-      if (!res.ok) {
-        console.warn(`Groq request failed with model [${model}]: status ${res.status}`);
-        continue;
-      }
+      if (!res.ok) continue;
 
       const data = await res.json();
       const rawText = data.choices?.[0]?.message?.content || '{}';
@@ -360,10 +226,14 @@ Format:
       const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
 
       if (Array.isArray(list) && list.length === 15) {
-        return list.map(shuffleOptions);
+        return list.map(q => ({
+          question: String(q.question),
+          options: q.options.map(String),
+          answer: normalizeAnswerIndex(q.answer),
+          level: q.level || 'EASY'
+        })).map(shuffleOptions);
       }
     } catch (err) {
-      console.warn(`Groq model [${model}] failed or timed out:`, err.message);
       continue;
     }
   }
@@ -385,11 +255,11 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
         index: idx + 1,
         question: q.question,
         options: q.options,
-        answer: Number(q.answer),
+        answer: normalizeAnswerIndex(q.answer),
         level: q.level || 'CUSTOM'
       }));
     } else {
-      const t1 = (topic1 && topic1.trim()) || 'Maths';
+      const t1 = (topic1 && topic1.trim()) || 'Mathematics';
       const t2 = (topic2 && topic2.trim()) || 'Physics';
       const t3 = (topic3 && topic3.trim()) || 'Chemistry';
 
@@ -410,9 +280,8 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
     saveRoom(pin, roomData);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
-    console.error('Create Room Error:', err.message);
     const pin = Math.floor(100000 + Math.random() * 900000).toString();
-    const fallback = generateExactTopicQuestions('Maths', 'Physics', 'Chemistry');
+    const fallback = generateExactTopicQuestions('Mathematics', 'Physics', 'Chemistry');
     const roomData = {
       pin,
       questions: fallback,
@@ -428,7 +297,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   }
 });
 
-// Room Status (Fast in-memory reading)
+// Room Status
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const room = getRoom(pin);
@@ -459,7 +328,7 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
   });
 });
 
-// Host Actions: NEXT, REVEAL, END
+// Host Action
 app.post(['/api/host-action', '/host-action'], (req, res) => {
   const { pin, action } = req.body || {};
   const room = getRoom(pin);
@@ -477,7 +346,7 @@ app.post(['/api/host-action', '/host-action'], (req, res) => {
   } else if (action === 'REVEAL') {
     if (room.currentIndex > 0 && room.currentIndex <= room.questions.length) {
       room.state = 'REVEAL';
-      room.revealedAnswer = room.questions[room.currentIndex - 1].answer;
+      room.revealedAnswer = normalizeAnswerIndex(room.questions[room.currentIndex - 1].answer);
     }
   } else if (action === 'END') {
     room.state = 'FINISHED';
@@ -537,36 +406,50 @@ app.post(['/api/join-room', '/join-room'], (req, res) => {
 app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   const { pin, name, answerIndex } = req.body || {};
   const room = getRoom(pin);
-  if (!room || room.state !== 'QUESTION') {
-    return res.status(400).json({ error: 'Not accepting answers right now.' });
+
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  // Accept answer only when active
+  if (room.state !== 'QUESTION') {
+    return res.status(400).json({ error: 'Quiz is not currently accepting answers.' });
   }
 
   if (!room.answersThisRound) room.answersThisRound = {};
   if (!room.players) room.players = {};
 
   const playerKey = String(name || '').trim().toLowerCase();
+  if (!playerKey) {
+    return res.status(400).json({ error: 'Missing player name' });
+  }
 
   if (!room.players[playerKey]) {
     room.players[playerKey] = { name: String(name || '').trim(), score: 0, correctCount: 0 };
   }
 
+  // Idempotency: if already answered this round
   if (room.answersThisRound[playerKey] !== undefined) {
-    return res.status(200).json({ success: true, message: 'Answer already recorded' });
+    return res.status(200).json({ success: true, message: 'Answer already received' });
   }
 
-  room.answersThisRound[playerKey] = Number(answerIndex);
-  const currentQ = room.questions[room.currentIndex - 1];
+  const chosen = normalizeAnswerIndex(answerIndex);
+  room.answersThisRound[playerKey] = chosen;
 
-  if (currentQ && Number(answerIndex) === currentQ.answer) {
-    room.players[playerKey].score = (room.players[playerKey].score || 0) + 100;
-    room.players[playerKey].correctCount = (room.players[playerKey].correctCount || 0) + 1;
+  const currentQ = room.questions[room.currentIndex - 1];
+  if (currentQ) {
+    const correct = normalizeAnswerIndex(currentQ.answer);
+    if (chosen === correct) {
+      room.players[playerKey].score = (room.players[playerKey].score || 0) + 100;
+      room.players[playerKey].correctCount = (room.players[playerKey].correctCount || 0) + 1;
+    }
   }
 
   saveRoom(pin, room);
   return res.status(200).json({ success: true, score: room.players[playerKey].score });
 });
 
-// Catch-all 404
+// Catch-all
 app.use((req, res) => {
   if (req.path.startsWith('/api/') || req.method === 'POST') {
     return res.status(404).json({ success: false, error: `Endpoint not found: ${req.method} ${req.path}` });
@@ -574,7 +457,7 @@ app.use((req, res) => {
   return res.status(404).send('Page not found');
 });
 
-// Local dev listener
+// Dev listener
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, '0.0.0.0', () => {
