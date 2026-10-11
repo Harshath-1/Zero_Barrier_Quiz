@@ -387,6 +387,7 @@
     let selectedOption = null;
     let hasAnsweredCurrentRound = false;
     let highestSeenPlayerIndex = 0;
+    let currentRoomVersion = 0;
     let pollTimer = null;
     let isFetching = false;
     let lastRenderedState = null;
@@ -428,6 +429,7 @@
           currentPin = pin;
           playerName = name;
           highestSeenPlayerIndex = 0;
+          currentRoomVersion = 0;
           document.getElementById('display-player').textContent = name;
           document.getElementById('player-hud-name').textContent = `👤 ${escapeHtml(name)}`;
           showCard('lobby-card');
@@ -446,7 +448,8 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(fetchRoomStatus, 2500);
+      // 3200ms lightweight poll preserves device resources and battery
+      pollTimer = setInterval(fetchRoomStatus, 3200);
       fetchRoomStatus();
     }
 
@@ -455,9 +458,17 @@
       isFetching = true;
 
       try {
-        const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}`);
+        const url = `/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentRoomVersion}`;
+        const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
+
+        // 50-byte fast path: Skip heavy parsing when nothing has changed
+        if (data.unchanged) {
+          return;
+        }
+
+        currentRoomVersion = data.version || 0;
 
         if (data.leaderboard) {
           const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
@@ -471,7 +482,7 @@
         if (data.state === 'LOBBY') {
           if (stateChanged) showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
-          // MONOTONIC CHECK: Only advance FORWARD. Reject any stale lower index from lambda race conditions.
+          // MONOTONIC CHECK: Only advance FORWARD. Reject any stale lower index.
           if (data.currentIndex > highestSeenPlayerIndex) {
             highestSeenPlayerIndex = data.currentIndex;
             hasAnsweredCurrentRound = false;
@@ -482,7 +493,6 @@
             showCard('question-card');
           }
         } else if (data.state === 'REVEAL') {
-          // Only reveal for current or forward questions
           if (data.currentIndex >= highestSeenPlayerIndex) {
             if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
               highlightAnswers(Number(data.revealedAnswer));
