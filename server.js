@@ -98,9 +98,11 @@ function saveRoom(pin, roomData) {
   memoryRooms.set(cleanPin, roomData);
 
   const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
-  fs.writeFile(filePath, JSON.stringify(roomData), 'utf8', (err) => {
-    if (err) console.error(`Async save warning [${cleanPin}]:`, err.message);
-  });
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(roomData), 'utf8');
+  } catch (err) {
+    console.error(`Save warning [${cleanPin}]:`, err.message);
+  }
 }
 
 function normalizeAnswerIndex(ans) {
@@ -360,7 +362,7 @@ STRICT RULES:
   for (const model of activeModels) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 9000);
+      const timeout = setTimeout(() => controller.abort(), 8500);
 
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -482,17 +484,19 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
   }
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
+  const playerList = Object.values(room.players || {});
+
   // Light heartbeat fast-path: returns 50 bytes instead of whole room payload
   if (clientVersion && clientVersion === room.version) {
     return res.status(200).json({
       unchanged: true,
       version: room.version,
-      playerCount: Object.keys(room.players || {}).length,
+      playerCount: playerList.length,
+      players: playerList.map(p => p.name),
       responsesCount: Object.keys(room.answersThisRound || {}).length
     });
   }
 
-  const playerList = Object.values(room.players || {});
   const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
     ? room.questions[room.currentIndex - 1]
     : null;
