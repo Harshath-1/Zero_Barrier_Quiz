@@ -47,6 +47,7 @@
       user-select: none;
     }
 
+    /* Auto-dismissing splash screen that NEVER gets stuck */
     #welcome-splash {
       position: fixed;
       inset: 0;
@@ -58,8 +59,8 @@
       justify-content: center;
       padding: 24px;
       text-align: center;
-      animation: introSequence 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
       pointer-events: none;
+      animation: introSequence 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
     }
 
     .splash-logo {
@@ -89,9 +90,9 @@
     }
 
     @keyframes introSequence {
-      0% { opacity: 1; }
-      80% { opacity: 1; }
-      100% { opacity: 0; visibility: hidden; }
+      0% { opacity: 1; visibility: visible; }
+      75% { opacity: 1; visibility: visible; }
+      100% { opacity: 0; visibility: hidden; display: none; }
     }
 
     .glass-card {
@@ -172,3 +173,464 @@
       letter-spacing: 2px;
       text-transform: uppercase;
       color: var(--yellow-bright);
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .info-line {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--yellow-bright);
+      margin-bottom: 6px;
+    }
+    .inset-data-input, .category-input {
+      width: 100%;
+      background: #0f0f0f;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: var(--text-white);
+      font-size: 15px;
+      margin-bottom: 14px;
+      outline: none;
+    }
+    .inset-data-input {
+      font-size: 16px;
+      font-weight: 700;
+      border-color: var(--yellow-bright);
+    }
+
+    .yellow-btn {
+      width: 100%;
+      padding: 15px;
+      background: var(--yellow-bright);
+      border: none;
+      border-radius: 12px;
+      color: #000;
+      font-size: 16px;
+      font-weight: 900;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(250, 204, 21, 0.45);
+      margin-top: auto;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .yellow-btn:hover { background: #fde047; }
+    .yellow-btn:disabled {
+      background: #232530 !important;
+      color: #717789 !important;
+      box-shadow: none !important;
+      cursor: not-allowed;
+    }
+
+    .badge-hud {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 900;
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid var(--yellow-bright);
+      color: var(--yellow-bright);
+      text-transform: uppercase;
+    }
+
+    .player-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f0f0f;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+    }
+    .player-header-bar .user-tag { font-size: 13px; font-weight: 800; color: #ffffff; }
+    .player-header-bar .score-tag { font-size: 13px; font-weight: 800; color: var(--yellow-bright); }
+
+    .grid { display: grid; margin: 14px 0; }
+    .host-tile {
+      background: #141414;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      font-weight: 700;
+      color: #ffffff;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 14px;
+      transition: background 0.15s;
+    }
+    .host-tile:hover:not(:disabled) {
+      background: #202020;
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .host-tile.selected {
+      border: 2px solid var(--yellow-bright) !important;
+      background: rgba(250, 204, 21, 0.2) !important;
+      color: var(--yellow-bright) !important;
+      box-shadow: 0 0 15px rgba(250, 204, 21, 0.35);
+    }
+    .host-tile.correct {
+      border: 2px solid #2ed573 !important;
+      background: rgba(46, 213, 115, 0.3) !important;
+      color: #ffffff !important;
+    }
+    .host-tile.wrong {
+      border: 2px solid #ff4757 !important;
+      background: rgba(255, 71, 87, 0.3) !important;
+      color: #ffffff !important;
+    }
+    .host-tile.dimmed { opacity: 0.35 !important; }
+
+    .pin-display-box {
+      background: #0f0f0f;
+      border: 1.5px dashed var(--yellow-bright);
+      border-radius: 16px;
+      padding: 22px;
+      margin: 18px 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <img src="/watermark.png" alt="Watermark" class="bg-watermark" onerror="this.style.display='none'" />
+
+  <div id="welcome-splash">
+    <img src="/logo_vertical.jpeg" alt="Logo" class="splash-logo" onerror="this.style.display='none'">
+    <div class="splash-title">Welcome to Zero Barrier Quiz</div>
+  </div>
+
+  <div class="glass-card">
+    <div class="club-banner-wrapper">
+      <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" onerror="this.parentElement.style.display='none'" />
+    </div>
+
+    <!-- 1. JOIN VIEW (Always visible initially) -->
+    <div id="join-card" style="display: flex; flex-direction: column; flex: 1; justify-content: center;">
+      <div class="top-logo-container">
+        <img src="/logo.png" alt="ALIET Techpreneur Club" class="top-logo" onerror="this.style.display='none'" />
+      </div>
+
+      <div class="title-banner">PLAYER QUIZ PORTAL</div>
+      <div class="info-line">Enter active session PIN & your name</div>
+
+      <label class="field-label">Session PIN</label>
+      <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" autocomplete="off" />
+
+      <label class="field-label">Player Name</label>
+      <input id="name-input" class="category-input" type="text" placeholder="Enter your full name" autocomplete="off" />
+
+      <button id="join-btn" class="yellow-btn" onclick="joinGame()">Enter Session</button>
+    </div>
+
+    <!-- 2. LOBBY WAITING VIEW -->
+    <div id="lobby-card" style="display: none; text-align: center; flex: 1;">
+      <div class="badge-hud">LOBBY CONNECTED</div>
+      <div class="pin-display-box">
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Connected As</div>
+        <div id="display-player" style="font-size: 32px; font-weight: 900; color: var(--yellow-bright);">Player</div>
+        <div style="font-size: 14px; color: var(--text-muted); margin-top: 10px;">Waiting for host to launch the quiz...</div>
+      </div>
+    </div>
+
+    <!-- 3. QUESTION VIEW -->
+    <div id="question-card" style="display: none; flex-direction: column; flex: 1;">
+      <div class="player-header-bar">
+        <span class="user-tag" id="player-hud-name">👤 Player</span>
+        <span class="badge-hud" id="level-badge">EASY</span>
+        <span class="score-tag" id="score-counter">Score: 0</span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 800;" id="q-counter">Question 1</span>
+        <span id="response-status-text" style="font-size: 12px; color: var(--yellow-bright); font-weight: 700;">Select an answer</span>
+      </div>
+
+      <div id="question-text" style="font-weight: 800; color: #ffffff; line-height: 1.4;">Loading question...</div>
+
+      <div class="grid">
+        <button class="host-tile" id="tile-0" onclick="selectOption(0)">A. <span id="opt-0" style="margin-left: 8px;"></span></button>
+        <button class="host-tile" id="tile-1" onclick="selectOption(1)">B. <span id="opt-1" style="margin-left: 8px;"></span></button>
+        <button class="host-tile" id="tile-2" onclick="selectOption(2)">C. <span id="opt-2" style="margin-left: 8px;"></span></button>
+        <button class="host-tile" id="tile-3" onclick="selectOption(3)">D. <span id="opt-3" style="margin-left: 8px;"></span></button>
+      </div>
+
+      <button id="confirm-btn" class="yellow-btn" onclick="submitAnswer()" disabled>Confirm Answer</button>
+    </div>
+
+    <!-- 4. FINAL STANDINGS VIEW -->
+    <div id="end-card" style="display: none; text-align: center; flex: 1;">
+      <div class="badge-hud">QUIZ COMPLETED</div>
+      <div class="title-banner" style="font-size: 20px; margin-top: 10px;">FINAL STANDINGS</div>
+      <div id="leaderboard-container" style="margin-top: 16px; max-height: 380px; overflow-y: auto;"></div>
+    </div>
+  </div>
+
+  <script>
+    // Clean up splash overlay safely
+    setTimeout(() => {
+      const splash = document.getElementById('welcome-splash');
+      if (splash) splash.remove();
+    }, 2200);
+
+    // Cross-Domain Routing Resolver:
+    // If opened on player-* domain, route to main host domain
+    const API_BASE = window.location.hostname.startsWith('player-')
+      ? `${window.location.protocol}//${window.location.host.replace(/^player-/, '')}`
+      : '';
+
+    let currentPin = '';
+    let playerName = '';
+    let selectedOption = null;
+    let hasAnsweredCurrentRound = false;
+    let highestSeenPlayerIndex = 0;
+    let currentRoomVersion = 0;
+    let pollTimer = null;
+    let isFetching = false;
+    let playerLastState = '';
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function showCard(cardId) {
+      const cards = ['join-card', 'lobby-card', 'question-card', 'end-card'];
+      cards.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.style.display = (id === cardId) ? 'flex' : 'none';
+        }
+      });
+    }
+
+    async function joinGame() {
+      const pin = String(document.getElementById('pin-input').value).trim();
+      const name = String(document.getElementById('name-input').value).trim();
+
+      if (!pin || !name) {
+        alert('Please enter both PIN and Name.');
+        return;
+      }
+
+      const btn = document.getElementById('join-btn');
+      btn.textContent = 'Connecting...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/join-room`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin, name })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          currentPin = pin;
+          playerName = name;
+          highestSeenPlayerIndex = 0;
+          currentRoomVersion = 0;
+          playerLastState = '';
+          document.getElementById('display-player').textContent = name;
+          document.getElementById('player-hud-name').textContent = `👤 ${escapeHtml(name)}`;
+          showCard('lobby-card');
+          startPolling();
+        } else {
+          alert('Failed to join: ' + (data.error || 'Invalid PIN'));
+          btn.textContent = 'Enter Session';
+          btn.disabled = false;
+        }
+      } catch (err) {
+        alert('Network connection error: ' + err.message);
+        btn.textContent = 'Enter Session';
+        btn.disabled = false;
+      }
+    }
+
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(fetchRoomStatus, 2800);
+      fetchRoomStatus();
+    }
+
+    async function fetchRoomStatus() {
+      if (!currentPin || isFetching) return;
+      isFetching = true;
+
+      try {
+        const url = `${API_BASE}/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentRoomVersion}`;
+        const res = await fetch(url);
+
+        // If a serverless container switch is occurring, cleanly return and wait for next tick
+        if (!res.ok) {
+          return;
+        }
+
+        const data = await res.json();
+
+        const stateTransition = data.state !== playerLastState;
+
+        if (data.unchanged && !stateTransition) {
+          return;
+        }
+
+        playerLastState = data.state;
+        currentRoomVersion = data.version || 0;
+
+        if (data.leaderboard) {
+          const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+          if (me) {
+            document.getElementById('score-counter').textContent = `Score: ${me.score}`;
+          }
+        }
+
+        if (data.state === 'LOBBY') {
+          showCard('lobby-card');
+        } else if (data.state === 'QUESTION') {
+          if (data.currentIndex > highestSeenPlayerIndex) {
+            highestSeenPlayerIndex = data.currentIndex;
+            hasAnsweredCurrentRound = false;
+            selectedOption = null;
+            renderQuestion(data.question);
+            showCard('question-card');
+          } else if (data.currentIndex === highestSeenPlayerIndex) {
+            showCard('question-card');
+          }
+        } else if (data.state === 'REVEAL') {
+          if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
+            highlightAnswers(Number(data.revealedAnswer));
+          }
+          showCard('question-card');
+        } else if (data.state === 'FINISHED') {
+          clearInterval(pollTimer);
+          showCard('end-card');
+
+          const rows = (data.leaderboard || []).map((p, idx) => `
+            <div style="display:flex; justify-content:space-between; padding: 12px 18px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
+              <span>#${idx + 1} ${escapeHtml(p.name)}</span>
+              <span style="color:var(--yellow-bright);"><strong>${p.score} pts</strong> (${p.correctCount} correct)</span>
+            </div>
+          `).join('');
+
+          document.getElementById('leaderboard-container').innerHTML = `
+            <div style="background: #0f0f0f; border-radius: 12px; border: 1px solid rgba(250,204,21,0.3);">${rows}</div>
+          `;
+        }
+      } catch (e) {
+      } finally {
+        isFetching = false;
+      }
+    }
+
+    function renderQuestion(q) {
+      if (!q) return;
+
+      document.getElementById('q-counter').textContent = `Question ${q.index} of ${q.total}`;
+      document.getElementById('level-badge').textContent = q.level || 'QUESTION';
+      document.getElementById('question-text').textContent = q.question;
+      document.getElementById('response-status-text').textContent = 'Select an answer';
+
+      for (let i = 0; i < 4; i++) {
+        const tile = document.getElementById(`tile-${i}`);
+        const span = document.getElementById(`opt-${i}`);
+        span.textContent = (q.options && q.options[i]) ? q.options[i] : '';
+        tile.className = 'host-tile';
+        tile.disabled = false;
+      }
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Confirm Answer';
+    }
+
+    function selectOption(index) {
+      if (hasAnsweredCurrentRound) return;
+
+      selectedOption = index;
+      for (let i = 0; i < 4; i++) {
+        const tile = document.getElementById(`tile-${i}`);
+        if (i === index) tile.classList.add('selected');
+        else tile.classList.remove('selected');
+      }
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = false;
+    }
+
+    async function submitAnswer() {
+      if (selectedOption === null || hasAnsweredCurrentRound) return;
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Locking In...';
+
+      hasAnsweredCurrentRound = true;
+      for (let i = 0; i < 4; i++) {
+        document.getElementById(`tile-${i}`).disabled = true;
+      }
+
+      let attempts = 0;
+      async function attemptSubmit() {
+        attempts++;
+        try {
+          const res = await fetch(`${API_BASE}/api/submit-answer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pin: String(currentPin).trim(),
+              name: String(playerName).trim(),
+              answerIndex: Number(selectedOption)
+            })
+          });
+
+          if (res.ok) {
+            confirmBtn.textContent = 'Answer Locked In';
+            document.getElementById('response-status-text').textContent = 'Waiting for reveal...';
+          } else if (attempts < 3) {
+            setTimeout(attemptSubmit, 1000);
+          } else {
+            confirmBtn.textContent = 'Answer Locked In';
+          }
+        } catch (err) {
+          if (attempts < 3) {
+            setTimeout(attemptSubmit, 1000);
+          } else {
+            confirmBtn.textContent = 'Answer Locked In';
+          }
+        }
+      }
+
+      attemptSubmit();
+    }
+
+    function highlightAnswers(correctIndex) {
+      for (let i = 0; i < 4; i++) {
+        const tile = document.getElementById(`tile-${i}`);
+        tile.disabled = true;
+        if (i === correctIndex) {
+          tile.className = 'host-tile correct';
+        } else if (i === selectedOption) {
+          tile.className = 'host-tile wrong';
+        } else {
+          tile.className = 'host-tile dimmed';
+        }
+      }
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Answer Revealed';
+      document.getElementById('response-status-text').textContent = 'Round ended';
+    }
+  </script>
+</body>
+</html>
