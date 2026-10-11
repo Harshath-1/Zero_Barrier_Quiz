@@ -473,7 +473,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   }
 });
 
-// Room Status
+// Room Status with Warm Persistence
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const clientVersion = parseInt(req.query.v, 10) || 0;
@@ -483,6 +483,14 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
     room = getRoom(pin);
   }
   if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  // Touch and keep disk file warm to prevent /tmp disposal across long rounds
+  const filePath = path.join(STORAGE_DIR, `quiz_${pin}.json`);
+  if (!fs.existsSync(filePath)) {
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(room), 'utf8');
+    } catch (e) {}
+  }
 
   const playerList = Object.values(room.players || {});
 
