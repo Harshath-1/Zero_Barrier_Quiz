@@ -382,7 +382,7 @@
       if (splash) splash.remove();
     }, 2500);
 
-    // Cross-Domain Origin Routing Resolver
+    // Cross-Domain Routing Resolver
     const API_BASE = window.location.hostname.startsWith('player-')
       ? `${window.location.protocol}//${window.location.host.replace(/^player-/, '')}`
       : '';
@@ -396,7 +396,6 @@
     let pollTimer = null;
     let isFetching = false;
     let playerLastState = '';
-    let notFoundRetries = 0;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -437,7 +436,6 @@
           highestSeenPlayerIndex = 0;
           currentRoomVersion = 0;
           playerLastState = '';
-          notFoundRetries = 0;
           document.getElementById('display-player').textContent = name;
           document.getElementById('player-hud-name').textContent = `👤 ${escapeHtml(name)}`;
           showCard('lobby-card');
@@ -460,6 +458,7 @@
       fetchRoomStatus();
     }
 
+    // Silent Resilient Poller: Never disconnects on transient 404 container switches
     async function fetchRoomStatus() {
       if (!currentPin || isFetching) return;
       isFetching = true;
@@ -468,19 +467,17 @@
         const url = `${API_BASE}/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentRoomVersion}`;
         const res = await fetch(url);
 
-        // Quietly absorb serverless cold-start container switches
+        // Absorb transient 404s cleanly without killing the session timer
         if (!res.ok) {
           if (res.status === 404) {
-            notFoundRetries++;
-            if (notFoundRetries > 10) {
-              clearInterval(pollTimer);
-              alert('Session ended.');
+            const statusText = document.getElementById('response-status-text');
+            if (statusText && statusText.textContent !== 'Waiting for reveal...') {
+              statusText.textContent = 'Syncing with host...';
             }
           }
           return;
         }
 
-        notFoundRetries = 0;
         const data = await res.json();
 
         const stateTransition = data.state !== playerLastState;
@@ -532,7 +529,7 @@
           `;
         }
       } catch (e) {
-        console.error('Polling error', e);
+        // Silently absorb transient network hiccups
       } finally {
         isFetching = false;
       }
@@ -580,7 +577,7 @@
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Locking In...';
 
-      // Optimistically lock answer locally to eliminate alert popups
+      // Optimistically lock answer locally to prevent multiple clicks
       hasAnsweredCurrentRound = true;
       for (let i = 0; i < 4; i++) {
         document.getElementById(`tile-${i}`).disabled = true;
