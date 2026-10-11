@@ -473,7 +473,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   }
 });
 
-// ULTRA-FAST STATUS ENDPOINT WITH PROPER STATE BROADCASTING
+// ULTRA-FAST STATUS ENDPOINT WITH SAFE FALLTHROUGH
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const clientVersion = parseInt(req.query.v, 10) || 0;
@@ -486,7 +486,7 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
 
   const playerList = Object.values(room.players || {});
 
-  // Light heartbeat fast-path: returns 50 bytes while keeping essential state synced
+  // Light heartbeat fast-path
   if (clientVersion && clientVersion === room.version) {
     return res.status(200).json({
       unchanged: true,
