@@ -383,7 +383,7 @@
     }, 2500);
 
     // Dynamic Cross-Domain Origin Router:
-    // Automatically routes calls from 'player-*' subdomains to the base host deployment
+    // Resolves player-* subdomains to the base host origin automatically
     const API_BASE = window.location.hostname.startsWith('player-')
       ? `${window.location.protocol}//${window.location.host.replace(/^player-/, '')}`
       : '';
@@ -396,7 +396,7 @@
     let currentRoomVersion = 0;
     let pollTimer = null;
     let isFetching = false;
-    let lastRenderedState = null;
+    let playerLastState = '';
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -436,6 +436,7 @@
           playerName = name;
           highestSeenPlayerIndex = 0;
           currentRoomVersion = 0;
+          playerLastState = '';
           document.getElementById('display-player').textContent = name;
           document.getElementById('player-hud-name').textContent = `👤 ${escapeHtml(name)}`;
           showCard('lobby-card');
@@ -474,10 +475,14 @@
         }
         const data = await res.json();
 
-        if (data.unchanged) {
+        const stateTransition = data.state !== playerLastState;
+
+        // Skip parsing only if state hasn't changed at all
+        if (data.unchanged && !stateTransition) {
           return;
         }
 
+        playerLastState = data.state;
         currentRoomVersion = data.version || 0;
 
         if (data.leaderboard) {
@@ -487,28 +492,24 @@
           }
         }
 
-        const stateChanged = data.state !== lastRenderedState;
-
         if (data.state === 'LOBBY') {
-          if (stateChanged) showCard('lobby-card');
+          showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
-          // MONOTONIC CHECK: Only advance FORWARD. Reject any stale lower index.
           if (data.currentIndex > highestSeenPlayerIndex) {
             highestSeenPlayerIndex = data.currentIndex;
             hasAnsweredCurrentRound = false;
             selectedOption = null;
             renderQuestion(data.question);
             showCard('question-card');
-          } else if (data.currentIndex === highestSeenPlayerIndex && stateChanged) {
+          } else if (data.currentIndex === highestSeenPlayerIndex) {
             showCard('question-card');
           }
         } else if (data.state === 'REVEAL') {
-          if (data.currentIndex >= highestSeenPlayerIndex) {
-            if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
-              highlightAnswers(Number(data.revealedAnswer));
-            }
-            if (stateChanged) showCard('question-card');
+          // Immediately reveal highlights without getting blocked by index progression
+          if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
+            highlightAnswers(Number(data.revealedAnswer));
           }
+          showCard('question-card');
         } else if (data.state === 'FINISHED') {
           clearInterval(pollTimer);
           showCard('end-card');
@@ -524,8 +525,6 @@
             <div style="background: #0f0f0f; border-radius: 12px; border: 1px solid rgba(250,204,21,0.3);">${rows}</div>
           `;
         }
-
-        lastRenderedState = data.state;
       } catch (e) {
         console.error('Polling error', e);
       } finally {
