@@ -56,16 +56,34 @@ app.get(['/host', '/host.html'], (req, res) => serveHtml('host.html', res));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
 
-// ----------------- MULTI-CONTAINER SAFE STORAGE -----------------
+// ----------------- SHARED VERCEL /tmp SINGLE-LEDGER STORAGE -----------------
 
 const memoryRooms = new Map();
-const STORAGE_DIR = process.env.VERCEL ? '/tmp' : path.join(__dirname, '.quiz_rooms');
+const DB_FILE = '/tmp/all_quiz_rooms.json';
 
-if (!process.env.VERCEL && !fs.existsSync(STORAGE_DIR)) {
+function readDiskLedger() {
   try {
-    fs.mkdirSync(STORAGE_DIR, { recursive: true });
+    if (fs.existsSync(DB_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      for (const [k, v] of Object.entries(parsed)) {
+        memoryRooms.set(k, v);
+      }
+    }
   } catch (e) {}
 }
+
+function writeDiskLedger() {
+  try {
+    const obj = {};
+    for (const [k, v] of memoryRooms.entries()) {
+      obj[k] = v;
+    }
+    fs.writeFileSync(DB_FILE, JSON.stringify(obj), 'utf8');
+  } catch (e) {}
+}
+
+// Initial seed on container boot
+readDiskLedger();
 
 function getRoom(pin) {
   const cleanPin = String(pin || '').trim();
@@ -75,18 +93,9 @@ function getRoom(pin) {
     return memoryRooms.get(cleanPin);
   }
 
-  const filePath = path.join(STORAGE_DIR, `quiz_${cleanPin}.json`);
-  if (fs.existsSync(filePath)) {
-    try {
-      const diskData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      memoryRooms.set(cleanPin, diskData);
-      return diskData;
-    } catch (e) {
-      console.error('Disk read error:', e.message);
-    }
-  }
-
-  return null;
+  // Refresh from disk if missing in memory
+  readDiskLedger();
+  return memoryRooms.get(cleanPin) || null;
 }
 
 function saveRoom(pin, roomData) {
@@ -96,13 +105,7 @@ function saveRoom(pin, roomData) {
   roomData.version = (roomData.version || 0) + 1;
   roomData.lastUpdated = Date.now();
   memoryRooms.set(cleanPin, roomData);
-
-  const filePath = path.join(STORAGE_DIR, `quiz_${cleanPin}.json`);
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(roomData), 'utf8');
-  } catch (err) {
-    console.error(`Save warning [${cleanPin}]:`, err.message);
-  }
+  writeDiskLedger();
 }
 
 function normalizeAnswerIndex(ans) {
@@ -146,182 +149,32 @@ function generateExactTopicQuestions(t1, t2, t3) {
   const top3 = String(t3 || 'History').trim();
 
   const defaultTrivia = [
-    // 5 EASY - Topic 1
-    {
-      question: `Which of the following is celebrated as an iconic milestone in the history of ${top1}?`,
-      options: [
-        `The original landmark classic of ${top1}`,
-        `A minor regional spin-off production`,
-        `An unreleased early audio demo`,
-        `A commercial promotion spoof`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
-    {
-      question: `Who among the following is widely hailed by enthusiasts as a pioneer of ${top1}?`,
-      options: [
-        `The Hall-of-Fame figure of ${top1}`,
-        `A guest visiting commentator`,
-        `An uncredited background extra`,
-        `A fictional promotional mascot`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
-    {
-      question: `What prestigious award or title represents the highest honor within ${top1}?`,
-      options: [
-        `The premier Championship Trophy / Lifetime Award`,
-        `The runner-up certificate`,
-        `A participation ribbon`,
-        `The audience consolation plate`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
-    {
-      question: `Which signature visual or structural style is universally identified with ${top1}?`,
-      options: [
-        `The definitive aesthetic style and hallmark storytelling of ${top1}`,
-        `A generic automated filter template`,
-        `An unscripted reality television format`,
-        `Monochrome flyer artwork`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
-    {
-      question: `In standard popular lore of ${top1}, which historic release broke all previous public records?`,
-      options: [
-        `The premiere that set all-time global audience records`,
-        `A cancelled charity tour`,
-        `A private industry press review`,
-        `An unrecorded regional rehearsal`
-      ],
-      answer: 0,
-      level: 'EASY'
-    },
+    // 5 EASY
+    { question: `Which milestone is celebrated as an iconic moment in ${top1}?`, options: [`The landmark classic of ${top1}`, `A regional spin-off`, `An unreleased demo`, `A promotion spoof`], answer: 0, level: 'EASY' },
+    { question: `Who is widely regarded as a legend of ${top1}?`, options: [`The Hall-of-Fame figure of ${top1}`, `A visiting guest`, `An extra`, `A promotional mascot`], answer: 0, level: 'EASY' },
+    { question: `What is the highest honor or award within ${top1}?`, options: [`The premier Championship Trophy`, `A runner-up certificate`, `A ribbon`, `A consolation plate`], answer: 0, level: 'EASY' },
+    { question: `Which signature style is universally identified with ${top1}?`, options: [`The hallmark storytelling of ${top1}`, `An automated template`, `A reality format`, `A flyer artwork`], answer: 0, level: 'EASY' },
+    { question: `In popular lore of ${top1}, which historic release broke all previous records?`, options: [`The premiere setting all-time records`, `A cancelled tour`, `A private review`, `A regional rehearsal`], answer: 0, level: 'EASY' },
 
-    // 6 MODERATE - Topic 2
-    {
-      question: `Which tournament or turning point completely reshaped modern competition in ${top2}?`,
-      options: [
-        `The watershed World Title decider of ${top2}`,
-        `A routine preseason exhibition`,
-        `A rain-delayed minor fixture`,
-        `A cancelled local match`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `What legendary rivalry or contest is regarded as the fiercest clash in ${top2}?`,
-      options: [
-        `The high-stakes final derby of ${top2}`,
-        `A walkover victory on forfeit`,
-        `A closed-door practice scrimmage`,
-        `An untelevised regional match`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `Which tactical innovation or strategic move was famously introduced to dominate ${top2}?`,
-      options: [
-        `The revolutionary strategic play pioneered in ${top2}`,
-        `Completely passive defensive formation`,
-        `Disregarding competitor matchups entirely`,
-        `Randomly shuffling player positions every round`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `In official record books of ${top2}, which benchmark stood unbroken for multiple decades?`,
-      options: [
-        `The all-time single-season scoring record`,
-        `The shortest post-match interview`,
-        `The fastest stadium gate entry time`,
-        `The lowest attendance turnstile count`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `Which iconic arena or stadium is universally revered as the spiritual home of ${top2}?`,
-      options: [
-        `The legendary marquee stadium of ${top2}`,
-        `A temporary pop-up turf facility`,
-        `A local community training park`,
-        `An abandoned suburban velodrome`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `What dramatic official ruling or regulation change in ${top2} sparked worldwide debate?`,
-      options: [
-        `The controversial championship tiebreaker ruling`,
-        `A routine uniform badge inspection`,
-        `A delayed halftime intermission period`,
-        `An early stadium floodlight test`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
+    // 6 MODERATE
+    { question: `Which turning point reshaped modern competition in ${top2}?`, options: [`The watershed decider of ${top2}`, `A routine preseason match`, `A rain-delayed fixture`, `A local exhibition`], answer: 0, level: 'MODERATE' },
+    { question: `What rivalry is regarded as the fiercest contest in ${top2}?`, options: [`The high-stakes derby of ${top2}`, `A forfeit walkover`, `A practice scrimmage`, `An untelevised game`], answer: 0, level: 'MODERATE' },
+    { question: `Which tactical move was famously introduced in ${top2}?`, options: [`The revolutionary strategy of ${top2}`, `Passive formation`, `Ignoring matchups`, `Shuffling positions randomly`], answer: 0, level: 'MODERATE' },
+    { question: `In official records of ${top2}, which benchmark stood unbroken for decades?`, options: [`The all-time single-season record`, `The shortest interview`, `The fastest entry gate time`, `The lowest attendance`], answer: 0, level: 'MODERATE' },
+    { question: `Which iconic arena is revered as the spiritual home of ${top2}?`, options: [`The marquee stadium of ${top2}`, `A pop-up turf`, `A community park`, `An abandoned velodrome`], answer: 0, level: 'MODERATE' },
+    { question: `What dramatic official ruling in ${top2} sparked worldwide debate?`, options: [`The controversial championship tiebreaker`, `A uniform inspection`, `A delayed intermission`, `A floodlight test`], answer: 0, level: 'MODERATE' },
 
-    // 4 HARD - Topic 3
-    {
-      question: `In historical archives of ${top3}, which key strategist secretly organized the decisive breakthrough?`,
-      options: [
-        `The mastermind behind-the-scenes diplomat of ${top3}`,
-        `A ceremonial royal spokesperson`,
-        `An unverified merchant traveler`,
-        `An accidental local spectator`
-      ],
-      answer: 0,
-      level: 'HARD'
-    },
-    {
-      question: `What confidential decree, code name, or secret treaty concluded the standoff during ${top3}?`,
-      options: [
-        `The decisive clandestine pact of ${top3}`,
-        `A preliminary public radio broadcast`,
-        `An open front-page newspaper bulletin`,
-        `A standard municipal commercial invoice`
-      ],
-      answer: 0,
-      level: 'HARD'
-    },
-    {
-      question: `Which critical logistical breakdown nearly collapsed the entire mission or campaign of ${top3}?`,
-      options: [
-        `The severe breakdown of winter supply and food lines`,
-        `A misplaced official ceremony flag`,
-        `A three-minute error on a town clock`,
-        `A misprinted greeting telegram`
-      ],
-      answer: 0,
-      level: 'HARD'
-    },
-    {
-      question: `Decades later, which declassified archival discovery revised historians' understanding of ${top3}?`,
-      options: [
-        `Uncovered private journals proving the real order of events`,
-        `Evidence claiming the event never occurred`,
-        `A forged merchant shipment manifest`,
-        `An unrelated lost household ledger`
-      ],
-      answer: 0,
-      level: 'HARD'
-    }
+    // 4 HARD
+    { question: `In the archives of ${top3}, who secretly organized the decisive breakthrough?`, options: [`The mastermind diplomat of ${top3}`, `A ceremonial royal spokesperson`, `A merchant traveler`, `A local spectator`], answer: 0, level: 'HARD' },
+    { question: `What confidential pact concluded the standoff during ${top3}?`, options: [`The clandestine treaty of ${top3}`, `A public radio bulletin`, `A newspaper bulletin`, `A municipal commercial invoice`], answer: 0, level: 'HARD' },
+    { question: `Which critical breakdown nearly collapsed the mission of ${top3}?`, options: [`The severe breakdown of winter supply lines`, `A misplaced flag`, `A three-minute clock error`, `A misprinted greeting telegram`], answer: 0, level: 'HARD' },
+    { question: `Which declassified discovery revised historians' understanding of ${top3}?`, options: [`Uncovered private journals proving the real events`, `Evidence claiming it never happened`, `A forged manifest`, `A lost household ledger`], answer: 0, level: 'HARD' }
   ];
 
   return defaultTrivia.map(shuffleOptions);
 }
 
-// ----------------- FAST GROQ AI GENERATOR -----------------
+// ----------------- GROQ AI GENERATOR -----------------
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
@@ -330,24 +183,18 @@ async function generateAIQuestions(topic1, topic2, topic3) {
   const t2 = String(topic2 || '').trim() || 'Cricket';
   const t3 = String(topic3 || '').trim() || 'History';
 
-  const activeModels = [
-    'openai/gpt-oss-20b',
-    'openai/gpt-oss-120b',
-    'qwen/qwen3.8-27b'
-  ];
+  const activeModels = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
 
   const prompt = `You are a live pub-quiz trivia master. Create exactly 15 authentic, fun, factual multiple-choice trivia questions based strictly on these three topics:
-
-- Questions 1 to 5 (EASY): Popular, fun trivia questions strictly on "${t1}"
-- Questions 6 to 11 (MODERATE): Fact-based trivia testing memorable records, stars, or moments on "${t2}"
-- Questions 12 to 15 (HARD): Deeper trivia testing specific years, obscure records, or lore on "${t3}"
+- Questions 1 to 5 (EASY): Popular, fun trivia on "${t1}"
+- Questions 6 to 11 (MODERATE): Fact-based trivia testing memorable records, stars on "${t2}"
+- Questions 12 to 15 (HARD): Deeper trivia testing specific years, obscure records on "${t3}"
 
 STRICT RULES:
-1. Every question MUST read like real pub/game-show trivia (e.g., "In the movie Titanic, who played Jack Dawson?", "Which cricketer scored the fastest century in ODI history?").
-2. DO NOT write academic/textbook questions (e.g. do NOT write "What is a foundational principle of...").
-3. Exactly 4 plausible choices per question.
-4. "answer" must be the 0-indexed integer (0, 1, 2, or 3) pointing to the correct option.
-5. Return ONLY a valid JSON object matching this structure:
+1. Every question MUST read like real pub/game-show trivia.
+2. 4 plausible choices per question.
+3. "answer" must be the 0-indexed integer (0, 1, 2, or 3).
+4. Return ONLY valid JSON:
 {
   "questions": [
     {
@@ -368,11 +215,11 @@ STRICT RULES:
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`
+          Authorization: `Bearer ${GROQ_API_KEY}`
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: model,
+          model,
           messages: [
             { role: 'system', content: 'You are a professional trivia generator that outputs strictly valid JSON.' },
             { role: 'user', content: prompt }
@@ -384,11 +231,7 @@ STRICT RULES:
 
       clearTimeout(timeout);
 
-      if (!res.ok) {
-        const errText = await res.text();
-        console.warn(`Groq model [${model}] status ${res.status}:`, errText);
-        continue;
-      }
+      if (!res.ok) continue;
 
       const data = await res.json();
       const rawText = data.choices?.[0]?.message?.content || '{}';
@@ -404,7 +247,6 @@ STRICT RULES:
         })).map(shuffleOptions);
       }
     } catch (err) {
-      console.warn(`Attempt failed with [${model}]:`, err.message);
       continue;
     }
   }
@@ -433,7 +275,6 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       const t1 = (topic1 && topic1.trim()) || 'Cinema';
       const t2 = (topic2 && topic2.trim()) || 'Cricket';
       const t3 = (topic3 && topic3.trim()) || 'History';
-
       questions = await generateAIQuestions(t1, t2, t3);
     }
 
@@ -453,7 +294,6 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
     saveRoom(pin, roomData);
     return res.status(200).json({ success: true, pin, count: questions.length });
   } catch (err) {
-    console.error('Create Room Error:', err.message);
     const pin = Math.floor(100000 + Math.random() * 900000).toString();
     const fallback = generateExactTopicQuestions('Cinema', 'Cricket', 'History');
     const roomData = {
@@ -473,23 +313,14 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   }
 });
 
-// Room Status with Warm Persistence
+// Room Status with Auto-Sync
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const clientVersion = parseInt(req.query.v, 10) || 0;
 
-  let room = memoryRooms.get(pin);
+  const room = getRoom(pin);
   if (!room) {
-    room = getRoom(pin);
-  }
-  if (!room) return res.status(404).json({ error: 'Room not found' });
-
-  // Touch and keep disk file warm to prevent /tmp disposal across long rounds
-  const filePath = path.join(STORAGE_DIR, `quiz_${pin}.json`);
-  if (!fs.existsSync(filePath)) {
-    try {
-      fs.writeFileSync(filePath, JSON.stringify(room), 'utf8');
-    } catch (e) {}
+    return res.status(404).json({ error: 'Room not found' });
   }
 
   const playerList = Object.values(room.players || {});
@@ -532,10 +363,17 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
   });
 });
 
-// Host Actions
+// Host Actions: NEXT, REVEAL, END
 app.post(['/api/host-action', '/host-action'], (req, res) => {
-  const { pin, action } = req.body || {};
-  const room = getRoom(pin);
+  const { pin, action, clientState } = req.body || {};
+  let room = getRoom(pin);
+
+  // Auto-restore room if container rebooted
+  if (!room && clientState && clientState.questions) {
+    room = clientState;
+    memoryRooms.set(String(pin).trim(), room);
+  }
+
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
   if (action === 'NEXT') {
