@@ -1,596 +1,619 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Player Quiz Portal</title>
-  <link rel="icon" type="image/png" href="/logo.png" />
-  <style>
-    :root {
-      --bg-black: #080808;
-      --card-bg: rgba(18, 18, 18, 0.95);
-      --card-border: rgba(250, 204, 21, 0.4);
-      --yellow-bright: #facc15;
-      --text-white: #ffffff;
-      --text-muted: #a3a3a3;
+require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+
+const app = express();
+app.use(express.json({ limit: '2mb' }));
+
+// CORS & Cache Busting Headers
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.path.includes('/api/') || req.path.includes('-room') || req.path.includes('-answer') || req.path.includes('-action')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
+// HTML File Resolver
+function serveHtml(filename, res) {
+  const candidates = [
+    path.resolve(__dirname, 'public', filename),
+    path.join(process.cwd(), 'public', filename),
+    path.resolve(__dirname, filename),
+    path.join(process.cwd(), filename)
+  ];
+
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
     }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  return res.status(404).send(`Cannot find ${filename} in public or root directory.`);
+}
+
+// ----------------- DOMAIN-AWARE ROUTING -----------------
+app.get('/', (req, res) => {
+  const host = (req.headers.host || req.hostname || '').toLowerCase();
+  if (host.includes('player')) {
+    return serveHtml('player.html', res);
+  }
+  return serveHtml('host.html', res);
+});
+
+app.get(['/player', '/player.html'], (req, res) => serveHtml('player.html', res));
+app.get(['/host', '/host.html'], (req, res) => serveHtml('host.html', res));
+
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
+app.use(express.static(__dirname, { maxAge: '0' }));
+
+// ----------------- NON-BLOCKING IN-MEMORY & ASYNC STORAGE -----------------
+
+const memoryRooms = new Map();
+const STORAGE_DIR = process.env.VERCEL ? '/tmp/quiz_rooms' : path.join(__dirname, '.quiz_rooms');
+
+if (!fs.existsSync(STORAGE_DIR)) {
+  try {
+    fs.mkdirSync(STORAGE_DIR, { recursive: true });
+  } catch (e) {}
+}
+
+function getRoom(pin) {
+  const cleanPin = String(pin || '').trim();
+  if (memoryRooms.has(cleanPin)) {
+    return memoryRooms.get(cleanPin);
+  }
+  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
+  if (fs.existsSync(filePath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      memoryRooms.set(cleanPin, data);
+      return data;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function saveRoom(pin, roomData) {
+  const cleanPin = String(pin || '').trim();
+  memoryRooms.set(cleanPin, roomData);
+
+  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
+  fs.writeFile(filePath, JSON.stringify(roomData), 'utf8', (err) => {
+    if (err) console.error(`Async save warning [${cleanPin}]:`, err.message);
+  });
+}
+
+function normalizeAnswerIndex(ans) {
+  if (typeof ans === 'number') return ans;
+  if (!ans && ans !== 0) return 0;
+  const str = String(ans).trim().toUpperCase();
+  if (str === 'A' || str === '0') return 0;
+  if (str === 'B' || str === '1') return 1;
+  if (str === 'C' || str === '2') return 2;
+  if (str === 'D' || str === '3') return 3;
+  const parsed = parseInt(str, 10);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function shuffleOptions(item) {
+  if (!item || !Array.isArray(item.options) || item.options.length < 2) return item;
+  const correctIdx = normalizeAnswerIndex(item.answer);
+  const correctOptionText = item.options[correctIdx] || item.options[0];
+
+  const indices = item.options.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+
+  const newOptions = indices.map(idx => item.options[idx]);
+  const newAnswer = newOptions.indexOf(correctOptionText);
+
+  return {
+    ...item,
+    options: newOptions,
+    answer: newAnswer >= 0 ? newAnswer : 0
+  };
+}
+
+// ----------------- TOPIC-LOCKED FALLBACK QUESTIONS -----------------
+
+function generateExactTopicQuestions(t1, t2, t3) {
+  const top1 = String(t1 || 'Cinema').trim();
+  const top2 = String(t2 || 'Geography').trim();
+  const top3 = String(t3 || 'Science').trim();
+
+  const fallbackQuestions = [
+    // 5 EASY (Topic 1)
+    {
+      question: `Which foundational concept is most universally recognized in the study of ${top1}?`,
+      options: [
+        `The primary baseline principle of ${top1}`,
+        `An advanced empirical formula from ${top2}`,
+        `A secondary hypothesis borrowed from ${top3}`,
+        `An obsolete 19th-century speculation`
+      ],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `When beginners start learning about ${top1}, what core element is introduced first?`,
+      options: [
+        `Core definitions and foundational laws of ${top1}`,
+        `Complex non-linear differential equations`,
+        `Multi-variable statistical models`,
+        `Advanced quantum mechanics algorithms`
+      ],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `Which term or entity is most widely considered iconic within ${top1}?`,
+      options: [
+        `The hallmark milestone recognized in ${top1}`,
+        `A minor peripheral subfield of ${top2}`,
+        `A random speculative trend in ${top3}`,
+        `An arbitrary unverified convention`
+      ],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `In standard literature, what is the main objective of studying ${top1}?`,
+      options: [
+        `Mastering the foundational mechanics of ${top1}`,
+        `Replacing all empirical observations in ${top2}`,
+        `Eliminating historical chronologies in ${top3}`,
+        `Calculating arbitrary theoretical probabilities`
+      ],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `Which basic rule universally governs standard elementary cases in ${top1}?`,
+      options: [
+        `Consistent compliance with ${top1} principles`,
+        `Unpredictable random outcomes every trial`,
+        `Total absence of consistent logic`,
+        `Complete inversion of baseline assumptions`
+      ],
+      answer: 0,
+      level: 'EASY'
+    },
+
+    // 6 MODERATE (Topic 2)
+    {
+      question: `In real-world intermediate applications of ${top2}, what key variable must be balanced?`,
+      options: [
+        `Operational efficiency and baseline consistency in ${top2}`,
+        `Random cosmetic surface parameters`,
+        `Unmonitored arbitrary changes`,
+        `Zero validation constraints`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which recognized methodology is most commonly applied to optimize systems in ${top2}?`,
+      options: [
+        `Iterative analysis and systematic calibration in ${top2}`,
+        `Unchecked trial and error with no metrics`,
+        `Passive observation without documentation`,
+        `Unrestricted brute-force computation`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `How does scaling up operational complexity usually impact outcomes in ${top2}?`,
+      options: [
+        `Demands tighter control protocols and error-handling in ${top2}`,
+        `Guarantees zero operational maintenance cost`,
+        `Removes the need for testing and validation`,
+        `Immediately causes catastrophic failure`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `When diagnosing inconsistent results in ${top2}, what is the standard recommended step?`,
+      options: [
+        `Re-verifying baseline inputs and boundary conditions of ${top2}`,
+        `Discarding all previously collected empirical records`,
+        `Assuming the underlying theory of ${top2} is flawed`,
+        `Restarting the process with random parameters`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which relationship describes how intermediate components interact in ${top2}?`,
+      options: [
+        `Proportional feedback and interdependent equilibrium in ${top2}`,
+        `Independent random noise with zero correlation`,
+        `Permanent destructive interference across states`,
+        `Instantaneous divergence without convergence`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `What distinguishes practical intermediate mastery of ${top2} from basic theory?`,
+      options: [
+        `The ability to solve multi-variable scenarios in ${top2}`,
+        `Relying purely on mechanical memorization`,
+        `Refusing to perform experimental verification`,
+        `Ignoring boundary anomalies and edge cases`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+
+    // 4 HARD (Topic 3)
+    {
+      question: `Under rigorous theoretical analysis of ${top3}, which constraint poses the primary challenge?`,
+      options: [
+        `Handling asymptotic boundary conditions and edge cases in ${top3}`,
+        `Performing simple elementary linear calculations`,
+        `Basic static state preservation`,
+        `Elementary classification of simple components`
+      ],
+      answer: 0,
+      level: 'HARD'
+    },
+    {
+      question: `Which advanced concept in ${top3} frequently challenges conventional analytical models?`,
+      options: [
+        `Non-linear state transitions and threshold limits in ${top3}`,
+        `Basic symmetric arithmetic relationships`,
+        `Standard baseline identity models`,
+        `Simple chronological sequence order`
+      ],
+      answer: 0,
+      level: 'HARD'
+    },
+    {
+      question: `In advanced research evaluations of ${top3}, which invariant property must remain conserved?`,
+      options: [
+        `The fundamental governing equilibrium parameter of ${top3}`,
+        `Transient unverified noise metrics`,
+        `Uncontrolled environmental fluctuations`,
+        `Arbitrary heuristic rough estimates`
+      ],
+      answer: 0,
+      level: 'HARD'
+    },
+    {
+      question: `What distinguishes expert analysis in ${top3} from standard conventional implementations?`,
+      options: [
+        `Precise predictive modeling of critical edge cases in ${top3}`,
+        `Limiting analysis strictly to elementary formulas`,
+        `Relying on subjective intuition without validation`,
+        `Omitting variable dependencies from evaluations`
+      ],
+      answer: 0,
+      level: 'HARD'
     }
-    body {
-      background-color: var(--bg-black);
-      color: var(--text-white);
-      min-height: 100vh;
-      min-height: 100dvh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      overflow-x: hidden;
-      position: relative;
+  ];
+
+  return fallbackQuestions.map(shuffleOptions);
+}
+
+// ----------------- GROQ AI GENERATION -----------------
+
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
+
+async function generateAIQuestions(topic1, topic2, topic3) {
+  const t1 = String(topic1 || '').trim() || 'General Knowledge';
+  const t2 = String(topic2 || '').trim() || 'Science';
+  const t3 = String(topic3 || '').trim() || 'History';
+
+  const activeModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+
+  const prompt = `You are a professional trivia generator. Generate exactly 15 authentic, factual, and strictly relevant multiple-choice trivia questions:
+- Exactly 5 EASY trivia questions strictly testing knowledge about: "${t1}" (level: "EASY")
+- Exactly 6 MODERATE trivia questions strictly testing knowledge about: "${t2}" (level: "MODERATE")
+- Exactly 4 HARD trivia questions strictly testing knowledge about: "${t3}" (level: "HARD")
+
+CRITICAL RULES:
+1. Every question in Tier 1 MUST be strictly and factually about "${t1}".
+2. Every question in Tier 2 MUST be strictly and factually about "${t2}".
+3. Every question in Tier 3 MUST be strictly and factually about "${t3}".
+4. Do NOT output generic template text. Ask authentic, interesting trivia questions.
+5. Provide 4 distinct options per question.
+6. "answer" must be the 0-indexed number (0, 1, 2, or 3) indicating the correct answer.
+7. Output strictly a JSON object with a single "questions" array containing 15 question objects.
+
+Format:
+{
+  "questions": [
+    {
+      "question": "What is...",
+      "options": ["Choice A", "Choice B", "Choice C", "Choice D"],
+      "answer": 0,
+      "level": "EASY"
     }
+  ]
+}`;
 
-    .bg-watermark {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 65vmin;
-      max-width: 440px;
-      height: auto;
-      opacity: 0.045;
-      pointer-events: none;
-      z-index: 0;
-      user-select: none;
-    }
+  for (const model of activeModels) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
 
-    #welcome-splash {
-      position: fixed;
-      inset: 0;
-      background: var(--bg-black);
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      text-align: center;
-      animation: introSequence 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-      pointer-events: none;
-    }
-
-    .splash-logo {
-      max-width: 220px;
-      width: 70%;
-      max-height: 220px;
-      object-fit: contain;
-      border-radius: 14px;
-      border: 2px solid var(--yellow-bright);
-      box-shadow: 0 0 35px rgba(250, 204, 21, 0.4);
-      margin-bottom: 24px;
-      animation: popIn 0.6s ease-out forwards;
-    }
-
-    .splash-title {
-      font-size: 26px;
-      font-weight: 900;
-      letter-spacing: 2px;
-      color: var(--yellow-bright);
-      text-transform: uppercase;
-      text-shadow: 0 0 20px rgba(250, 204, 21, 0.5);
-    }
-
-    @keyframes popIn {
-      0% { transform: scale(0.8); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    @keyframes introSequence {
-      0% { opacity: 1; }
-      80% { opacity: 1; }
-      100% { opacity: 0; visibility: hidden; }
-    }
-
-    .glass-card {
-      background: var(--card-bg);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border-radius: 20px;
-      border: 1px solid var(--card-border);
-      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 25px rgba(250, 204, 21, 0.18);
-      width: 100%;
-      transition: all 0.3s ease;
-      position: relative;
-      z-index: 1;
-    }
-
-    @media (min-width: 900px) {
-      .glass-card {
-        max-width: 980px;
-        padding: 36px 44px;
-        min-height: 560px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
-      .title-banner { font-size: 28px; }
-      .grid { grid-template-columns: 1fr 1fr; gap: 18px; }
-      .host-tile { font-size: 18px; padding: 22px 18px; min-height: 75px; }
-      #question-text { font-size: 24px; margin: 20px 0; }
-      .splash-title { font-size: 36px; }
-      .splash-logo { max-width: 280px; max-height: 280px; }
-    }
-
-    @media (max-width: 899px) {
-      body { padding: 12px 10px; align-items: flex-start; }
-      .glass-card {
-        max-width: 480px;
-        padding: 18px 16px;
-        min-height: calc(100dvh - 24px);
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-      }
-      .title-banner { font-size: 20px; }
-      .grid { grid-template-columns: 1fr; gap: 10px; }
-      .host-tile { font-size: 15px; padding: 14px 12px; }
-      #question-text { font-size: 17px; margin: 12px 0; }
-      .splash-title { font-size: 22px; }
-    }
-
-    .club-banner-wrapper {
-      width: 100%;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 16px;
-      border: 1.5px solid var(--yellow-bright);
-    }
-    .club-banner {
-      width: 100%;
-      display: block;
-      max-height: 125px;
-      object-fit: cover;
-    }
-
-    .top-logo-container {
-      text-align: center;
-      margin: 4px 0 12px 0;
-    }
-    .top-logo {
-      max-height: 70px;
-      max-width: 80%;
-      height: auto;
-      object-fit: contain;
-      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
-    }
-
-    .title-banner {
-      font-weight: 900;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--yellow-bright);
-      text-align: center;
-      margin-bottom: 6px;
-    }
-    .info-line {
-      font-size: 13px;
-      color: var(--text-muted);
-      text-align: center;
-      margin-bottom: 18px;
-    }
-
-    .field-label {
-      display: block;
-      font-size: 12px;
-      text-transform: uppercase;
-      font-weight: 800;
-      color: var(--yellow-bright);
-      margin-bottom: 6px;
-    }
-    .inset-data-input, .category-input {
-      width: 100%;
-      background: #0f0f0f;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 10px;
-      padding: 12px 14px;
-      color: var(--text-white);
-      font-size: 15px;
-      margin-bottom: 14px;
-      outline: none;
-    }
-    .inset-data-input {
-      font-size: 16px;
-      font-weight: 700;
-      border-color: var(--yellow-bright);
-    }
-
-    .yellow-btn {
-      width: 100%;
-      padding: 15px;
-      background: var(--yellow-bright);
-      border: none;
-      border-radius: 12px;
-      color: #000;
-      font-size: 16px;
-      font-weight: 900;
-      text-transform: uppercase;
-      cursor: pointer;
-      box-shadow: 0 0 20px rgba(250, 204, 21, 0.45);
-      margin-top: auto;
-      transition: background 0.2s, box-shadow 0.2s;
-    }
-    .yellow-btn:hover { background: #fde047; }
-    .yellow-btn:disabled {
-      background: #232530 !important;
-      color: #717789 !important;
-      box-shadow: none !important;
-      cursor: not-allowed;
-    }
-
-    .badge-hud {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 900;
-      background: rgba(250, 204, 21, 0.12);
-      border: 1px solid var(--yellow-bright);
-      color: var(--yellow-bright);
-      text-transform: uppercase;
-    }
-
-    .player-header-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #0f0f0f;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 10px;
-      padding: 10px 14px;
-      margin-bottom: 14px;
-    }
-    .player-header-bar .user-tag { font-size: 13px; font-weight: 800; color: #ffffff; }
-    .player-header-bar .score-tag { font-size: 13px; font-weight: 800; color: var(--yellow-bright); }
-
-    .grid { display: grid; margin: 14px 0; }
-    .host-tile {
-      background: #141414;
-      border: 1.5px solid rgba(255, 255, 255, 0.2);
-      border-radius: 12px;
-      font-weight: 700;
-      color: #ffffff;
-      text-align: left;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      padding: 14px;
-      transition: background 0.15s;
-    }
-    .host-tile:hover:not(:disabled) {
-      background: #202020;
-      border-color: rgba(255, 255, 255, 0.4);
-    }
-    .host-tile.selected {
-      border: 2px solid var(--yellow-bright) !important;
-      background: rgba(250, 204, 21, 0.2) !important;
-      color: var(--yellow-bright) !important;
-      box-shadow: 0 0 15px rgba(250, 204, 21, 0.35);
-    }
-    .host-tile.correct {
-      border: 2px solid #2ed573 !important;
-      background: rgba(46, 213, 115, 0.3) !important;
-      color: #ffffff !important;
-    }
-    .host-tile.wrong {
-      border: 2px solid #ff4757 !important;
-      background: rgba(255, 71, 87, 0.3) !important;
-      color: #ffffff !important;
-    }
-    .host-tile.dimmed { opacity: 0.35 !important; }
-
-    .pin-display-box {
-      background: #0f0f0f;
-      border: 1.5px dashed var(--yellow-bright);
-      border-radius: 16px;
-      padding: 22px;
-      margin: 18px 0;
-      text-align: center;
-    }
-  </style>
-</head>
-<body>
-
-  <img src="/watermark.png" alt="Watermark" class="bg-watermark" onerror="this.style.display='none'" />
-
-  <div id="welcome-splash">
-    <img src="/logo_vertical.jpeg" alt="Logo" class="splash-logo" onerror="this.style.display='none'">
-    <div class="splash-title">Welcome to Zero Barrier Quiz</div>
-  </div>
-
-  <div class="glass-card">
-    <div class="club-banner-wrapper">
-      <img src="/mailtemplate.png" alt="ALIET Techpreneur Club" class="club-banner" onerror="this.parentElement.style.display='none'" />
-    </div>
-
-    <!-- 1. JOIN VIEW -->
-    <div id="join-card" style="display: flex; flex-direction: column; flex: 1; justify-content: center;">
-      <div class="top-logo-container">
-        <img src="/logo.png" alt="ALIET Techpreneur Club" class="top-logo" onerror="this.style.display='none'" />
-      </div>
-
-      <div class="title-banner">PLAYER QUIZ PORTAL</div>
-      <div class="info-line">Enter active session PIN & your name</div>
-
-      <label class="field-label">Session PIN</label>
-      <input id="pin-input" class="inset-data-input" type="text" maxlength="6" placeholder="Enter PIN (e.g. 556677)" autocomplete="off" />
-
-      <label class="field-label">Player Name</label>
-      <input id="name-input" class="category-input" type="text" placeholder="Enter your full name" autocomplete="off" />
-
-      <button id="join-btn" class="yellow-btn" onclick="joinGame()">Enter Session</button>
-    </div>
-
-    <!-- 2. LOBBY WAITING VIEW -->
-    <div id="lobby-card" style="display: none; text-align: center; flex: 1;">
-      <div class="badge-hud">LOBBY CONNECTED</div>
-      <div class="pin-display-box">
-        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Connected As</div>
-        <div id="display-player" style="font-size: 32px; font-weight: 900; color: var(--yellow-bright);">Player</div>
-        <div style="font-size: 14px; color: var(--text-muted); margin-top: 10px;">Waiting for host to launch the quiz...</div>
-      </div>
-    </div>
-
-    <!-- 3. QUESTION VIEW -->
-    <div id="question-card" style="display: none; flex-direction: column; flex: 1;">
-      <div class="player-header-bar">
-        <span class="user-tag" id="player-hud-name">👤 Player</span>
-        <span class="badge-hud" id="level-badge">EASY</span>
-        <span class="score-tag" id="score-counter">Score: 0</span>
-      </div>
-
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 800;" id="q-counter">Question 1</span>
-        <span id="response-status-text" style="font-size: 12px; color: var(--yellow-bright); font-weight: 700;">Select an answer</span>
-      </div>
-
-      <div id="question-text" style="font-weight: 800; color: #ffffff; line-height: 1.4;">Loading question...</div>
-
-      <div class="grid">
-        <button class="host-tile" id="tile-0" onclick="selectOption(0)">A. <span id="opt-0" style="margin-left: 8px;"></span></button>
-        <button class="host-tile" id="tile-1" onclick="selectOption(1)">B. <span id="opt-1" style="margin-left: 8px;"></span></button>
-        <button class="host-tile" id="tile-2" onclick="selectOption(2)">C. <span id="opt-2" style="margin-left: 8px;"></span></button>
-        <button class="host-tile" id="tile-3" onclick="selectOption(3)">D. <span id="opt-3" style="margin-left: 8px;"></span></button>
-      </div>
-
-      <button id="confirm-btn" class="yellow-btn" onclick="submitAnswer()" disabled>Confirm Answer</button>
-    </div>
-
-    <!-- 4. FINAL STANDINGS VIEW -->
-    <div id="end-card" style="display: none; text-align: center; flex: 1;">
-      <div class="badge-hud">QUIZ COMPLETED</div>
-      <div class="title-banner" style="font-size: 20px; margin-top: 10px;">FINAL STANDINGS</div>
-      <div id="leaderboard-container" style="margin-top: 16px; max-height: 380px; overflow-y: auto;"></div>
-    </div>
-  </div>
-
-  <script>
-    setTimeout(() => {
-      const splash = document.getElementById('welcome-splash');
-      if (splash) splash.remove();
-    }, 2500);
-
-    let currentPin = '';
-    let playerName = '';
-    let selectedOption = null;
-    let hasAnsweredCurrentRound = false;
-    let lastSeenQuestionIndex = -1;
-    let pollTimer = null;
-    let isFetching = false;
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-    }
-
-    function showCard(cardId) {
-      ['join-card', 'lobby-card', 'question-card', 'end-card'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = (id === cardId) ? 'flex' : 'none';
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: 'You are a quiz assistant that responds only in strictly valid JSON.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.5,
+          response_format: { type: 'json_object' }
+        })
       });
-    }
 
-    async function joinGame() {
-      const pin = String(document.getElementById('pin-input').value).trim();
-      const name = String(document.getElementById('name-input').value).trim();
+      clearTimeout(timeout);
+      if (!res.ok) continue;
 
-      if (!pin || !name) {
-        alert('Please enter both PIN and Name.');
-        return;
+      const data = await res.json();
+      const rawText = data.choices?.[0]?.message?.content || '{}';
+      const parsed = JSON.parse(rawText);
+      const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+
+      if (Array.isArray(list) && list.length === 15) {
+        return list.map(q => ({
+          question: String(q.question),
+          options: q.options.map(String),
+          answer: normalizeAnswerIndex(q.answer),
+          level: q.level || 'EASY'
+        })).map(shuffleOptions);
       }
+    } catch (err) {
+      continue;
+    }
+  }
 
-      const btn = document.getElementById('join-btn');
-      btn.textContent = 'Connecting...';
-      btn.disabled = true;
+  return generateExactTopicQuestions(t1, t2, t3);
+}
 
-      try {
-        const res = await fetch('/api/join-room', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin, name })
-        });
-        const data = await res.json();
+// ----------------- API ENDPOINTS -----------------
 
-        if (res.ok && data.success) {
-          currentPin = pin;
-          playerName = name;
-          document.getElementById('display-player').textContent = name;
-          document.getElementById('player-hud-name').textContent = `👤 ${escapeHtml(name)}`;
-          showCard('lobby-card');
-          startPolling();
-        } else {
-          alert('Failed to join: ' + (data.error || 'Invalid PIN'));
-          btn.textContent = 'Enter Session';
-          btn.disabled = false;
-        }
-      } catch (err) {
-        alert('Network connection error: ' + err.message);
-        btn.textContent = 'Enter Session';
-        btn.disabled = false;
-      }
+// Create Room
+app.post(['/api/create-room', '/create-room'], async (req, res) => {
+  try {
+    const { customPin, mode, manualQuestions, topic1, topic2, topic3 } = req.body || {};
+    const pin = (customPin && String(customPin).trim()) || Math.floor(100000 + Math.random() * 900000).toString();
+
+    let questions = [];
+    if (mode === 'manual' && Array.isArray(manualQuestions) && manualQuestions.length > 0) {
+      questions = manualQuestions.map((q, idx) => ({
+        index: idx + 1,
+        question: q.question,
+        options: q.options,
+        answer: normalizeAnswerIndex(q.answer),
+        level: q.level || 'CUSTOM'
+      }));
+    } else {
+      const t1 = (topic1 && topic1.trim()) || 'Cinema';
+      const t2 = (topic2 && topic2.trim()) || 'Geography';
+      const t3 = (topic3 && topic3.trim()) || 'Science';
+
+      questions = await generateAIQuestions(t1, t2, t3);
     }
 
-    function startPolling() {
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(fetchRoomStatus, 2000);
-      fetchRoomStatus();
+    const roomData = {
+      pin,
+      questions,
+      currentIndex: 0,
+      state: 'LOBBY',
+      revealedAnswer: null,
+      players: {},
+      answersThisRound: {},
+      createdAt: Date.now()
+    };
+
+    saveRoom(pin, roomData);
+    return res.status(200).json({ success: true, pin, count: questions.length });
+  } catch (err) {
+    console.error('Create Room Error:', err.message);
+    const pin = Math.floor(100000 + Math.random() * 900000).toString();
+    const fallback = generateExactTopicQuestions('Cinema', 'Geography', 'Science');
+    const roomData = {
+      pin,
+      questions: fallback,
+      currentIndex: 0,
+      state: 'LOBBY',
+      revealedAnswer: null,
+      players: {},
+      answersThisRound: {},
+      createdAt: Date.now()
+    };
+    saveRoom(pin, roomData);
+    return res.status(200).json({ success: true, pin, count: 15 });
+  }
+});
+
+// Room Status
+app.get(['/api/room-status', '/room-status'], (req, res) => {
+  const pin = String(req.query.pin || '').trim();
+  const room = getRoom(pin);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  const playerList = Object.values(room.players || {});
+  const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
+    ? room.questions[room.currentIndex - 1]
+    : null;
+
+  return res.status(200).json({
+    pin: room.pin,
+    state: room.state,
+    currentIndex: room.currentIndex,
+    totalQuestions: room.questions.length,
+    playerCount: playerList.length,
+    players: playerList.map(p => p.name),
+    responsesCount: Object.keys(room.answersThisRound || {}).length,
+    question: currentQ ? {
+      index: room.currentIndex,
+      total: room.questions.length,
+      level: currentQ.level,
+      question: currentQ.question,
+      options: currentQ.options
+    } : null,
+    revealedAnswer: room.revealedAnswer,
+    leaderboard: [...playerList].sort((a, b) => b.score - a.score)
+  });
+});
+
+// Host Actions
+app.post(['/api/host-action', '/host-action'], (req, res) => {
+  const { pin, action } = req.body || {};
+  const room = getRoom(pin);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  if (action === 'NEXT') {
+    if (room.currentIndex >= room.questions.length) {
+      room.state = 'FINISHED';
+    } else {
+      room.currentIndex = Number(room.currentIndex || 0) + 1;
+      room.state = 'QUESTION';
+      room.revealedAnswer = null;
+      room.answersThisRound = {};
     }
-
-    async function fetchRoomStatus() {
-      if (!currentPin || isFetching) return;
-      isFetching = true;
-
-      try {
-        const res = await fetch(`/api/room-status?pin=${encodeURIComponent(currentPin)}`);
-        if (!res.ok) return;
-        const data = await res.json();
-
-        if (data.leaderboard) {
-          const me = data.leaderboard.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-          if (me) {
-            document.getElementById('score-counter').textContent = `Score: ${me.score}`;
-          }
-        }
-
-        if (data.state === 'LOBBY') {
-          showCard('lobby-card');
-        } else if (data.state === 'QUESTION') {
-          if (data.currentIndex !== lastSeenQuestionIndex) {
-            lastSeenQuestionIndex = data.currentIndex;
-            hasAnsweredCurrentRound = false;
-            selectedOption = null;
-            renderQuestion(data.question);
-          }
-          showCard('question-card');
-        } else if (data.state === 'REVEAL') {
-          if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
-            highlightAnswers(Number(data.revealedAnswer));
-            showCard('question-card');
-          }
-        } else if (data.state === 'FINISHED') {
-          clearInterval(pollTimer);
-          showCard('end-card');
-
-          const rows = (data.leaderboard || []).map((p, idx) => `
-            <div style="display:flex; justify-content:space-between; padding: 12px 18px; border-bottom: 1px solid rgba(250,204,21,0.2); font-size: 15px;">
-              <span>#${idx + 1} ${escapeHtml(p.name)}</span>
-              <span style="color:var(--yellow-bright);"><strong>${p.score} pts</strong> (${p.correctCount} correct)</span>
-            </div>
-          `).join('');
-
-          document.getElementById('leaderboard-container').innerHTML = `
-            <div style="background: #0f0f0f; border-radius: 12px; border: 1px solid rgba(250,204,21,0.3);">${rows}</div>
-          `;
-        }
-      } catch (e) {
-        console.error('Polling error', e);
-      } finally {
-        isFetching = false;
-      }
+  } else if (action === 'REVEAL') {
+    if (room.currentIndex > 0 && room.currentIndex <= room.questions.length) {
+      room.state = 'REVEAL';
+      room.revealedAnswer = normalizeAnswerIndex(room.questions[room.currentIndex - 1].answer);
     }
+  } else if (action === 'END') {
+    room.state = 'FINISHED';
+  }
 
-    function renderQuestion(q) {
-      if (!q) return;
+  saveRoom(pin, room);
+  return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
+});
 
-      document.getElementById('q-counter').textContent = `Question ${q.index} of ${q.total}`;
-      document.getElementById('level-badge').textContent = q.level || 'QUESTION';
-      document.getElementById('question-text').textContent = q.question;
-      document.getElementById('response-status-text').textContent = 'Select an answer';
+// Player Join
+app.post(['/api/join-room', '/join-room'], (req, res) => {
+  const { pin, name } = req.body || {};
+  const room = getRoom(pin);
+  if (!room) return res.status(404).json({ error: 'Invalid PIN. Room not found.' });
 
-      for (let i = 0; i < 4; i++) {
-        const tile = document.getElementById(`tile-${i}`);
-        const span = document.getElementById(`opt-${i}`);
-        span.textContent = (q.options && q.options[i]) ? q.options[i] : '';
-        tile.className = 'host-tile';
-        tile.disabled = false;
-      }
+  const cleanName = String(name || '').trim() || 'Player';
+  const playerKey = cleanName.toLowerCase();
 
-      const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Confirm Answer';
+  if (!room.players) room.players = {};
+  if (!room.answersThisRound) room.answersThisRound = {};
+
+  if (!room.players[playerKey]) {
+    room.players[playerKey] = {
+      name: cleanName,
+      score: 0,
+      correctCount: 0,
+      joinedAt: Date.now()
+    };
+  }
+
+  saveRoom(pin, room);
+
+  const currentQ = (room.currentIndex > 0 && room.currentIndex <= room.questions.length)
+    ? room.questions[room.currentIndex - 1]
+    : null;
+
+  return res.status(200).json({
+    success: true,
+    reconnected: true,
+    name: room.players[playerKey].name,
+    score: room.players[playerKey].score,
+    state: room.state,
+    currentIndex: room.currentIndex,
+    totalQuestions: room.questions.length,
+    hasAnsweredCurrentRound: room.answersThisRound[playerKey] !== undefined,
+    currentQuestion: currentQ ? {
+      index: room.currentIndex,
+      total: room.questions.length,
+      level: currentQ.level,
+      question: currentQ.question,
+      options: currentQ.options
+    } : null
+  });
+});
+
+// Player Submit Answer
+app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
+  const { pin, name, answerIndex } = req.body || {};
+  const room = getRoom(pin);
+
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  if (room.state !== 'QUESTION') {
+    return res.status(400).json({ error: 'Not accepting answers right now.' });
+  }
+
+  if (!room.answersThisRound) room.answersThisRound = {};
+  if (!room.players) room.players = {};
+
+  const playerKey = String(name || '').trim().toLowerCase();
+  if (!playerKey) {
+    return res.status(400).json({ error: 'Missing player name' });
+  }
+
+  if (!room.players[playerKey]) {
+    room.players[playerKey] = { name: String(name || '').trim(), score: 0, correctCount: 0 };
+  }
+
+  if (room.answersThisRound[playerKey] !== undefined) {
+    return res.status(200).json({ success: true, message: 'Answer already recorded' });
+  }
+
+  const chosen = normalizeAnswerIndex(answerIndex);
+  room.answersThisRound[playerKey] = chosen;
+
+  const currentQ = room.questions[room.currentIndex - 1];
+  if (currentQ) {
+    const correct = normalizeAnswerIndex(currentQ.answer);
+    if (chosen === correct) {
+      room.players[playerKey].score = (room.players[playerKey].score || 0) + 100;
+      room.players[playerKey].correctCount = (room.players[playerKey].correctCount || 0) + 1;
     }
+  }
 
-    function selectOption(index) {
-      if (hasAnsweredCurrentRound) return;
+  saveRoom(pin, room);
+  return res.status(200).json({ success: true, score: room.players[playerKey].score });
+});
 
-      selectedOption = index;
-      for (let i = 0; i < 4; i++) {
-        const tile = document.getElementById(`tile-${i}`);
-        if (i === index) tile.classList.add('selected');
-        else tile.classList.remove('selected');
-      }
+// Catch-all 404
+app.use((req, res) => {
+  if (req.path.startsWith('/api/') || req.method === 'POST') {
+    return res.status(404).json({ success: false, error: `Endpoint not found: ${req.method} ${req.path}` });
+  }
+  return res.status(404).send('Page not found');
+});
 
-      const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.disabled = false;
-    }
+// Local dev listener
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Quiz server active on port ${PORT}`);
+  });
+}
 
-    async function submitAnswer() {
-      if (selectedOption === null || hasAnsweredCurrentRound) return;
-
-      const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Locking In...';
-
-      try {
-        const res = await fetch('/api/submit-answer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pin: String(currentPin).trim(),
-            name: String(playerName).trim(),
-            answerIndex: Number(selectedOption)
-          })
-        });
-
-        const data = await res.json();
-        if (res.ok && (data.success || data.message)) {
-          hasAnsweredCurrentRound = true;
-          confirmBtn.textContent = 'Answer Locked In';
-          document.getElementById('response-status-text').textContent = 'Waiting for reveal...';
-          for (let i = 0; i < 4; i++) {
-            document.getElementById(`tile-${i}`).disabled = true;
-          }
-        } else {
-          confirmBtn.disabled = false;
-          confirmBtn.textContent = 'Confirm Answer';
-          alert(data.error || 'Failed to submit answer.');
-        }
-      } catch (err) {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm Answer';
-        alert('Network connection error.');
-      }
-    }
-
-    function highlightAnswers(correctIndex) {
-      for (let i = 0; i < 4; i++) {
-        const tile = document.getElementById(`tile-${i}`);
-        tile.disabled = true;
-        if (i === correctIndex) {
-          tile.className = 'host-tile correct';
-        } else if (i === selectedOption) {
-          tile.className = 'host-tile wrong';
-        } else {
-          tile.className = 'host-tile dimmed';
-        }
-      }
-      const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Answer Revealed';
-      document.getElementById('response-status-text').textContent = 'Round ended';
-    }
-  </script>
-</body>
-</html>
+module.exports = app;
