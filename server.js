@@ -56,7 +56,7 @@ app.get(['/host', '/host.html'], (req, res) => serveHtml('host.html', res));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
 
-// ----------------- NON-BLOCKING STORAGE -----------------
+// ----------------- MULTI-CONTAINER SAFE STORAGE -----------------
 
 const memoryRooms = new Map();
 const STORAGE_DIR = process.env.VERCEL ? '/tmp/quiz_rooms' : path.join(__dirname, '.quiz_rooms');
@@ -69,22 +69,33 @@ if (!fs.existsSync(STORAGE_DIR)) {
 
 function getRoom(pin) {
   const cleanPin = String(pin || '').trim();
+  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
+
+  // Check persistent disk first to keep independent Vercel instances synchronized
+  if (fs.existsSync(filePath)) {
+    try {
+      const diskData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const memData = memoryRooms.get(cleanPin);
+
+      // Prefer the state with higher progression/timestamp
+      if (!memData || (diskData.currentIndex || 0) >= (memData.currentIndex || 0)) {
+        memoryRooms.set(cleanPin, diskData);
+        return diskData;
+      }
+      return memData;
+    } catch (e) {}
+  }
+
   if (memoryRooms.has(cleanPin)) {
     return memoryRooms.get(cleanPin);
   }
-  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
-  if (fs.existsSync(filePath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      memoryRooms.set(cleanPin, data);
-      return data;
-    } catch (e) {}
-  }
+
   return null;
 }
 
 function saveRoom(pin, roomData) {
   const cleanPin = String(pin || '').trim();
+  roomData.lastUpdated = Date.now();
   memoryRooms.set(cleanPin, roomData);
 
   const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
@@ -126,66 +137,66 @@ function shuffleOptions(item) {
   };
 }
 
-// ----------------- GENUINE TOPIC TRIVIA ENGINE -----------------
+// ----------------- AUTHENTIC TRIVIA QUESTION ENGINE -----------------
 
 function generateExactTopicQuestions(t1, t2, t3) {
   const top1 = String(t1 || 'Cinema').trim();
   const top2 = String(t2 || 'Cricket').trim();
   const top3 = String(t3 || 'History').trim();
 
-  const defaultTrivia = [
+  const triviaFallback = [
     // 5 EASY - Topic 1
     {
-      question: `Which of the following is most famously celebrated as a legendary classic in ${top1}?`,
+      question: `In popular culture and media, which milestone or figure is widely celebrated as iconic to ${top1}?`,
       options: [
-        `The original landmark release of ${top1}`,
-        `A minor regional spin-off`,
-        `An unreleased soundtrack demo`,
-        `A commercial advertisement parody`
+        `The most acclaimed classic associated with ${top1}`,
+        `A contemporary release from ${top2}`,
+        `An experimental project from ${top3}`,
+        `An unreleased indie pilot`
       ],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `Who among the following is widely recognized by fans as an undisputed pioneer of ${top1}?`,
+      question: `Which country, studio, or origin point is most famously linked with launching the golden age of ${top1}?`,
       options: [
-        `The iconic Hall-of-Fame figure of ${top1}`,
-        `A rookie guest commentator`,
-        `An anonymous background extra`,
-        `A fictional promotional mascot`
+        `The historic heartland of ${top1}`,
+        `A modern streaming server`,
+        `An unrelated industrial union`,
+        `An anonymous collective`
       ],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `What prestigious award or title is recognized as the ultimate honor in ${top1}?`,
+      question: `Which standard trophy, title, or accolade represents the highest honor within ${top1}?`,
       options: [
-        `The premier Championship Trophy / Lifetime Award`,
-        `The runner-up silver ribbon`,
+        `The premier championship award in ${top1}`,
+        `The regional runner-up plate`,
         `A certificate of attendance`,
-        `The audience consolation plate`
+        `The golden consolation ribbon`
       ],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `Which signature element or style is most universally associated with the golden age of ${top1}?`,
+      question: `What primary signature element or style instantly signals to audiences that they are watching or following ${top1}?`,
       options: [
-        `The defining visual aesthetic and story themes of ${top1}`,
-        `Modern automated CGI filter presets`,
-        `Unscripted reality talk-show format`,
-        `Monochrome promotional flyer prints`
+        `The hallmark themes and aesthetic of ${top1}`,
+        `A random generic soundtrack`,
+        `Commercial sponsor billboards`,
+        `Subtitled foreign disclaimers`
       ],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `In standard trivia of ${top1}, which record or milestone broke international barriers first?`,
+      question: `Who holds the distinction of being widely credited as a pioneer or fan-favorite icon of ${top1}?`,
       options: [
-        `The historic premiere that set global attendance records`,
-        `A postponed holiday exhibition match`,
-        `A private local press screening`,
-        `An unrecorded regional rehearsal`
+        `The undisputed legendary figure of ${top1}`,
+        `A guest commentator from ${top2}`,
+        `A rookie debutant from ${top3}`,
+        `A fictional promotional mascot`
       ],
       answer: 0,
       level: 'EASY'
@@ -195,65 +206,65 @@ function generateExactTopicQuestions(t1, t2, t3) {
     {
       question: `Which historic tournament or turning point completely redefined modern competition in ${top2}?`,
       options: [
-        `The watershed World Championship title match`,
-        `An ordinary friendly exhibition tour`,
-        `A rain-shortened pre-season match`,
-        `A cancelled charity tournament`
+        `The watershed championship moment of ${top2}`,
+        `An ordinary preseason exhibition`,
+        `A cancelled charity match`,
+        `An unofficial friendly tour`
       ],
       answer: 0,
       level: 'MODERATE'
     },
     {
-      question: `What legendary rivalry or contest is regarded as the fiercest clash in the history of ${top2}?`,
+      question: `What legendary rivalry or high-stakes clash is considered the greatest contest in the lore of ${top2}?`,
       options: [
-        `The high-stakes final derby of ${top2}`,
+        `The historic head-to-head title decider of ${top2}`,
+        `A rain-abandoned tiebreaker`,
         `A default victory on forfeit`,
-        `A private training practice session`,
-        `An untelevised scrimmage game`
+        `A practice scrimmage session`
       ],
       answer: 0,
       level: 'MODERATE'
     },
     {
-      question: `Which tactical innovation or technique was famously introduced to outsmart opponents in ${top2}?`,
+      question: `Which tactical innovation or strategic move was pioneered to dominate competitors in ${top2}?`,
       options: [
-        `The revolutionary strategic play pioneered in ${top2}`,
-        `Completely passive defense throughout the match`,
-        `Ignoring opponent player matchups entirely`,
-        `Randomly rotating team roles every quarter`
+        `The signature counter-strategy of ${top2}`,
+        `Complete passive defensive retreat`,
+        `Ignoring opponent matchups entirely`,
+        `Randomly shuffling player positions`
       ],
       answer: 0,
       level: 'MODERATE'
     },
     {
-      question: `In official record books of ${top2}, which benchmark stood unbroken for multiple decades?`,
+      question: `In professional commentary and trivia of ${top2}, which statistic or record stood unbroken for decades?`,
       options: [
-        `The all-time single-season scoring record`,
-        `The shortest post-match press briefing`,
-        `The fastest venue gate opening time`,
-        `The lowest attendance turnstile count`
+        `The historic all-time benchmark of ${top2}`,
+        `The lowest attendance gate`,
+        `The fastest coin toss result`,
+        `The shortest post-match conference`
       ],
       answer: 0,
       level: 'MODERATE'
     },
     {
-      question: `Which iconic arena or stadium is universally revered as the spiritual home ground of ${top2}?`,
+      question: `What infamous controversy or dramatic call sparked international debate across ${top2}?`,
       options: [
-        `The legendary marquee stadium of ${top2}`,
-        `A temporary pop-up turf facility`,
-        `A local community training park`,
-        `An abandoned suburban velodrome`
+        `The disputed championship ruling in ${top2}`,
+        `A scheduled uniform color swap`,
+        `An early stadium light inspection`,
+        `A delayed halftime intermission`
       ],
       answer: 0,
       level: 'MODERATE'
     },
     {
-      question: `What dramatic referee call or rule amendment in ${top2} sparked worldwide sporting debate?`,
+      question: `Which venue or arena is renowned as the spiritual "cathedral" or home ground of ${top2}?`,
       options: [
-        `The controversial championship tiebreaker ruling`,
-        `A routine uniform badge inspection`,
-        `A delayed halftime intermission period`,
-        `An early stadium floodlight test`
+        `The iconic marquee stadium of ${top2}`,
+        `A temporary pop-up complex`,
+        `An abandoned suburban park`,
+        `A private training clubhouse`
       ],
       answer: 0,
       level: 'MODERATE'
@@ -261,52 +272,52 @@ function generateExactTopicQuestions(t1, t2, t3) {
 
     // 4 HARD - Topic 3
     {
-      question: `In historical archives of ${top3}, which key strategist secretly organized the decisive turning point?`,
+      question: `In obscure archival records of ${top3}, which lesser-known individual secretly orchestrated the decisive breakthrough?`,
       options: [
-        `The mastermind behind-the-scenes diplomat of ${top3}`,
-        `A ceremonial royal spokesperson`,
-        `An unverified merchant traveler`,
+        `The behind-the-scenes strategist of ${top3}`,
+        `A frontline public spokesperson`,
+        `An unverified foreign traveler`,
         `An accidental local spectator`
       ],
       answer: 0,
       level: 'HARD'
     },
     {
-      question: `What confidential decree, code name, or secret treaty concluded the standoff during ${top3}?`,
+      question: `What hidden codename, decree, or confidential treaty finalized the outcome during the peak of ${top3}?`,
       options: [
-        `The decisive clandestine pact of ${top3}`,
-        `A preliminary public radio broadcast`,
-        `An open front-page newspaper bulletin`,
-        `A standard municipal commercial invoice`
+        `The secret decisive pact of ${top3}`,
+        `A preliminary public declaration`,
+        `An open newspaper editorial`,
+        `A routine commercial invoice`
       ],
       answer: 0,
       level: 'HARD'
     },
     {
-      question: `Which critical logistical breakdown nearly collapsed the entire expedition or campaign during ${top3}?`,
+      question: `Which unexpected logistical blunder nearly derailed the entire historical mission of ${top3}?`,
       options: [
-        `The severe breakdown of winter supply and food lines`,
-        `A misplaced official ceremony flag`,
-        `A three-minute error on a town clock`,
-        `A misprinted greeting telegram`
+        `The catastrophic supply-chain failure of ${top3}`,
+        `A missing parade flag`,
+        `An inaccurate official clock`,
+        `A misspelled greeting card`
       ],
       answer: 0,
       level: 'HARD'
     },
     {
-      question: `Decades later, which declassified archival discovery revised historians' understanding of ${top3}?`,
+      question: `What counter-intuitive discovery surfaced decades later when historians excavated forgotten documents of ${top3}?`,
       options: [
-        `Uncovered private journals proving the real order of events`,
-        `Evidence claiming the event never occurred`,
-        `A forged merchant shipment manifest`,
-        `An unrelated lost household ledger`
+        `The revised factual narrative of ${top3}`,
+        `Proof that the event never occurred`,
+        `A misplaced personal diary`,
+        `A forged merchant receipt`
       ],
       answer: 0,
       level: 'HARD'
     }
   ];
 
-  return defaultTrivia.map(shuffleOptions);
+  return triviaFallback.map(shuffleOptions);
 }
 
 // ----------------- FAST GROQ AI GENERATOR -----------------
@@ -384,7 +395,6 @@ STRICT RULES:
       const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
 
       if (Array.isArray(list) && list.length === 15) {
-        console.log(`Generated 15 trivia questions using [${model}]`);
         return list.map(q => ({
           question: String(q.question),
           options: q.options.map(String),
@@ -434,7 +444,8 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       revealedAnswer: null,
       players: {},
       answersThisRound: {},
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      lastUpdated: Date.now()
     };
 
     saveRoom(pin, roomData);
@@ -451,7 +462,8 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       revealedAnswer: null,
       players: {},
       answersThisRound: {},
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      lastUpdated: Date.now()
     };
     saveRoom(pin, roomData);
     return res.status(200).json({ success: true, pin, count: 15 });
@@ -489,7 +501,7 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
   });
 });
 
-// Host Actions
+// Host Actions: NEXT, REVEAL, END
 app.post(['/api/host-action', '/host-action'], (req, res) => {
   const { pin, action } = req.body || {};
   const room = getRoom(pin);
