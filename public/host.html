@@ -442,16 +442,9 @@
         if (!res.ok) return;
         const data = await res.json();
 
-        // Always update fast counter badges without touching heavier question cards
+        // Always update real-time badges first so the lobby is never blank
         document.getElementById('player-count').textContent = data.playerCount || 0;
         document.getElementById('response-count').textContent = `${data.responsesCount || 0} / ${data.playerCount || 0}`;
-
-        // Zero-lag skip: If state hasn't changed, return immediately
-        if (data.unchanged) {
-          return;
-        }
-
-        currentHostVersion = data.version || 0;
 
         if (data.players && data.players.length > 0) {
           document.getElementById('lobby-players').innerHTML = data.players
@@ -459,8 +452,14 @@
             .join('');
         }
 
+        // Lightweight skip: If state hasn't changed, return immediately
+        if (data.unchanged) {
+          return;
+        }
+
+        currentHostVersion = data.version || 0;
+
         if (data.state === 'QUESTION' || data.state === 'REVEAL') {
-          // Monotonic check: Ignore any stale responses from slower instances
           if (data.currentIndex < highestSeenHostIndex) {
             return;
           }
