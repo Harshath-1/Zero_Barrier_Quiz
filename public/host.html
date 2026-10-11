@@ -278,6 +278,7 @@
     let manualCount = 0;
     let highestSeenHostIndex = 0;
     let currentHostVersion = 0;
+    let lastSeenState = '';
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -389,6 +390,7 @@
           currentPin = data.pin;
           highestSeenHostIndex = 0;
           currentHostVersion = 0;
+          lastSeenState = '';
           document.getElementById('setup-card').style.display = 'none';
           document.getElementById('lobby-card').style.display = 'flex';
           document.getElementById('display-pin').textContent = data.pin;
@@ -442,7 +444,7 @@
         if (!res.ok) return;
         const data = await res.json();
 
-        // Always update real-time badges first so the lobby is never blank
+        // Always update fast counter badges and joined player list
         document.getElementById('player-count').textContent = data.playerCount || 0;
         document.getElementById('response-count').textContent = `${data.responsesCount || 0} / ${data.playerCount || 0}`;
 
@@ -452,11 +454,12 @@
             .join('');
         }
 
-        // Lightweight skip: If state hasn't changed, return immediately
-        if (data.unchanged) {
+        // Lightweight skip: only skip when state and version are genuinely identical
+        if (data.unchanged && data.state === lastSeenState) {
           return;
         }
 
+        lastSeenState = data.state;
         currentHostVersion = data.version || 0;
 
         if (data.state === 'QUESTION' || data.state === 'REVEAL') {
@@ -477,9 +480,18 @@
               const tile = document.getElementById(`tile-${i}`);
               document.getElementById(`opt-${i}`).textContent = data.question.options ? data.question.options[i] : '';
               tile.className = 'host-tile';
-              if (data.state === 'REVEAL') {
-                if (i === data.revealedAnswer) tile.classList.add('correct-highlight');
-                else tile.classList.add('dimmed-tile');
+            }
+          }
+
+          // Trigger reveal highlighting when the host clicks Reveal
+          if (data.state === 'REVEAL' && data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
+            const correct = Number(data.revealedAnswer);
+            for (let i = 0; i < 4; i++) {
+              const tile = document.getElementById(`tile-${i}`);
+              if (i === correct) {
+                tile.className = 'host-tile correct-highlight';
+              } else {
+                tile.className = 'host-tile dimmed-tile';
               }
             }
           }
@@ -512,6 +524,7 @@
       currentPin = '';
       highestSeenHostIndex = 0;
       currentHostVersion = 0;
+      lastSeenState = '';
       document.getElementById('pin-input').value = '';
       document.getElementById('display-pin').textContent = '------';
       document.getElementById('player-count').textContent = '0';
