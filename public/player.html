@@ -382,6 +382,12 @@
       if (splash) splash.remove();
     }, 2500);
 
+    // Cross-Domain Backend Origin Router:
+    // Ensures calls from player-zero-barrier-quiz land on zero-barrier-quiz where room data is stored
+    const API_BASE = window.location.hostname.includes('player-')
+      ? 'https://zero-barrier-quiz.vercel.app'
+      : '';
+
     let currentPin = '';
     let playerName = '';
     let selectedOption = null;
@@ -418,7 +424,7 @@
       btn.disabled = true;
 
       try {
-        const res = await fetch('/api/join-room', {
+        const res = await fetch(`${API_BASE}/api/join-room`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pin, name })
@@ -448,7 +454,6 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      // 3200ms lightweight poll preserves device resources and battery
       pollTimer = setInterval(fetchRoomStatus, 3200);
       fetchRoomStatus();
     }
@@ -458,12 +463,18 @@
       isFetching = true;
 
       try {
-        const url = `/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentRoomVersion}`;
+        const url = `${API_BASE}/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentRoomVersion}`;
         const res = await fetch(url);
-        if (!res.ok) return;
+        if (!res.ok) {
+          // If room not found error occurs, gracefully notify
+          if (res.status === 404) {
+            clearInterval(pollTimer);
+            alert('Room not found on server.');
+          }
+          return;
+        }
         const data = await res.json();
 
-        // 50-byte fast path: Skip heavy parsing when nothing has changed
         if (data.unchanged) {
           return;
         }
@@ -482,7 +493,6 @@
         if (data.state === 'LOBBY') {
           if (stateChanged) showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
-          // MONOTONIC CHECK: Only advance FORWARD. Reject any stale lower index.
           if (data.currentIndex > highestSeenPlayerIndex) {
             highestSeenPlayerIndex = data.currentIndex;
             hasAnsweredCurrentRound = false;
@@ -566,7 +576,7 @@
       confirmBtn.textContent = 'Locking In...';
 
       try {
-        const res = await fetch('/api/submit-answer', {
+        const res = await fetch(`${API_BASE}/api/submit-answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
