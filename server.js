@@ -59,9 +59,9 @@ app.use(express.static(__dirname, { maxAge: '0' }));
 // ----------------- MULTI-CONTAINER SAFE STORAGE -----------------
 
 const memoryRooms = new Map();
-const STORAGE_DIR = process.env.VERCEL ? '/tmp/quiz_rooms' : path.join(__dirname, '.quiz_rooms');
+const STORAGE_DIR = process.env.VERCEL ? '/tmp' : path.join(__dirname, '.quiz_rooms');
 
-if (!fs.existsSync(STORAGE_DIR)) {
+if (!process.env.VERCEL && !fs.existsSync(STORAGE_DIR)) {
   try {
     fs.mkdirSync(STORAGE_DIR, { recursive: true });
   } catch (e) {}
@@ -69,23 +69,21 @@ if (!fs.existsSync(STORAGE_DIR)) {
 
 function getRoom(pin) {
   const cleanPin = String(pin || '').trim();
-  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
-
-  if (fs.existsSync(filePath)) {
-    try {
-      const diskData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      const memData = memoryRooms.get(cleanPin);
-
-      if (!memData || (diskData.version || 0) >= (memData.version || 0)) {
-        memoryRooms.set(cleanPin, diskData);
-        return diskData;
-      }
-      return memData;
-    } catch (e) {}
-  }
+  if (!cleanPin) return null;
 
   if (memoryRooms.has(cleanPin)) {
     return memoryRooms.get(cleanPin);
+  }
+
+  const filePath = path.join(STORAGE_DIR, `quiz_${cleanPin}.json`);
+  if (fs.existsSync(filePath)) {
+    try {
+      const diskData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      memoryRooms.set(cleanPin, diskData);
+      return diskData;
+    } catch (e) {
+      console.error('Disk read error:', e.message);
+    }
   }
 
   return null;
@@ -93,11 +91,13 @@ function getRoom(pin) {
 
 function saveRoom(pin, roomData) {
   const cleanPin = String(pin || '').trim();
+  if (!cleanPin) return;
+
   roomData.version = (roomData.version || 0) + 1;
   roomData.lastUpdated = Date.now();
   memoryRooms.set(cleanPin, roomData);
 
-  const filePath = path.join(STORAGE_DIR, `${cleanPin}.json`);
+  const filePath = path.join(STORAGE_DIR, `quiz_${cleanPin}.json`);
   try {
     fs.writeFileSync(filePath, JSON.stringify(roomData), 'utf8');
   } catch (err) {
@@ -473,7 +473,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   }
 });
 
-// ULTRA-FAST STATUS ENDPOINT WITH SAFE FALLTHROUGH
+// Room Status
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const clientVersion = parseInt(req.query.v, 10) || 0;
@@ -486,7 +486,6 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
 
   const playerList = Object.values(room.players || {});
 
-  // Light heartbeat fast-path
   if (clientVersion && clientVersion === room.version) {
     return res.status(200).json({
       unchanged: true,
@@ -525,7 +524,7 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
   });
 });
 
-// Host Actions: NEXT, REVEAL, END
+// Host Actions
 app.post(['/api/host-action', '/host-action'], (req, res) => {
   const { pin, action } = req.body || {};
   const room = getRoom(pin);
@@ -599,7 +598,7 @@ app.post(['/api/join-room', '/join-room'], (req, res) => {
   });
 });
 
-// Player Submit Answer
+// Submit Answer
 app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   const { pin, name, answerIndex } = req.body || {};
   const room = getRoom(pin);
@@ -644,7 +643,6 @@ app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   return res.status(200).json({ success: true, score: room.players[playerKey].score });
 });
 
-// Catch-all 404
 app.use((req, res) => {
   if (req.path.startsWith('/api/') || req.method === 'POST') {
     return res.status(404).json({ success: false, error: `Endpoint not found: ${req.method} ${req.path}` });
@@ -652,7 +650,6 @@ app.use((req, res) => {
   return res.status(404).send('Page not found');
 });
 
-// Local dev listener
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, '0.0.0.0', () => {
