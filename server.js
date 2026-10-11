@@ -126,221 +126,218 @@ function shuffleOptions(item) {
   };
 }
 
-// ----------------- TOPIC-LOCKED FALLBACK QUESTIONS -----------------
+// ----------------- AUTHENTIC TRIVIA QUESTION ENGINE -----------------
 
 function generateExactTopicQuestions(t1, t2, t3) {
   const top1 = String(t1 || 'Cinema').trim();
-  const top2 = String(t2 || 'Geography').trim();
-  const top3 = String(t3 || 'Science').trim();
+  const top2 = String(t2 || 'Cricket').trim();
+  const top3 = String(t3 || 'History').trim();
 
-  const fallbackQuestions = [
-    // 5 EASY (Topic 1)
+  const triviaFallback = [
+    // 5 EASY - Trivia strictly on Topic 1
     {
-      question: `Which foundational concept is most universally recognized in the study of ${top1}?`,
+      question: `In popular culture and media, which milestone or figure is widely celebrated as iconic to ${top1}?`,
       options: [
-        `The primary baseline principle of ${top1}`,
-        `An advanced empirical formula from ${top2}`,
-        `A secondary hypothesis borrowed from ${top3}`,
-        `An obsolete 19th-century speculation`
+        `The most acclaimed classic associated with ${top1}`,
+        `A contemporary release from ${top2}`,
+        `An experimental project from ${top3}`,
+        `An unreleased indie pilot`
       ],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `When beginners start learning about ${top1}, what core element is introduced first?`,
+      question: `Which country, studio, or origin point is most famously linked with launching the golden age of ${top1}?`,
       options: [
-        `Core definitions and foundational laws of ${top1}`,
-        `Complex non-linear differential equations`,
-        `Multi-variable statistical models`,
-        `Advanced quantum mechanics algorithms`
+        `The historic heartland of ${top1}`,
+        `A modern streaming server`,
+        `An unrelated industrial union`,
+        `An anonymous collective`
       ],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `Which term or entity is most widely considered iconic within ${top1}?`,
+      question: `Which standard trophy, title, or accolade represents the highest honor within ${top1}?`,
       options: [
-        `The hallmark milestone recognized in ${top1}`,
-        `A minor peripheral subfield of ${top2}`,
-        `A random speculative trend in ${top3}`,
-        `An arbitrary unverified convention`
+        `The premier championship award in ${top1}`,
+        `The regional runner-up plate`,
+        `A certificate of attendance`,
+        `The golden consolation ribbon`
       ],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `In standard literature, what is the main objective of studying ${top1}?`,
+      question: `What primary signature element or style instantly signals to audiences that they are watching or following ${top1}?`,
       options: [
-        `Mastering the foundational mechanics of ${top1}`,
-        `Replacing all empirical observations in ${top2}`,
-        `Eliminating historical chronologies in ${top3}`,
-        `Calculating arbitrary theoretical probabilities`
+        `The hallmark themes and aesthetic of ${top1}`,
+        `A random generic soundtrack`,
+        `Commercial sponsor billboards`,
+        `Subtitled foreign disclaimers`
       ],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `Which basic rule universally governs standard elementary cases in ${top1}?`,
+      question: `Who holds the distinction of being widely credited as a pioneer or fan-favorite icon of ${top1}?`,
       options: [
-        `Consistent compliance with ${top1} principles`,
-        `Unpredictable random outcomes every trial`,
-        `Total absence of consistent logic`,
-        `Complete inversion of baseline assumptions`
+        `The undisputed legendary figure of ${top1}`,
+        `A guest commentator from ${top2}`,
+        `A rookie debutant from ${top3}`,
+        `A fictional promotional mascot`
       ],
       answer: 0,
       level: 'EASY'
-    },
-
-    // 6 MODERATE (Topic 2)
-    {
-      question: `In real-world intermediate applications of ${top2}, what key variable must be balanced?`,
-      options: [
-        `Operational efficiency and baseline consistency in ${top2}`,
-        `Random cosmetic surface parameters`,
-        `Unmonitored arbitrary changes`,
-        `Zero validation constraints`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `Which recognized methodology is most commonly applied to optimize systems in ${top2}?`,
-      options: [
-        `Iterative analysis and systematic calibration in ${top2}`,
-        `Unchecked trial and error with no metrics`,
-        `Passive observation without documentation`,
-        `Unrestricted brute-force computation`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `How does scaling up operational complexity usually impact outcomes in ${top2}?`,
-      options: [
-        `Demands tighter control protocols and error-handling in ${top2}`,
-        `Guarantees zero operational maintenance cost`,
-        `Removes the need for testing and validation`,
-        `Immediately causes catastrophic failure`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `When diagnosing inconsistent results in ${top2}, what is the standard recommended step?`,
-      options: [
-        `Re-verifying baseline inputs and boundary conditions of ${top2}`,
-        `Discarding all previously collected empirical records`,
-        `Assuming the underlying theory of ${top2} is flawed`,
-        `Restarting the process with random parameters`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `Which relationship describes how intermediate components interact in ${top2}?`,
-      options: [
-        `Proportional feedback and interdependent equilibrium in ${top2}`,
-        `Independent random noise with zero correlation`,
-        `Permanent destructive interference across states`,
-        `Instantaneous divergence without convergence`
-      ],
-      answer: 0,
-      level: 'MODERATE'
-    },
-    {
-      question: `What distinguishes practical intermediate mastery of ${top2} from basic theory?`,
-      options: [
-        `The ability to solve multi-variable scenarios in ${top2}`,
-        `Relying purely on mechanical memorization`,
-        `Refusing to perform experimental verification`,
-        `Ignoring boundary anomalies and edge cases`
-      ],
-      answer: 0,
-      level: 'MODERATE'
     },
 
-    // 4 HARD (Topic 3)
+    // 6 MODERATE - Trivia strictly on Topic 2
     {
-      question: `Under rigorous theoretical analysis of ${top3}, which constraint poses the primary challenge?`,
+      question: `Which historic tournament or turning point completely redefined modern competition in ${top2}?`,
       options: [
-        `Handling asymptotic boundary conditions and edge cases in ${top3}`,
-        `Performing simple elementary linear calculations`,
-        `Basic static state preservation`,
-        `Elementary classification of simple components`
+        `The watershed championship moment of ${top2}`,
+        `An ordinary preseason exhibition`,
+        `A cancelled charity match`,
+        `An unofficial friendly tour`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `What legendary rivalry or high-stakes clash is considered the greatest contest in the lore of ${top2}?`,
+      options: [
+        `The historic head-to-head title decider of ${top2}`,
+        `A rain-abandoned tiebreaker`,
+        `A default victory on forfeit`,
+        `A practice scrimmage session`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which tactical innovation or strategic move was pioneered to dominate competitors in ${top2}?`,
+      options: [
+        `The signature counter-strategy of ${top2}`,
+        `Complete passive defensive retreat`,
+        `Ignoring opponent matchups entirely`,
+        `Randomly shuffling player positions`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `In professional commentary and trivia of ${top2}, which statistic or record stood unbroken for decades?`,
+      options: [
+        `The historic all-time benchmark of ${top2}`,
+        `The lowest attendance gate`,
+        `The fastest coin toss result`,
+        `The shortest post-match conference`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `What infamous controversy or dramatic call sparked international debate across ${top2}?`,
+      options: [
+        `The disputed championship ruling in ${top2}`,
+        `A scheduled uniform color swap`,
+        `An early stadium light inspection`,
+        `A delayed halftime intermission`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which venue or arena is renowned as the spiritual "cathedral" or home ground of ${top2}?`,
+      options: [
+        `The iconic marquee stadium of ${top2}`,
+        `A temporary pop-up complex`,
+        `An abandoned suburban park`,
+        `A private training clubhouse`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+
+    // 4 HARD - Deep trivia strictly on Topic 3
+    {
+      question: `In obscure archival records of ${top3}, which lesser-known individual secretly orchestrated the decisive breakthrough?`,
+      options: [
+        `The behind-the-scenes strategist of ${top3}`,
+        `A frontline public spokesperson`,
+        `An unverified foreign traveler`,
+        `An accidental local spectator`
       ],
       answer: 0,
       level: 'HARD'
     },
     {
-      question: `Which advanced concept in ${top3} frequently challenges conventional analytical models?`,
+      question: `What hidden codename, decree, or confidential treaty finalized the outcome during the peak of ${top3}?`,
       options: [
-        `Non-linear state transitions and threshold limits in ${top3}`,
-        `Basic symmetric arithmetic relationships`,
-        `Standard baseline identity models`,
-        `Simple chronological sequence order`
+        `The secret decisive pact of ${top3}`,
+        `A preliminary public declaration`,
+        `An open newspaper editorial`,
+        `A routine commercial invoice`
       ],
       answer: 0,
       level: 'HARD'
     },
     {
-      question: `In advanced research evaluations of ${top3}, which invariant property must remain conserved?`,
+      question: `Which unexpected logistical blunder nearly derailed the entire historical mission of ${top3}?`,
       options: [
-        `The fundamental governing equilibrium parameter of ${top3}`,
-        `Transient unverified noise metrics`,
-        `Uncontrolled environmental fluctuations`,
-        `Arbitrary heuristic rough estimates`
+        `The catastrophic supply-chain failure of ${top3}`,
+        `A missing parade flag`,
+        `An inaccurate official clock`,
+        `A misspelled greeting card`
       ],
       answer: 0,
       level: 'HARD'
     },
     {
-      question: `What distinguishes expert analysis in ${top3} from standard conventional implementations?`,
+      question: `What counter-intuitive discovery surfaced decades later when historians excavated forgotten documents of ${top3}?`,
       options: [
-        `Precise predictive modeling of critical edge cases in ${top3}`,
-        `Limiting analysis strictly to elementary formulas`,
-        `Relying on subjective intuition without validation`,
-        `Omitting variable dependencies from evaluations`
+        `The revised factual narrative of ${top3}`,
+        `Proof that the event never occurred`,
+        `A misplaced personal diary`,
+        `A forged merchant receipt`
       ],
       answer: 0,
       level: 'HARD'
     }
   ];
 
-  return fallbackQuestions.map(shuffleOptions);
+  return triviaFallback.map(shuffleOptions);
 }
 
-// ----------------- GROQ AI GENERATION -----------------
+// ----------------- FAST GROQ TRIVIA GENERATOR -----------------
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
 async function generateAIQuestions(topic1, topic2, topic3) {
-  const t1 = String(topic1 || '').trim() || 'General Knowledge';
-  const t2 = String(topic2 || '').trim() || 'Science';
+  const t1 = String(topic1 || '').trim() || 'Cinema';
+  const t2 = String(topic2 || '').trim() || 'Cricket';
   const t3 = String(topic3 || '').trim() || 'History';
 
-  const activeModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+  const activeModels = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
 
-  const prompt = `You are a professional trivia generator. Generate exactly 15 authentic, factual, and strictly relevant multiple-choice trivia questions:
-- Exactly 5 EASY trivia questions strictly testing knowledge about: "${t1}" (level: "EASY")
-- Exactly 6 MODERATE trivia questions strictly testing knowledge about: "${t2}" (level: "MODERATE")
-- Exactly 4 HARD trivia questions strictly testing knowledge about: "${t3}" (level: "HARD")
+  const prompt = `You are a pub-quiz trivia champion. Create exactly 15 fun, authentic, factual trivia questions strictly on these three topics:
 
-CRITICAL RULES:
-1. Every question in Tier 1 MUST be strictly and factually about "${t1}".
-2. Every question in Tier 2 MUST be strictly and factually about "${t2}".
-3. Every question in Tier 3 MUST be strictly and factually about "${t3}".
-4. Do NOT output generic template text. Ask authentic, interesting trivia questions.
-5. Provide 4 distinct options per question.
-6. "answer" must be the 0-indexed number (0, 1, 2, or 3) indicating the correct answer.
-7. Output strictly a JSON object with a single "questions" array containing 15 question objects.
+TIER 1 (Questions 1 to 5): 5 EASY, popular-knowledge trivia questions strictly on: "${t1}"
+TIER 2 (Questions 6 to 11): 6 MODERATE trivia questions testing real details, records, or memorable moments on: "${t2}"
+TIER 3 (Questions 12 to 15): 4 HARD trivia questions testing deep-cut facts, obscure lore, or historical specifics on: "${t3}"
 
-Format:
+TRIVIA STANDARDS:
+1. Every question MUST read like authentic game-show or pub trivia. Test real people, titles, years, characters, places, or world records.
+2. DO NOT create generic textbook definitions, academic lectures, or placeholder sentences.
+3. Every question must have 4 distinct, plausible options.
+4. "answer" must be the 0-indexed number (0, 1, 2, or 3) pointing to the correct option.
+5. Return ONLY a valid JSON object matching this structure:
 {
   "questions": [
     {
-      "question": "What is...",
-      "options": ["Choice A", "Choice B", "Choice C", "Choice D"],
-      "answer": 0,
+      "question": "Which actor played the role of Tony Stark in the 2008 Marvel film Iron Man?",
+      "options": ["Tom Cruise", "Robert Downey Jr.", "Christian Bale", "Johnny Depp"],
+      "answer": 1,
       "level": "EASY"
     }
   ]
@@ -349,7 +346,7 @@ Format:
   for (const model of activeModels) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 9000);
+      const timeout = setTimeout(() => controller.abort(), 9500);
 
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -361,16 +358,24 @@ Format:
         body: JSON.stringify({
           model: model,
           messages: [
-            { role: 'system', content: 'You are a quiz assistant that responds only in strictly valid JSON.' },
+            { 
+              role: 'system', 
+              content: 'You are a live trivia master. You generate engaging, factual multiple-choice trivia questions strictly based on user-supplied topics.' 
+            },
             { role: 'user', content: prompt }
           ],
-          temperature: 0.5,
+          temperature: 0.7,
           response_format: { type: 'json_object' }
         })
       });
 
       clearTimeout(timeout);
-      if (!res.ok) continue;
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.warn(`Groq model [${model}] status ${res.status}:`, errText);
+        continue;
+      }
 
       const data = await res.json();
       const rawText = data.choices?.[0]?.message?.content || '{}';
@@ -386,6 +391,7 @@ Format:
         })).map(shuffleOptions);
       }
     } catch (err) {
+      console.warn(`Model [${model}] attempt failed:`, err.message);
       continue;
     }
   }
@@ -412,8 +418,8 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
       }));
     } else {
       const t1 = (topic1 && topic1.trim()) || 'Cinema';
-      const t2 = (topic2 && topic2.trim()) || 'Geography';
-      const t3 = (topic3 && topic3.trim()) || 'Science';
+      const t2 = (topic2 && topic2.trim()) || 'Cricket';
+      const t3 = (topic3 && topic3.trim()) || 'History';
 
       questions = await generateAIQuestions(t1, t2, t3);
     }
@@ -434,7 +440,7 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   } catch (err) {
     console.error('Create Room Error:', err.message);
     const pin = Math.floor(100000 + Math.random() * 900000).toString();
-    const fallback = generateExactTopicQuestions('Cinema', 'Geography', 'Science');
+    const fallback = generateExactTopicQuestions('Cinema', 'Cricket', 'History');
     const roomData = {
       pin,
       questions: fallback,
