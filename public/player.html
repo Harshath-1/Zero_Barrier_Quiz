@@ -382,8 +382,7 @@
       if (splash) splash.remove();
     }, 2500);
 
-    // Dynamic Cross-Domain Origin Router:
-    // Resolves player-* subdomains to the base host origin automatically
+    // Cross-Domain Routing Resolver
     const API_BASE = window.location.hostname.startsWith('player-')
       ? `${window.location.protocol}//${window.location.host.replace(/^player-/, '')}`
       : '';
@@ -397,6 +396,7 @@
     let pollTimer = null;
     let isFetching = false;
     let playerLastState = '';
+    let notFoundRetries = 0;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -437,6 +437,7 @@
           highestSeenPlayerIndex = 0;
           currentRoomVersion = 0;
           playerLastState = '';
+          notFoundRetries = 0;
           document.getElementById('display-player').textContent = name;
           document.getElementById('player-hud-name').textContent = `👤 ${escapeHtml(name)}`;
           showCard('lobby-card');
@@ -455,7 +456,7 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(fetchRoomStatus, 3200);
+      pollTimer = setInterval(fetchRoomStatus, 2800);
       fetchRoomStatus();
     }
 
@@ -466,18 +467,25 @@
       try {
         const url = `${API_BASE}/api/room-status?pin=${encodeURIComponent(currentPin)}&v=${currentRoomVersion}`;
         const res = await fetch(url);
+
+        // Resilient handling of temporary serverless container cold-starts
         if (!res.ok) {
           if (res.status === 404) {
-            clearInterval(pollTimer);
-            alert('Room not found on server.');
+            notFoundRetries++;
+            if (notFoundRetries >= 5) {
+              clearInterval(pollTimer);
+              alert('Room session has ended or PIN is invalid.');
+            }
           }
           return;
         }
+
+        // Reset on valid response
+        notFoundRetries = 0;
         const data = await res.json();
 
         const stateTransition = data.state !== playerLastState;
 
-        // Skip parsing only if state hasn't changed at all
         if (data.unchanged && !stateTransition) {
           return;
         }
@@ -505,7 +513,6 @@
             showCard('question-card');
           }
         } else if (data.state === 'REVEAL') {
-          // Immediately reveal highlights without getting blocked by index progression
           if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
             highlightAnswers(Number(data.revealedAnswer));
           }
