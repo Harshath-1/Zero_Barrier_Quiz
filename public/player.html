@@ -389,6 +389,8 @@
     let lastSeenQuestionIndex = -1;
     let pollTimer = null;
     let isFetching = false;
+    let lastRenderedState = null;
+    let lastRenderedIndex = -1;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -444,7 +446,8 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(fetchRoomStatus, 2000);
+      // 2500ms prevents network congestion and eliminates mobile lag
+      pollTimer = setInterval(fetchRoomStatus, 2500);
       fetchRoomStatus();
     }
 
@@ -464,8 +467,10 @@
           }
         }
 
+        const stateChanged = data.state !== lastRenderedState || data.currentIndex !== lastRenderedIndex;
+
         if (data.state === 'LOBBY') {
-          showCard('lobby-card');
+          if (stateChanged) showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
           if (data.currentIndex !== lastSeenQuestionIndex) {
             lastSeenQuestionIndex = data.currentIndex;
@@ -473,11 +478,11 @@
             selectedOption = null;
             renderQuestion(data.question);
           }
-          showCard('question-card');
+          if (stateChanged) showCard('question-card');
         } else if (data.state === 'REVEAL') {
           if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
             highlightAnswers(Number(data.revealedAnswer));
-            showCard('question-card');
+            if (stateChanged) showCard('question-card');
           }
         } else if (data.state === 'FINISHED') {
           clearInterval(pollTimer);
@@ -494,6 +499,9 @@
             <div style="background: #0f0f0f; border-radius: 12px; border: 1px solid rgba(250,204,21,0.3);">${rows}</div>
           `;
         }
+
+        lastRenderedState = data.state;
+        lastRenderedIndex = data.currentIndex;
       } catch (e) {
         console.error('Polling error', e);
       } finally {
