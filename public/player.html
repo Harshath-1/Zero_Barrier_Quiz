@@ -386,11 +386,10 @@
     let playerName = '';
     let selectedOption = null;
     let hasAnsweredCurrentRound = false;
-    let lastSeenQuestionIndex = -1;
+    let highestSeenPlayerIndex = 0;
     let pollTimer = null;
     let isFetching = false;
     let lastRenderedState = null;
-    let lastRenderedIndex = -1;
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -428,6 +427,7 @@
         if (res.ok && data.success) {
           currentPin = pin;
           playerName = name;
+          highestSeenPlayerIndex = 0;
           document.getElementById('display-player').textContent = name;
           document.getElementById('player-hud-name').textContent = `👤 ${escapeHtml(name)}`;
           showCard('lobby-card');
@@ -446,7 +446,6 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      // 2500ms prevents network congestion and eliminates mobile lag
       pollTimer = setInterval(fetchRoomStatus, 2500);
       fetchRoomStatus();
     }
@@ -467,21 +466,27 @@
           }
         }
 
-        const stateChanged = data.state !== lastRenderedState || data.currentIndex !== lastRenderedIndex;
+        const stateChanged = data.state !== lastRenderedState;
 
         if (data.state === 'LOBBY') {
           if (stateChanged) showCard('lobby-card');
         } else if (data.state === 'QUESTION') {
-          if (data.currentIndex !== lastSeenQuestionIndex) {
-            lastSeenQuestionIndex = data.currentIndex;
+          // MONOTONIC CHECK: Only advance FORWARD. Reject any stale lower index from lambda race conditions.
+          if (data.currentIndex > highestSeenPlayerIndex) {
+            highestSeenPlayerIndex = data.currentIndex;
             hasAnsweredCurrentRound = false;
             selectedOption = null;
             renderQuestion(data.question);
+            showCard('question-card');
+          } else if (data.currentIndex === highestSeenPlayerIndex && stateChanged) {
+            showCard('question-card');
           }
-          if (stateChanged) showCard('question-card');
         } else if (data.state === 'REVEAL') {
-          if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
-            highlightAnswers(Number(data.revealedAnswer));
+          // Only reveal for current or forward questions
+          if (data.currentIndex >= highestSeenPlayerIndex) {
+            if (data.revealedAnswer !== null && data.revealedAnswer !== undefined) {
+              highlightAnswers(Number(data.revealedAnswer));
+            }
             if (stateChanged) showCard('question-card');
           }
         } else if (data.state === 'FINISHED') {
@@ -501,7 +506,6 @@
         }
 
         lastRenderedState = data.state;
-        lastRenderedIndex = data.currentIndex;
       } catch (e) {
         console.error('Polling error', e);
       } finally {
