@@ -111,105 +111,214 @@ function shuffleOptions(item) {
   return { ...item, options: newOptions, answer: newAnswer >= 0 ? newAnswer : 0 };
 }
 
-// ----------------- GUARANTEED FALLBACK GENERATOR (5-6-4 SPLIT) -----------------
+// ----------------- MEANINGFUL CURATED FALLBACK GENERATOR -----------------
 
 function generateExactTopicQuestions(t1, t2, t3) {
-  const qList = [];
+  const cleanT1 = (t1 && t1.trim()) || 'General Knowledge';
+  const cleanT2 = (t2 && t2.trim()) || 'Science';
+  const cleanT3 = (t3 && t3.trim()) || 'History';
 
-  const easyBank = [
-    `What is a foundational principle or definition associated with ${t1}?`,
-    `Which core concept is most widely identified with ${t1}?`,
-    `When learning elementary ${t1}, which basic rule universally applies?`,
-    `What standard term or feature distinguishes ${t1}?`,
-    `What basic notation, unit, or concept is recognized in ${t1}?`
-  ];
-
-  const moderateBank = [
-    `In intermediate practical problems of ${t2}, how is standard balance preserved?`,
-    `Which key mechanism is essential when analyzing transitions in ${t2}?`,
-    `What common variable is calculated when measuring dynamics in ${t2}?`,
-    `How does an increase in operational scale typically influence ${t2}?`,
-    `Which relationship describes standard intermediate interactions in ${t2}?`,
-    `Under standard conditions in ${t2}, how do system changes impact efficiency?`
-  ];
-
-  const hardBank = [
-    `Under rigorous theoretical constraints in ${t3}, which theorem governs non-linear behavior?`,
-    `What boundary limit is observed in asymptotic edge cases of ${t3}?`,
-    `Which advanced paradox challenges conventional interpretations of ${t3}?`,
-    `In higher-level proofs, which invariant property remains conserved across ${t3}?`
-  ];
-
-  for (let i = 0; i < 5; i++) {
-    qList.push({
-      question: easyBank[i],
+  const questions = [
+    // 5 EASY Questions (Tier 1)
+    {
+      question: `Which of the following is most fundamentally associated with ${cleanT1}?`,
       options: [
-        `The primary baseline principle of ${t1}`,
-        `A secondary empirical deviation seen in ${t2}`,
-        `An inverse variable derived from ${t3}`,
-        `An arbitrary unverified assumption`
+        `The primary baseline concept of ${cleanT1}`,
+        `A secondary phenomenon found in ${cleanT2}`,
+        `An advanced theorem belonging to ${cleanT3}`,
+        `An unrelated arbitrary term`
       ],
       answer: 0,
       level: 'EASY'
-    });
-  }
-
-  for (let i = 0; i < 6; i++) {
-    qList.push({
-      question: moderateBank[i],
+    },
+    {
+      question: `When introducing beginners to ${cleanT1}, which element is taught first?`,
       options: [
-        `Decreases linearly at a uniform rate`,
-        `Exponentially increases the operational efficiency of ${t2}`,
-        `Inverts the standard state vector`,
-        `Remains invariant under standard conditions`
+        `Core foundational principles`,
+        `Advanced non-linear calculations`,
+        `Complex statistical analysis`,
+        `Obsolete historical anomalies`
       ],
-      answer: 1,
-      level: 'MODERATE'
-    });
-  }
-
-  for (let i = 0; i < 4; i++) {
-    qList.push({
-      question: hardBank[i],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `Which term is most widely recognized as a standard component of ${cleanT1}?`,
       options: [
-        `The asymptotic perturbation threshold of ${t3}`,
-        `The heuristic derivative equilibrium`,
-        `The deterministic limit derived from ${t1}`,
-        `The stochastic uncertainty coefficient`
+        `Standard identifying term of ${cleanT1}`,
+        `Specialized nomenclature of ${cleanT2}`,
+        `Experimental variable from ${cleanT3}`,
+        `Unverified theoretical notation`
+      ],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `What primary purpose does studying ${cleanT1} serve in foundational education?`,
+      options: [
+        `Building core comprehension of essential principles`,
+        `Replacing empirical physical observations`,
+        `Memorizing arbitrary unrelated dates`,
+        `Overriding universal constants`
+      ],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `In standard discussions of ${cleanT1}, which basic rule universally holds true?`,
+      options: [
+        `Consistent adherence to fundamental laws`,
+        `Randomly alternating outcomes`,
+        `Total absence of structured rules`,
+        `Unpredictable variance under identical conditions`
+      ],
+      answer: 0,
+      level: 'EASY'
+    },
+
+    // 6 MODERATE Questions (Tier 2)
+    {
+      question: `In practical intermediate applications of ${cleanT2}, what is the main objective?`,
+      options: [
+        `Applying proven principles to solve systemic problems`,
+        `Completely disregarding baseline rules`,
+        `Guessing outcomes without measurement`,
+        `Limiting application to trivial scenarios`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which key mechanism is essential when examining transitions within ${cleanT2}?`,
+      options: [
+        `Structured feedback and proportional adjustment`,
+        `Spontaneous unmonitored fluctuations`,
+        `Complete isolation from environmental variables`,
+        `Arbitrary parameter inversion`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `How does increasing complexity generally affect outcomes in ${cleanT2}?`,
+      options: [
+        `Demands tighter control parameters and rigorous validation`,
+        `Guarantees automatic system optimization`,
+        `Eliminates the necessity of error checking`,
+        `Reduces all operational overhead to zero`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `When diagnosing unexpected errors during an analysis of ${cleanT2}, what is the standard first step?`,
+      options: [
+        `Verifying baseline inputs and boundary conditions`,
+        `Discarding all previously gathered metrics`,
+        `Assuming the fundamental theory is flawed`,
+        `Restarting without recording observations`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which relationship best describes interactions between sub-components in ${cleanT2}?`,
+      options: [
+        `Interdependent equilibrium across operational states`,
+        `Complete independence with zero correlation`,
+        `Constant destructive interference`,
+        `Continuous non-convergent divergence`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `What distinguishes intermediate mastery of ${cleanT2} from basic understanding?`,
+      options: [
+        `The capability to analyze multi-variable scenarios`,
+        `Relying solely on rote memorization`,
+        `Avoiding experimental verification entirely`,
+        `Ignoring edge cases and deviations`
+      ],
+      answer: 0,
+      level: 'MODERATE'
+    },
+
+    // 4 HARD Questions (Tier 3)
+    {
+      question: `Under rigorous theoretical examination of ${cleanT3}, which constraint presents the greatest analytical difficulty?`,
+      options: [
+        `Non-linear edge-case dynamics and boundary divergence`,
+        `Basic linear arithmetic scaling`,
+        `Simple static state preservation`,
+        `Elementary nominal classification`
       ],
       answer: 0,
       level: 'HARD'
-    });
-  }
+    },
+    {
+      question: `Which advanced paradox often challenges traditional frameworks in ${cleanT3}?`,
+      options: [
+        `Asymptotic threshold instability under extreme loads`,
+        `Simple proportional symmetry`,
+        `Standard identity preservation`,
+        `Elementary causal progression`
+      ],
+      answer: 0,
+      level: 'HARD'
+    },
+    {
+      question: `In advanced research on ${cleanT3}, which invariant property must remain conserved throughout state transformations?`,
+      options: [
+        `The fundamental governing equilibrium parameter`,
+        `Arbitrary transient values`,
+        `External unmonitored noise`,
+        `Heuristic approximations`
+      ],
+      answer: 0,
+      level: 'HARD'
+    },
+    {
+      question: `What critical factor separates expert synthesis in ${cleanT3} from standard implementation?`,
+      options: [
+        `Predictive modeling of complex asymptotic edge cases`,
+        `Restricting analysis strictly to elementary formulas`,
+        `Relying on unverified intuition without proof`,
+        `Omitting variable dependencies from evaluations`
+      ],
+      answer: 0,
+      level: 'HARD'
+    }
+  ];
 
-  return qList.map(shuffleOptions);
+  return questions.map(shuffleOptions);
 }
 
-// ----------------- GROQ AI GENERATION (FAST TIMEOUT) -----------------
+// ----------------- GROQ AI GENERATION (ACTIVE PRODUCTION MODELS) -----------------
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
 async function generateAIQuestions(topic1, topic2, topic3) {
-  const activeModels = ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
+  // Real active Groq models:
+  const activeModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
 
-  const prompt = `You are an expert trivia quiz generator.
-Create exactly 15 authentic multiple-choice trivia questions based strictly on these topics:
+  const prompt = `You are an expert quizmaster. Generate exactly 15 authentic, clear, factual, and meaningful multiple-choice trivia questions based strictly on these topics:
 - Exactly 5 EASY questions strictly on: "${topic1}" (level: "EASY")
 - Exactly 6 MODERATE questions strictly on: "${topic2}" (level: "MODERATE")
 - Exactly 4 HARD questions strictly on: "${topic3}" (level: "HARD")
 
-Requirements:
-1. Every question must be factual and test knowledge of "${topic1}", "${topic2}", or "${topic3}".
-2. Exactly 4 plausible multiple-choice options per question.
-3. "answer" must be the 0-indexed integer (0, 1, 2, or 3) of the correct choice.
-4. Output strictly a JSON object with a single "questions" array containing all 15 question objects.
+RULES:
+1. Every question must be a realistic, meaningful trivia question with a factual correct answer. Do NOT generate vague or template placeholders.
+2. Provide exactly 4 distinct, plausible options per question.
+3. The "answer" field must be the 0-indexed integer (0, 1, 2, or 3) indicating the position of the correct answer in your options array.
+4. Output strictly valid JSON with a single "questions" array containing all 15 question objects.
 
 Format:
 {
   "questions": [
     {
       "question": "What is...",
-      "options": ["A", "B", "C", "D"],
+      "options": ["Option A", "Option B", "Option C", "Option D"],
       "answer": 0,
       "level": "EASY"
     }
@@ -219,7 +328,7 @@ Format:
   for (const model of activeModels) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3500);
+      const timeout = setTimeout(() => controller.abort(), 7500);
 
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -240,9 +349,12 @@ Format:
       });
 
       clearTimeout(timeout);
-      const data = await res.json();
-      if (!res.ok) continue;
+      if (!res.ok) {
+        console.warn(`Groq request failed with model [${model}]: status ${res.status}`);
+        continue;
+      }
 
+      const data = await res.json();
       const rawText = data.choices?.[0]?.message?.content || '{}';
       const parsed = JSON.parse(rawText);
       const list = Array.isArray(parsed) ? parsed : (parsed.questions || []);
@@ -251,6 +363,7 @@ Format:
         return list.map(shuffleOptions);
       }
     } catch (err) {
+      console.warn(`Groq model [${model}] failed or timed out:`, err.message);
       continue;
     }
   }
