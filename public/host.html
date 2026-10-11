@@ -166,7 +166,6 @@
 </head>
 <body>
 
-  <!-- 2.5-Second Intro Splash -->
   <div id="welcome-splash">
     <img src="/logo_vertical.jpeg" alt="Logo" class="splash-logo" onerror="this.style.display='none'">
     <div class="splash-title">Welcome to Zero Barrier Quiz</div>
@@ -194,10 +193,10 @@
         <input id="t1-input" class="category-input" type="text" placeholder="Enter Tier 1 topic (e.g. Cinema)" />
 
         <label class="field-label">Tier 2: Moderate (6 Questions)</label>
-        <input id="t2-input" class="category-input" type="text" placeholder="Enter Tier 2 topic (e.g. Geography)" />
+        <input id="t2-input" class="category-input" type="text" placeholder="Enter Tier 2 topic (e.g. Cricket)" />
 
         <label class="field-label">Tier 3: Hard (4 Questions)</label>
-        <input id="t3-input" class="category-input" type="text" placeholder="Enter Tier 3 topic (e.g. Science)" />
+        <input id="t3-input" class="category-input" type="text" placeholder="Enter Tier 3 topic (e.g. History)" />
       </div>
 
       <div id="section-manual" style="display: none; max-height: 280px; overflow-y: auto; margin-bottom: 12px;">
@@ -280,9 +279,7 @@
 
     function escapeHtml(str) {
       if (!str) return '';
-      return String(str).replace(/[&<>"']/g, function(m) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
-      });
+      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
     }
 
     function switchMode(mode) {
@@ -350,8 +347,6 @@
     async function createRoom() {
       const pin = document.getElementById('pin-input').value.trim();
       const btn = document.getElementById('gen-btn');
-      btn.textContent = 'Generating 15 Questions...';
-      btn.disabled = true;
 
       const payload = { customPin: pin, mode: currentMode };
 
@@ -359,16 +354,26 @@
         const manualQuestions = gatherManualQuestions();
         if (manualQuestions.length === 0) {
           alert('Please fill out at least 1 complete question with 4 options.');
-          btn.textContent = 'Generate Session & PIN';
-          btn.disabled = false;
           return;
         }
         payload.manualQuestions = manualQuestions;
       } else {
-        payload.topic1 = document.getElementById('t1-input').value.trim();
-        payload.topic2 = document.getElementById('t2-input').value.trim();
-        payload.topic3 = document.getElementById('t3-input').value.trim();
+        const t1 = document.getElementById('t1-input').value.trim();
+        const t2 = document.getElementById('t2-input').value.trim();
+        const t3 = document.getElementById('t3-input').value.trim();
+
+        if (!t1 || !t2 || !t3) {
+          alert('Please enter all 3 topics so the quiz can generate matching trivia questions.');
+          return;
+        }
+
+        payload.topic1 = t1;
+        payload.topic2 = t2;
+        payload.topic3 = t3;
       }
+
+      btn.textContent = 'Generating 15 Trivia Questions...';
+      btn.disabled = true;
 
       try {
         const res = await fetch('/api/create-room', {
