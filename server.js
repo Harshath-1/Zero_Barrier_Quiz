@@ -6,7 +6,7 @@ const fs = require('fs');
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
-// CORS & Cache Busting Headers
+// CORS & Real-Time Cache Control
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -16,10 +16,9 @@ app.use((req, res, next) => {
     return res.status(200).end();
   }
 
-  if (req.path.includes('/api/') || req.path.includes('-room') || req.path.includes('-answer') || req.path.includes('-action')) {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  if (req.path.includes('/api/')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
   }
   next();
 });
@@ -38,10 +37,9 @@ function serveHtml(filename, res) {
       return res.sendFile(filePath);
     }
   }
-  return res.status(404).send(`Cannot find ${filename} in public or root directory.`);
+  return res.status(404).send(`Cannot find ${filename}`);
 }
 
-// ----------------- DOMAIN-AWARE ROUTING -----------------
 app.get('/', (req, res) => {
   const host = (req.headers.host || req.hostname || '').toLowerCase();
   if (host.includes('player')) {
@@ -56,33 +54,48 @@ app.get(['/host', '/host.html'], (req, res) => serveHtml('host.html', res));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '0' }));
 app.use(express.static(__dirname, { maxAge: '0' }));
 
-// ----------------- SHARED VERCEL /tmp SINGLE-LEDGER STORAGE -----------------
+// ----------------- NON-BLOCKING SHARED /tmp STORAGE -----------------
 
 const memoryRooms = new Map();
 const DB_FILE = '/tmp/all_quiz_rooms.json';
+let isSaving = false;
+let pendingSave = false;
 
 function readDiskLedger() {
   try {
     if (fs.existsSync(DB_FILE)) {
       const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
       for (const [k, v] of Object.entries(parsed)) {
-        memoryRooms.set(k, v);
+        if (!memoryRooms.has(k)) {
+          memoryRooms.set(k, v);
+        }
       }
     }
   } catch (e) {}
 }
 
-function writeDiskLedger() {
-  try {
-    const obj = {};
-    for (const [k, v] of memoryRooms.entries()) {
-      obj[k] = v;
+function flushToDisk() {
+  if (isSaving) {
+    pendingSave = true;
+    return;
+  }
+  isSaving = true;
+
+  const obj = {};
+  for (const [k, v] of memoryRooms.entries()) {
+    obj[k] = v;
+  }
+
+  fs.writeFile(DB_FILE, JSON.stringify(obj), 'utf8', () => {
+    isSaving = false;
+    if (pendingSave) {
+      pendingSave = false;
+      flushToDisk();
     }
-    fs.writeFileSync(DB_FILE, JSON.stringify(obj), 'utf8');
-  } catch (e) {}
+  });
 }
 
-// Initial seed on container boot
+// Initial seed
 readDiskLedger();
 
 function getRoom(pin) {
@@ -93,7 +106,6 @@ function getRoom(pin) {
     return memoryRooms.get(cleanPin);
   }
 
-  // Refresh from disk if missing in memory
   readDiskLedger();
   return memoryRooms.get(cleanPin) || null;
 }
@@ -105,7 +117,7 @@ function saveRoom(pin, roomData) {
   roomData.version = (roomData.version || 0) + 1;
   roomData.lastUpdated = Date.now();
   memoryRooms.set(cleanPin, roomData);
-  writeDiskLedger();
+  flushToDisk();
 }
 
 function normalizeAnswerIndex(ans) {
@@ -149,14 +161,12 @@ function generateExactTopicQuestions(t1, t2, t3) {
   const top3 = String(t3 || 'History').trim();
 
   const defaultTrivia = [
-    // 5 EASY
     { question: `Which milestone is celebrated as an iconic moment in ${top1}?`, options: [`The landmark classic of ${top1}`, `A regional spin-off`, `An unreleased demo`, `A promotion spoof`], answer: 0, level: 'EASY' },
     { question: `Who is widely regarded as a legend of ${top1}?`, options: [`The Hall-of-Fame figure of ${top1}`, `A visiting guest`, `An extra`, `A promotional mascot`], answer: 0, level: 'EASY' },
     { question: `What is the highest honor or award within ${top1}?`, options: [`The premier Championship Trophy`, `A runner-up certificate`, `A ribbon`, `A consolation plate`], answer: 0, level: 'EASY' },
     { question: `Which signature style is universally identified with ${top1}?`, options: [`The hallmark storytelling of ${top1}`, `An automated template`, `A reality format`, `A flyer artwork`], answer: 0, level: 'EASY' },
     { question: `In popular lore of ${top1}, which historic release broke all previous records?`, options: [`The premiere setting all-time records`, `A cancelled tour`, `A private review`, `A regional rehearsal`], answer: 0, level: 'EASY' },
 
-    // 6 MODERATE
     { question: `Which turning point reshaped modern competition in ${top2}?`, options: [`The watershed decider of ${top2}`, `A routine preseason match`, `A rain-delayed fixture`, `A local exhibition`], answer: 0, level: 'MODERATE' },
     { question: `What rivalry is regarded as the fiercest contest in ${top2}?`, options: [`The high-stakes derby of ${top2}`, `A forfeit walkover`, `A practice scrimmage`, `An untelevised game`], answer: 0, level: 'MODERATE' },
     { question: `Which tactical move was famously introduced in ${top2}?`, options: [`The revolutionary strategy of ${top2}`, `Passive formation`, `Ignoring matchups`, `Shuffling positions randomly`], answer: 0, level: 'MODERATE' },
@@ -164,7 +174,6 @@ function generateExactTopicQuestions(t1, t2, t3) {
     { question: `Which iconic arena is revered as the spiritual home of ${top2}?`, options: [`The marquee stadium of ${top2}`, `A pop-up turf`, `A community park`, `An abandoned velodrome`], answer: 0, level: 'MODERATE' },
     { question: `What dramatic official ruling in ${top2} sparked worldwide debate?`, options: [`The controversial championship tiebreaker`, `A uniform inspection`, `A delayed intermission`, `A floodlight test`], answer: 0, level: 'MODERATE' },
 
-    // 4 HARD
     { question: `In the archives of ${top3}, who secretly organized the decisive breakthrough?`, options: [`The mastermind diplomat of ${top3}`, `A ceremonial royal spokesperson`, `A merchant traveler`, `A local spectator`], answer: 0, level: 'HARD' },
     { question: `What confidential pact concluded the standoff during ${top3}?`, options: [`The clandestine treaty of ${top3}`, `A public radio bulletin`, `A newspaper bulletin`, `A municipal commercial invoice`], answer: 0, level: 'HARD' },
     { question: `Which critical breakdown nearly collapsed the mission of ${top3}?`, options: [`The severe breakdown of winter supply lines`, `A misplaced flag`, `A three-minute clock error`, `A misprinted greeting telegram`], answer: 0, level: 'HARD' },
@@ -254,9 +263,8 @@ STRICT RULES:
   return generateExactTopicQuestions(t1, t2, t3);
 }
 
-// ----------------- API ENDPOINTS -----------------
+// ----------------- FAST REST API ENDPOINTS -----------------
 
-// Create Room
 app.post(['/api/create-room', '/create-room'], async (req, res) => {
   try {
     const { customPin, mode, manualQuestions, topic1, topic2, topic3 } = req.body || {};
@@ -313,7 +321,6 @@ app.post(['/api/create-room', '/create-room'], async (req, res) => {
   }
 });
 
-// Room Status with Auto-Sync
 app.get(['/api/room-status', '/room-status'], (req, res) => {
   const pin = String(req.query.pin || '').trim();
   const clientVersion = parseInt(req.query.v, 10) || 0;
@@ -325,6 +332,7 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
 
   const playerList = Object.values(room.players || {});
 
+  // Fast unchanged branch: returns in < 1ms
   if (clientVersion && clientVersion === room.version) {
     return res.status(200).json({
       unchanged: true,
@@ -363,12 +371,10 @@ app.get(['/api/room-status', '/room-status'], (req, res) => {
   });
 });
 
-// Host Actions: NEXT, REVEAL, END
 app.post(['/api/host-action', '/host-action'], (req, res) => {
   const { pin, action, clientState } = req.body || {};
   let room = getRoom(pin);
 
-  // Auto-restore room if container rebooted
   if (!room && clientState && clientState.questions) {
     room = clientState;
     memoryRooms.set(String(pin).trim(), room);
@@ -398,7 +404,6 @@ app.post(['/api/host-action', '/host-action'], (req, res) => {
   return res.status(200).json({ success: true, state: room.state, currentIndex: room.currentIndex });
 });
 
-// Player Join
 app.post(['/api/join-room', '/join-room'], (req, res) => {
   const { pin, name } = req.body || {};
   const room = getRoom(pin);
@@ -444,33 +449,25 @@ app.post(['/api/join-room', '/join-room'], (req, res) => {
   });
 });
 
-// Submit Answer
 app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   const { pin, name, answerIndex } = req.body || {};
   const room = getRoom(pin);
 
-  if (!room) {
-    return res.status(404).json({ error: 'Room not found' });
-  }
-
-  if (room.state !== 'QUESTION') {
-    return res.status(400).json({ error: 'Not accepting answers right now.' });
-  }
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  if (room.state !== 'QUESTION') return res.status(400).json({ error: 'Not accepting answers' });
 
   if (!room.answersThisRound) room.answersThisRound = {};
   if (!room.players) room.players = {};
 
   const playerKey = String(name || '').trim().toLowerCase();
-  if (!playerKey) {
-    return res.status(400).json({ error: 'Missing player name' });
-  }
+  if (!playerKey) return res.status(400).json({ error: 'Missing player name' });
 
   if (!room.players[playerKey]) {
     room.players[playerKey] = { name: String(name || '').trim(), score: 0, correctCount: 0 };
   }
 
   if (room.answersThisRound[playerKey] !== undefined) {
-    return res.status(200).json({ success: true, message: 'Answer already recorded' });
+    return res.status(200).json({ success: true, message: 'Already recorded' });
   }
 
   const chosen = normalizeAnswerIndex(answerIndex);
@@ -489,18 +486,11 @@ app.post(['/api/submit-answer', '/submit-answer'], (req, res) => {
   return res.status(200).json({ success: true, score: room.players[playerKey].score });
 });
 
-app.use((req, res) => {
-  if (req.path.startsWith('/api/') || req.method === 'POST') {
-    return res.status(404).json({ success: false, error: `Endpoint not found: ${req.method} ${req.path}` });
-  }
-  return res.status(404).send('Page not found');
-});
+app.use((req, res) => res.status(404).send('Not found'));
 
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Quiz server active on port ${PORT}`);
-  });
+  app.listen(PORT, '0.0.0.0', () => console.log(`Listening on ${PORT}`));
 }
 
 module.exports = app;
