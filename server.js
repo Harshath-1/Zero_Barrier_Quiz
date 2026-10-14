@@ -153,7 +153,7 @@ function shuffleOptions(item) {
   };
 }
 
-// ----------------- CURATED TOPIC TRIVIA ENGINE -----------------
+// ----------------- CURATED TOPIC TRIVIA ENGINE (FAILSAFE) -----------------
 
 function generateExactTopicQuestions(t1, t2, t3) {
   const top1 = String(t1 || 'Cinema').trim();
@@ -163,32 +163,32 @@ function generateExactTopicQuestions(t1, t2, t3) {
   const curatedBank = [
     // 5 EASY - Topic 1
     {
-      question: `In the realm of ${top1}, which of the following is considered an iconic classic?`,
-      options: [`The Landmark Premiere of ${top1}`, `An Unreleased Rough Cut`, `A Regional Spin-off`, `A Parody Trailer`],
+      question: `In the subject of ${top1}, which of the following is celebrated as a defining milestone?`,
+      options: [`The Landmark Premiere of ${top1}`, `An Unreleased Demo Cut`, `A Regional Spin-off Project`, `A Promotional Spoof Reel`],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `Who is widely celebrated as a legendary figure in ${top1}?`,
-      options: [`The Hall-of-Fame Icon`, `The Guest Speaker`, `The Production Extra`, `The Fictional Studio Mascot`],
+      question: `Who among the following is widely hailed as an iconic legend in ${top1}?`,
+      options: [`The Hall-of-Fame Pioneer`, `The Visiting Guest Speaker`, `The Studio Extra`, `The Fictional Commercial Mascot`],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `What represents the highest competitive honor or award within ${top1}?`,
-      options: [`The Grand Championship Trophy`, `The Participation Ribbon`, `The Consolation Certificate`, `The Regional Badge`],
+      question: `What represents the highest competitive honor or recognition within ${top1}?`,
+      options: [`The Premier Championship Title`, `The Participation Ribbon`, `The Consolation Certificate`, `The Regional Badge`],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `Which historic milestone marked the commercial breakthrough era for ${top1}?`,
-      options: [`The Record-Setting Global Release`, `A Canceled Pilot Episode`, `An Unreleased Demo Tape`, `A Private Industry Screening`],
+      question: `Which historic milestone marked the global commercial breakthrough for ${top1}?`,
+      options: [`The Record-Setting Public Premiere`, `A Canceled Pilot Production`, `An Unreleased Studio Track`, `A Private Review Session`],
       answer: 0,
       level: 'EASY'
     },
     {
-      question: `Which core stylistic element is universally recognized across works in ${top1}?`,
-      options: [`Hallmark Storytelling & Directing`, `A Generic Video Filter`, `Unedited Stock Audio`, `A Static Slide Presentation`],
+      question: `Which core stylistic element is universally identified with popular works in ${top1}?`,
+      options: [`Signature Storytelling & Direction`, `A Generic Video Filter`, `Unedited Stock Audio`, `A Static Slide Presentation`],
       answer: 0,
       level: 'EASY'
     },
@@ -196,19 +196,19 @@ function generateExactTopicQuestions(t1, t2, t3) {
     // 6 MODERATE - Topic 2
     {
       question: `In modern ${top2}, which event is universally regarded as the ultimate prize?`,
-      options: [`The World Cup Final`, `A Preseason Practice Match`, `A Domestic Warm-up Series`, `A Charity Scrimmage`],
+      options: [`The World Cup Championship Final`, `A Preseason Practice Match`, `A Domestic Warm-up Series`, `A Charity Scrimmage`],
       answer: 0,
       level: 'MODERATE'
     },
     {
-      question: `Which statistical milestone in ${top2} stood unbroken for several decades?`,
+      question: `Which statistical milestone in ${top2} remained unbroken for several decades?`,
       options: [`The All-Time Highest Scoring Record`, `The Shortest Post-Match Interview`, `The Fastest Stadium Entry Record`, `The Lowest Recorded Attendance`],
       answer: 0,
       level: 'MODERATE'
     },
     {
-      question: `Which strategic approach was famously introduced to gain an advantage in ${top2}?`,
-      options: [`Data-Driven Tactical Formations`, `Passive Defense Only`, `Random Player Substitutions`, `Completely Ignoring Matchup Analytics`],
+      question: `Which tactical approach was famously introduced to dominate matchups in ${top2}?`,
+      options: [`Data-Driven Strategic Formations`, `Passive Defense Only`, `Random Player Substitutions`, `Completely Ignoring Matchup Analytics`],
       answer: 0,
       level: 'MODERATE'
     },
@@ -220,7 +220,7 @@ function generateExactTopicQuestions(t1, t2, t3) {
     },
     {
       question: `Which venue is globally recognized as the spiritual home of ${top2}?`,
-      options: [`The Marquee Historic Central Stadium`, `A Temporary Pop-up Turf`, `A Local High School Oval`, `An Abandoned Training Complex`],
+      options: [`The Marquee Historic Central Stadium`, `A Temporary Pop-up Turf`, `A Local Community Field`, `An Abandoned Training Complex`],
       answer: 0,
       level: 'MODERATE'
     },
@@ -261,7 +261,7 @@ function generateExactTopicQuestions(t1, t2, t3) {
   return curatedBank.map(shuffleOptions);
 }
 
-// ----------------- GROQ AI GENERATOR -----------------
+// ----------------- STRICT TOPIC-DRIVEN TRIVIA ENGINE -----------------
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
 
@@ -270,22 +270,33 @@ async function generateAIQuestions(topic1, topic2, topic3) {
   const t2 = String(topic2 || '').trim() || 'Cricket';
   const t3 = String(topic3 || '').trim() || 'World History';
 
-  const activeModels = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
+  // Officially active and supported Groq model names
+  const activeModels = [
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'mixtral-8x7b-32768'
+  ];
 
-  const prompt = `You are an expert trivia quizmaster creating a 15-question trivia contest for students.
-Generate exactly 15 authentic, fun, verifiable multiple-choice trivia questions based strictly on these three topics:
-- Questions 1 to 5 (EASY): Widely known trivia about "${t1}"
-- Questions 6 to 11 (MODERATE): Memorable records, famous stars, and key events in "${t2}"
-- Questions 12 to 15 (HARD): Specific years, famous records, or deeper lore in "${t3}"
+  const prompt = `You are an expert pub-quiz trivia host. Create exactly 15 authentic, factual, fun multiple-choice trivia questions based strictly on the three user-specified topics below.
 
-STRICT QUALITY RULES:
-1. Every question must be grounded in real-world facts, famous personalities, movies, matches, or events.
-2. DO NOT output vague, abstract, or generic placeholder questions. Use concrete named entities (e.g., "In the movie Inception, who directed the film?", "Which bowler has taken the most wickets in Test cricket history?").
-3. All 4 choices must belong to the exact same category (e.g., all 4 options must be actors, or all 4 must be cities, or all 4 must be years).
-4. Exactly one choice is correct. "answer" must be the 0-indexed integer (0, 1, 2, or 3) pointing to that correct choice.
+USER TOPICS:
+- Topic 1: "${t1}"
+- Topic 2: "${t2}"
+- Topic 3: "${t3}"
+
+ROUND BREAKDOWN:
+- Questions 1 to 5 (EASY): Famous, widely known trivia strictly about "${t1}" (e.g., recognizable actors, films, directors, characters, or cultural hits).
+- Questions 6 to 11 (MODERATE): Fact-based trivia strictly about "${t2}" (e.g., memorable tournament records, championship finals, famous stars, or rivalries).
+- Questions 12 to 15 (HARD): Deeper trivia strictly about "${t3}" (e.g., specific years, battles, treaties, prominent figures, or lesser-known milestones).
+
+ABSOLUTE QUALITY RULES:
+1. Every question MUST explicitly mention or test real, specific, named entities related to "${t1}", "${t2}", or "${t3}". Use real proper nouns (people, titles, places, numbers).
+2. NEVER produce vague or placeholder text like "Which milestone is celebrated in...", "A generic automated template", or "Landmark classic of...".
+3. Provide exactly 4 plausible choices per question. All 4 choices must belong to the exact same category (e.g., all 4 are actor names, or all 4 are years, or all 4 are stadiums).
+4. Exactly one choice is correct. "answer" must be the 0-indexed integer (0, 1, 2, or 3) identifying the correct choice.
 5. Keep question texts concise (under 25 words).
 
-Output ONLY a valid JSON object matching this schema:
+Return ONLY valid JSON matching this schema:
 {
   "questions": [
     {
@@ -300,21 +311,21 @@ Output ONLY a valid JSON object matching this schema:
   for (const model of activeModels) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 8500);
 
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${GROQ_API_KEY}`
+          'Authorization': `Bearer ${GROQ_API_KEY}`
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model,
+          model: model,
           messages: [
             {
               role: 'system',
-              content: 'You generate high-quality, verifiable trivia questions. You output strictly valid JSON matching the requested schema.'
+              content: 'You are an authentic pub-quiz trivia master. You generate real-world trivia with concrete named entities and output strictly valid JSON matching the schema.'
             },
             { role: 'user', content: prompt }
           ],
@@ -325,7 +336,11 @@ Output ONLY a valid JSON object matching this schema:
 
       clearTimeout(timeout);
 
-      if (!res.ok) continue;
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`Groq API Error on model [${model}] (Status ${res.status}):`, errorText);
+        continue;
+      }
 
       const data = await res.json();
       const rawText = data.choices?.[0]?.message?.content || '{}';
@@ -341,6 +356,7 @@ Output ONLY a valid JSON object matching this schema:
         })).map(shuffleOptions);
       }
     } catch (err) {
+      console.error(`Request attempt failed on model [${model}]:`, err.message);
       continue;
     }
   }
