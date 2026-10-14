@@ -38,7 +38,7 @@
       justify-content: center;
       padding: 24px;
       text-align: center;
-      animation: introSequence 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+      animation: introSequence 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
       pointer-events: none;
     }
 
@@ -82,7 +82,7 @@
       border: 1px solid var(--card-border);
       box-shadow: 0 0 35px rgba(0,0,0,0.95), 0 0 25px rgba(250,204,21,0.15);
       width: 100%;
-      transition: all 0.3s ease;
+      transition: all 0.2s ease;
     }
 
     @media (min-width: 900px) {
@@ -268,7 +268,7 @@
     setTimeout(() => {
       const splash = document.getElementById('welcome-splash');
       if (splash) splash.remove();
-    }, 2500);
+    }, 2200);
 
     let currentPin = '';
     let pollTimer = null;
@@ -367,7 +367,7 @@
         const t3 = document.getElementById('t3-input').value.trim();
 
         if (!t1 || !t2 || !t3) {
-          alert('Please enter all 3 topics so the quiz can generate matching trivia questions.');
+          alert('Please enter all 3 topics.');
           return;
         }
 
@@ -425,7 +425,6 @@
           })
         });
 
-        // If cold container rebooted, retry once immediately
         if (res.status === 404 && cachedActiveRoom) {
           await fetch('/api/host-action', {
             method: 'POST',
@@ -438,6 +437,7 @@
           });
         }
 
+        // Instant fetch without waiting 1s
         await fetchRoomStatus();
       } catch (err) {
         console.error('Action error', err);
@@ -449,7 +449,7 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(fetchRoomStatus, 2500);
+      pollTimer = setInterval(fetchRoomStatus, 1000); // 1-second host refresh
       fetchRoomStatus();
     }
 
@@ -531,7 +531,6 @@
           `;
         }
       } catch (e) {
-        console.error('Polling error', e);
       } finally {
         isFetching = false;
       }
