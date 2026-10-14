@@ -153,34 +153,112 @@ function shuffleOptions(item) {
   };
 }
 
-// ----------------- GENUINE TOPIC TRIVIA ENGINE -----------------
+// ----------------- CURATED TOPIC TRIVIA ENGINE -----------------
 
 function generateExactTopicQuestions(t1, t2, t3) {
   const top1 = String(t1 || 'Cinema').trim();
   const top2 = String(t2 || 'Cricket').trim();
   const top3 = String(t3 || 'History').trim();
 
-  const defaultTrivia = [
-    { question: `Which milestone is celebrated as an iconic moment in ${top1}?`, options: [`The landmark classic of ${top1}`, `A regional spin-off`, `An unreleased demo`, `A promotion spoof`], answer: 0, level: 'EASY' },
-    { question: `Who is widely regarded as a legend of ${top1}?`, options: [`The Hall-of-Fame figure of ${top1}`, `A visiting guest`, `An extra`, `A promotional mascot`], answer: 0, level: 'EASY' },
-    { question: `What is the highest honor or award within ${top1}?`, options: [`The premier Championship Trophy`, `A runner-up certificate`, `A ribbon`, `A consolation plate`], answer: 0, level: 'EASY' },
-    { question: `Which signature style is universally identified with ${top1}?`, options: [`The hallmark storytelling of ${top1}`, `An automated template`, `A reality format`, `A flyer artwork`], answer: 0, level: 'EASY' },
-    { question: `In popular lore of ${top1}, which historic release broke all previous records?`, options: [`The premiere setting all-time records`, `A cancelled tour`, `A private review`, `A regional rehearsal`], answer: 0, level: 'EASY' },
+  const curatedBank = [
+    // 5 EASY - Topic 1
+    {
+      question: `In the realm of ${top1}, which of the following is considered an iconic classic?`,
+      options: [`The Landmark Premiere of ${top1}`, `An Unreleased Rough Cut`, `A Regional Spin-off`, `A Parody Trailer`],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `Who is widely celebrated as a legendary figure in ${top1}?`,
+      options: [`The Hall-of-Fame Icon`, `The Guest Speaker`, `The Production Extra`, `The Fictional Studio Mascot`],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `What represents the highest competitive honor or award within ${top1}?`,
+      options: [`The Grand Championship Trophy`, `The Participation Ribbon`, `The Consolation Certificate`, `The Regional Badge`],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `Which historic milestone marked the commercial breakthrough era for ${top1}?`,
+      options: [`The Record-Setting Global Release`, `A Canceled Pilot Episode`, `An Unreleased Demo Tape`, `A Private Industry Screening`],
+      answer: 0,
+      level: 'EASY'
+    },
+    {
+      question: `Which core stylistic element is universally recognized across works in ${top1}?`,
+      options: [`Hallmark Storytelling & Directing`, `A Generic Video Filter`, `Unedited Stock Audio`, `A Static Slide Presentation`],
+      answer: 0,
+      level: 'EASY'
+    },
 
-    { question: `Which turning point reshaped modern competition in ${top2}?`, options: [`The watershed decider of ${top2}`, `A routine preseason match`, `A rain-delayed fixture`, `A local exhibition`], answer: 0, level: 'MODERATE' },
-    { question: `What rivalry is regarded as the fiercest contest in ${top2}?`, options: [`The high-stakes derby of ${top2}`, `A forfeit walkover`, `A practice scrimmage`, `An untelevised game`], answer: 0, level: 'MODERATE' },
-    { question: `Which tactical move was famously introduced in ${top2}?`, options: [`The revolutionary strategy of ${top2}`, `Passive formation`, `Ignoring matchups`, `Shuffling positions randomly`], answer: 0, level: 'MODERATE' },
-    { question: `In official records of ${top2}, which benchmark stood unbroken for decades?`, options: [`The all-time single-season record`, `The shortest interview`, `The fastest entry gate time`, `The lowest attendance`], answer: 0, level: 'MODERATE' },
-    { question: `Which iconic arena is revered as the spiritual home of ${top2}?`, options: [`The marquee stadium of ${top2}`, `A pop-up turf`, `A community park`, `An abandoned velodrome`], answer: 0, level: 'MODERATE' },
-    { question: `What dramatic official ruling in ${top2} sparked worldwide debate?`, options: [`The controversial championship tiebreaker`, `A uniform inspection`, `A delayed intermission`, `A floodlight test`], answer: 0, level: 'MODERATE' },
+    // 6 MODERATE - Topic 2
+    {
+      question: `In modern ${top2}, which event is universally regarded as the ultimate prize?`,
+      options: [`The World Cup Final`, `A Preseason Practice Match`, `A Domestic Warm-up Series`, `A Charity Scrimmage`],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which statistical milestone in ${top2} stood unbroken for several decades?`,
+      options: [`The All-Time Highest Scoring Record`, `The Shortest Post-Match Interview`, `The Fastest Stadium Entry Record`, `The Lowest Recorded Attendance`],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which strategic approach was famously introduced to gain an advantage in ${top2}?`,
+      options: [`Data-Driven Tactical Formations`, `Passive Defense Only`, `Random Player Substitutions`, `Completely Ignoring Matchup Analytics`],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which historic rivalry match is known as the fiercest clash in ${top2}?`,
+      options: [`The Marquee Championship Showdown`, `A Closed-Door Training Scrimmage`, `A Walkover Forfeit`, `An Untelevised Qualifier`],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `Which venue is globally recognized as the spiritual home of ${top2}?`,
+      options: [`The Marquee Historic Central Stadium`, `A Temporary Pop-up Turf`, `A Local High School Oval`, `An Abandoned Training Complex`],
+      answer: 0,
+      level: 'MODERATE'
+    },
+    {
+      question: `What major rule revision in ${top2} sparked widespread international debate?`,
+      options: [`The Official Tiebreaker Regulation`, `A Player Jersey Numbering Guideline`, `An Interval Time Extension`, `A Stadium Lighting Check Rule`],
+      answer: 0,
+      level: 'MODERATE'
+    },
 
-    { question: `In the archives of ${top3}, who secretly organized the decisive breakthrough?`, options: [`The mastermind diplomat of ${top3}`, `A ceremonial royal spokesperson`, `A merchant traveler`, `A local spectator`], answer: 0, level: 'HARD' },
-    { question: `What confidential pact concluded the standoff during ${top3}?`, options: [`The clandestine treaty of ${top3}`, `A public radio bulletin`, `A newspaper bulletin`, `A municipal commercial invoice`], answer: 0, level: 'HARD' },
-    { question: `Which critical breakdown nearly collapsed the mission of ${top3}?`, options: [`The severe breakdown of winter supply lines`, `A misplaced flag`, `A three-minute clock error`, `A misprinted greeting telegram`], answer: 0, level: 'HARD' },
-    { question: `Which declassified discovery revised historians' understanding of ${top3}?`, options: [`Uncovered private journals proving the real events`, `Evidence claiming it never happened`, `A forged manifest`, `A lost household ledger`], answer: 0, level: 'HARD' }
+    // 4 HARD - Topic 3
+    {
+      question: `During major pivotal events in ${top3}, what was the decisive treaty or agreement signed?`,
+      options: [`The Historic Strategic Treaty`, `An Unofficial Press Note`, `A Provisional Broadcast Memo`, `A Municipal Supply Receipt`],
+      answer: 0,
+      level: 'HARD'
+    },
+    {
+      question: `Which critical factor proved most decisive during operations in ${top3}?`,
+      options: [`Severe Winter Logistics and Supply Strains`, `A Misplaced Unit Banner`, `A Clock Synchronization Error`, `A Lost Diplomatic Telegram`],
+      answer: 0,
+      level: 'HARD'
+    },
+    {
+      question: `In modern analysis of ${top3}, what primary source material altered historians' consensus?`,
+      options: [`Declassified Government Dispatches and Journals`, `A Forged Merchant Manifest`, `An Undated Personal Receipt`, `An Unverified Rumor in Foreign Tabloids`],
+      answer: 0,
+      level: 'HARD'
+    },
+    {
+      question: `Who was the key strategist responsible for organizing the decisive campaign in ${top3}?`,
+      options: [`The Chief Diplomatic Commander`, `A Royal Court Attendant`, `A Visiting Merchant`, `An Uninvolved Spectator`],
+      answer: 0,
+      level: 'HARD'
+    }
   ];
 
-  return defaultTrivia.map(shuffleOptions);
+  return curatedBank.map(shuffleOptions);
 }
 
 // ----------------- GROQ AI GENERATOR -----------------
@@ -190,20 +268,24 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY || 'gsk_Heq2ubFfgXmaPKMD0IJlWGdyb3
 async function generateAIQuestions(topic1, topic2, topic3) {
   const t1 = String(topic1 || '').trim() || 'Cinema';
   const t2 = String(topic2 || '').trim() || 'Cricket';
-  const t3 = String(topic3 || '').trim() || 'History';
+  const t3 = String(topic3 || '').trim() || 'World History';
 
   const activeModels = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
 
-  const prompt = `You are a live pub-quiz trivia master. Create exactly 15 authentic, fun, factual multiple-choice trivia questions based strictly on these three topics:
-- Questions 1 to 5 (EASY): Popular, fun trivia on "${t1}"
-- Questions 6 to 11 (MODERATE): Fact-based trivia testing memorable records, stars on "${t2}"
-- Questions 12 to 15 (HARD): Deeper trivia testing specific years, obscure records on "${t3}"
+  const prompt = `You are an expert trivia quizmaster creating a 15-question trivia contest for students.
+Generate exactly 15 authentic, fun, verifiable multiple-choice trivia questions based strictly on these three topics:
+- Questions 1 to 5 (EASY): Widely known trivia about "${t1}"
+- Questions 6 to 11 (MODERATE): Memorable records, famous stars, and key events in "${t2}"
+- Questions 12 to 15 (HARD): Specific years, famous records, or deeper lore in "${t3}"
 
-STRICT RULES:
-1. Every question MUST read like real pub/game-show trivia.
-2. 4 plausible choices per question.
-3. "answer" must be the 0-indexed integer (0, 1, 2, or 3).
-4. Return ONLY valid JSON:
+STRICT QUALITY RULES:
+1. Every question must be grounded in real-world facts, famous personalities, movies, matches, or events.
+2. DO NOT output vague, abstract, or generic placeholder questions. Use concrete named entities (e.g., "In the movie Inception, who directed the film?", "Which bowler has taken the most wickets in Test cricket history?").
+3. All 4 choices must belong to the exact same category (e.g., all 4 options must be actors, or all 4 must be cities, or all 4 must be years).
+4. Exactly one choice is correct. "answer" must be the 0-indexed integer (0, 1, 2, or 3) pointing to that correct choice.
+5. Keep question texts concise (under 25 words).
+
+Output ONLY a valid JSON object matching this schema:
 {
   "questions": [
     {
@@ -218,7 +300,7 @@ STRICT RULES:
   for (const model of activeModels) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8500);
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -230,10 +312,13 @@ STRICT RULES:
         body: JSON.stringify({
           model,
           messages: [
-            { role: 'system', content: 'You are a professional trivia generator that outputs strictly valid JSON.' },
+            {
+              role: 'system',
+              content: 'You generate high-quality, verifiable trivia questions. You output strictly valid JSON matching the requested schema.'
+            },
             { role: 'user', content: prompt }
           ],
-          temperature: 0.65,
+          temperature: 0.5,
           response_format: { type: 'json_object' }
         })
       });
